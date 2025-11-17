@@ -50,13 +50,14 @@
             android:text="-"
             android:textSize="20sp"
             android:textStyle="bold"
-
+            android:background="@drawable/bg"
             app:layout_constraintEnd_toStartOf="@id/txtQty"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"/>
 
         <TextView
             android:id="@+id/txtQty"
+            android:background="@drawable/bg"
             android:layout_width="35dp"
             android:layout_height="35dp"
             android:gravity="center"
@@ -68,6 +69,7 @@
 
         <TextView
             android:id="@+id/btnPlus"
+            android:background="@drawable/bg"
             android:layout_width="35dp"
             android:layout_height="35dp"
             android:gravity="center"

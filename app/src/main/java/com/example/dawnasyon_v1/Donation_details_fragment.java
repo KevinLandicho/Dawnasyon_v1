@@ -18,10 +18,15 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.constraintlayout.widget.ConstraintLayout;
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+// 🟢 FIX: Import the ItemForSummary class from the Summary_fragment file
+import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary;
 
 public class Donation_details_fragment extends Fragment {
 
@@ -44,14 +49,16 @@ public class Donation_details_fragment extends Fragment {
     private String fStatus;
     private int fImageRes;
 
+    // 🔴 REMOVED: The redundant ItemForSummary class definition was removed from here.
+
     // -----------------------------------------------------------
     // --- 1. DEFINE UNIT SETS BY CATEGORY ---
-    private static final String[] ALL_UNITS = {"Pcs", "Kg", "Liters", "Packs", "PHP", "Sets"};
+    private static final String[] ALL_UNITS = {"PCS", "Kilo", "Liter", "Pack", "PHP", "Set"};
     private static final String[] CASH_UNITS = {"PHP"};
-    private static final String[] FOOD_UNITS = {"Pcs", "Kg", "Liters", "Packs"};
-    private static final String[] MEDICINE_UNITS = {"Packs", "Bottles", "Sets"};
-    private static final String[] RELIEF_PACKS_UNITS = {"Sets"};
-    private static final String[] DEFAULT_UNITS = {"Pcs", "Packs", "Sets"};
+    private static final String[] FOOD_UNITS = {"PCS", "Kilo", "Liter", "Pack"};
+    private static final String[] MEDICINE_UNITS = {"Pack", "Bottles", "Set"};
+    private static final String[] RELIEF_PACKS_UNITS = {"Set"};
+    private static final String[] DEFAULT_UNITS = {"PCS", "Pack", "Set"};
 
 
     // --- DATA STRUCTURE FOR PRESET ITEMS ---
@@ -85,10 +92,10 @@ public class Donation_details_fragment extends Fragment {
         ));
 
         PRESET_ITEMS.put("FOOD", Arrays.asList(
-                new ItemData("Rice", "Kg"),
-                new ItemData("Instant noodles", "Pieces"),
-                new ItemData("Canned Goods", "Pieces"),
-                new ItemData("Biscuits", "Pieces")
+                new ItemData("Rice", "Kilo"),
+                new ItemData("Instant noodles", "PCS"),
+                new ItemData("Canned Goods", "PCS"),
+                new ItemData("Biscuits", "PCS")
         ));
 
         PRESET_ITEMS.put("HYGIENE KITS", Arrays.asList(
@@ -99,14 +106,14 @@ public class Donation_details_fragment extends Fragment {
         ));
 
         PRESET_ITEMS.put("MEDICINE", Arrays.asList(
-                new ItemData("Pain Relievers", "Packs"),
+                new ItemData("Pain Relievers", "Pack"),
                 new ItemData("Vitamins", "Bottles"),
                 new ItemData("Cough Syrup", "Bottles"),
-                new ItemData("First Aid Kit", "Sets")
+                new ItemData("First Aid Kit", "Set")
         ));
 
         PRESET_ITEMS.put("RELIEF PACKS", Arrays.asList(
-                new ItemData("Relief Pack", "Sets")
+                new ItemData("Relief Pack", "Set")
         ));
     }
     // -----------------------------------------------------------
@@ -153,9 +160,19 @@ public class Donation_details_fragment extends Fragment {
         customItemInputLayout = view.findViewById(R.id.customItemInputLayout);
         Button btnStep3 = view.findViewById(R.id.btnStep3);
 
+        // --- STEP 3 BUTTON LISTENER (UPDATED FOR NAVIGATION) ---
         btnStep3.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Proceeding to Step 3...", Toast.LENGTH_SHORT).show();
+            ArrayList<ItemForSummary> collectedItems = collectAllInputs();
+
+            if (collectedItems.isEmpty()) {
+                Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Launch the Summary fragment (Step 3)
+            launchSummaryFragment(collectedItems);
         });
+        // --------------------------------------------------------
 
         // Load Preset Items DYNAMICALLY
         final String categoryKey = fTitle != null ? fTitle : "FOOD"; // Capture the category key
@@ -164,7 +181,7 @@ public class Donation_details_fragment extends Fragment {
         if (items != null && !items.isEmpty()) {
             Log.d(TAG, "onViewCreated: Found " + items.size() + " preset items for " + categoryKey);
             for (ItemData item : items) {
-                // 2. Pass the categoryKey when adding a preset item
+                // Pass the categoryKey when adding a preset item
                 addPresetItem(item, categoryKey);
             }
         } else {
@@ -197,7 +214,6 @@ public class Donation_details_fragment extends Fragment {
 
     /**
      * Inflates and configures an item_input view based on the ItemData type.
-     * @param categoryKey The current category title (e.g., "FOOD", "CASH").
      */
     private void addPresetItem(ItemData item, String categoryKey) {
         View itemView;
@@ -291,8 +307,8 @@ public class Donation_details_fragment extends Fragment {
         // 4. Setup controls
         Spinner spinnerUnit = customItemView.findViewById(R.id.spinnerUnit);
         final String categoryKey = fTitle != null ? fTitle : "FOOD";
-        // Pass categoryKey to filter units
-        setupUnitSpinner(spinnerUnit, "Pieces", categoryKey);
+        // Use a generic unit for custom items, but filtered by category if possible
+        setupUnitSpinner(spinnerUnit, "PCS", categoryKey);
 
         setupQuantityControls(customItemView); // Uses the updated logic for EditText
 
@@ -303,7 +319,7 @@ public class Donation_details_fragment extends Fragment {
     // --- HELPER METHODS ---
 
     /**
-     * 3. UPDATED METHOD: Configures the Unit Spinner with category-specific unit options.
+     * Configures the Unit Spinner with category-specific unit options.
      */
     private void setupUnitSpinner(Spinner spinner, String defaultUnit, String categoryKey) {
 
@@ -324,7 +340,7 @@ public class Donation_details_fragment extends Fragment {
                 units = RELIEF_PACKS_UNITS;
                 break;
             default:
-                // Fallback for categories not explicitly listed or custom items (if not CASH/FOOD)
+                // Fallback for categories not explicitly listed or custom items
                 units = DEFAULT_UNITS;
                 break;
         }
@@ -341,7 +357,7 @@ public class Donation_details_fragment extends Fragment {
         if (defaultPosition >= 0) {
             spinner.setSelection(defaultPosition);
         } else if (units.length > 0) {
-            // If the default unit (e.g., "Kg") isn't in the filtered list (e.g. for a custom item), select the first available unit.
+            // If the default unit isn't in the filtered list, select the first available unit.
             spinner.setSelection(0);
         }
     }
@@ -382,5 +398,93 @@ public class Donation_details_fragment extends Fragment {
                 txtQty.setText("1");
             }
         });
+    }
+
+    // --- NEW METHODS FOR DATA COLLECTION AND FRAGMENT NAVIGATION ---
+
+    /**
+     * Collects data from all item rows (preset and custom) where quantity > 0.
+     */
+    private ArrayList<ItemForSummary> collectAllInputs() {
+        ArrayList<ItemForSummary> items = new ArrayList<>();
+
+        // Check Preset Items Container
+        collectInputsFromContainer(itemInputsContainer, items);
+
+        // Check Custom Item Container
+        collectInputsFromContainer(customItemInputLayout, items);
+
+        return items;
+    }
+
+    /**
+     * Helper to iterate through a LinearLayout (itemInputsContainer or customItemInputLayout)
+     * and extract the donation details.
+     */
+    private void collectInputsFromContainer(LinearLayout container, ArrayList<ItemForSummary> items) {
+        for (int i = 0; i < container.getChildCount(); i++) {
+            View itemView = container.getChildAt(i);
+
+            // Item rows are typically CardView -> ConstraintLayout
+            View itemLayout = (itemView instanceof ViewGroup) ? ((ViewGroup) itemView).getChildAt(0) : itemView;
+
+            if (itemLayout instanceof ConstraintLayout) {
+
+                // Get Quantity (EditText)
+                EditText txtQty = itemLayout.findViewById(R.id.txtQty);
+                if (txtQty == null) continue; // Skip if it doesn't have a quantity EditText
+
+                int quantity = 0;
+                try {
+                    quantity = Integer.parseInt(txtQty.getText().toString());
+                } catch (NumberFormatException ignored) {
+                    // Quantity is 0 if not a valid number
+                }
+
+                if (quantity > 0) {
+                    // Get Item Name (TextView or EditText depending on custom/preset)
+                    TextView nameView = itemLayout.findViewById(R.id.txtItemName);
+                    String itemName = nameView != null ? nameView.getText().toString() : "Unknown Item";
+
+                    // Get Unit
+                    Spinner spinnerUnit = itemLayout.findViewById(R.id.spinnerUnit);
+                    String unit = spinnerUnit != null ? (String) spinnerUnit.getSelectedItem() : "";
+
+                    // Skip the row if it's an empty custom item input
+                    if (itemName.equals("Enter Item") || itemName.isEmpty()) continue;
+
+                    // Format: e.g., "10KGS" or "60PCS"
+                    String quantityUnit = quantity + unit;
+
+                    items.add(new ItemForSummary(itemName, quantityUnit));
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles the navigation to the Summary Fragment (Step 3).
+     * This uses a direct call to the static newInstance method.
+     */
+    private void launchSummaryFragment(ArrayList<ItemForSummary> collectedItems) {
+
+        // IMPORTANT: Ensure Summary_fragment.java exists and implements the
+        // newInstance(ArrayList<ItemForSummary> items) method.
+
+        if (getActivity() != null) {
+            try {
+                // The safer direct method:
+                Fragment summaryFragment = Summary_fragment.newInstance(collectedItems);
+
+                getActivity().getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container, summaryFragment) // Replace R.id.fragment_container with your actual host ID
+                        .addToBackStack(null)
+                        .commit();
+            } catch (NoClassDefFoundError | NoSuchMethodError e) {
+                // Catches errors if Summary_fragment is missing or misconfigured.
+                Log.e(TAG, "Summary_fragment class or newInstance method not found.", e);
+                Toast.makeText(getContext(), "ERROR: Step 3 fragment is missing or misconfigured.", Toast.LENGTH_LONG).show();
+            }
+        }
     }
 }

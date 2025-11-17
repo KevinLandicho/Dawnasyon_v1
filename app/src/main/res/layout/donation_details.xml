@@ -11,28 +11,31 @@
         android:layout_height="wrap_content"
         android:padding="20dp"
         >
+
         <TextView
-        android:id="@+id/txtHeader"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="INPUT INFORMATION"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginTop="10dp"/>
+            android:id="@+id/txtHeader"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:fontFamily="@font/dongle"
+            android:text="INPUT INFORMATION"
+            android:textColor="@android:color/black"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/txtStep"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:fontFamily="@font/dongle"
             android:text="Step 2"
-            android:textSize="16sp"
             android:textColor="@android:color/darker_gray"
+            android:textSize="16sp"
+            app:layout_constraintBottom_toBottomOf="@id/txtHeader"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/txtHeader"
-            app:layout_constraintBottom_toBottomOf="@id/txtHeader"/>
+            app:layout_constraintTop_toTopOf="@id/txtHeader" />
 
         <androidx.cardview.widget.CardView
             android:id="@+id/cardCategory"
@@ -62,36 +65,42 @@
                         android:src="@drawable/ic_food"
                         android:layout_marginEnd="10dp"
                         android:background="@drawable/bg"
-                        android:padding="5dp"/> <TextView
-                    android:id="@+id/detailsTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="FOOD"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="@android:color/black"/>
+                        android:padding="5dp"/>
+
+                    <TextView
+                        android:id="@+id/detailsTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/dongle"
+                        android:text="FOOD"
+                        android:textColor="@android:color/black"
+                        android:textSize="32sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/detailsStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Critical"
-                        android:textSize="12sp"
-                        android:paddingStart="8dp"
-                        android:paddingEnd="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingBottom="2dp"
                         android:layout_marginStart="8dp"
+                        android:background="@drawable/status_red"
+                        android:fontFamily="@font/dongle"
+                        android:paddingStart="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="2dp"
+                        android:text="Critical"
+                        android:textAlignment="center"
                         android:textColor="@android:color/white"
-                        android:background="@drawable/status_red"/> </LinearLayout>
+                        android:textSize="13sp" /> </LinearLayout>
 
                 <TextView
                     android:id="@+id/detailsDescription"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:fontFamily="@font/dongle_light"
                     android:text="Rice, noodles, and canned goods for nourishment."
-                    android:textSize="14sp"
-                    android:layout_marginTop="5dp" />
+                    android:textSize="14sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
@@ -107,15 +116,22 @@
             android:id="@+id/btnAddCustomItem"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="20dp"
+
             android:layout_marginTop="15dp"
-            android:background="@drawable/button"
+            android:layout_marginEnd="20dp"
+            android:backgroundTint="#27869B"
             android:fontFamily="@font/dongle"
             android:text="+ Add Custom Item"
             android:textAllCaps="false"
-            android:textColor="#FFFFFF"
+            android:textColor="#000000"
+            android:textColorLink="#F3F0F0"
             android:textSize="20sp"
+            app:cornerRadius="5dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/itemInputsContainer"
-            tools:layout_editor_absoluteX="20dp" />
+            app:strokeColor="#F8F8F8" />
 
         <LinearLayout
             android:id="@+id/customItemInputLayout"
@@ -135,7 +151,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="30dp"
             android:layout_marginBottom="50dp"
-            android:backgroundTint="#008080"
+            android:backgroundTint="#27869B"
             android:fontFamily="@font/dongle"
             android:paddingStart="30dp"
             android:paddingEnd="30dp"
