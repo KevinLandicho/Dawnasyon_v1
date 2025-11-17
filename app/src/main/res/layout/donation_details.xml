@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true">
@@ -9,7 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="20dp"
-        android:background="#FFF8E1"> <TextView
+        >
+        <TextView
         android:id="@+id/txtHeader"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -59,7 +61,7 @@
                         android:layout_height="40dp"
                         android:src="@drawable/ic_food"
                         android:layout_marginEnd="10dp"
-                        android:background="@drawable/background"
+                        android:background="@drawable/bg"
                         android:padding="5dp"/> <TextView
                     android:id="@+id/detailsTitle"
                     android:layout_width="wrap_content"
@@ -105,13 +107,15 @@
             android:id="@+id/btnAddCustomItem"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="+ Add Custom Item"
-            android:textColor="#E69138"
-            android:background="@drawable/dashed_border"
-            android:textAllCaps="false"
-            android:textSize="16sp"
             android:layout_marginTop="15dp"
-            app:layout_constraintTop_toBottomOf="@id/itemInputsContainer"/>
+            android:background="@drawable/button"
+            android:fontFamily="@font/dongle"
+            android:text="+ Add Custom Item"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            app:layout_constraintTop_toBottomOf="@id/itemInputsContainer"
+            tools:layout_editor_absoluteX="20dp" />
 
         <LinearLayout
             android:id="@+id/customItemInputLayout"
@@ -129,18 +133,20 @@
             android:id="@+id/btnStep3"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="STEP 3 →"
-            android:textSize="18sp"
-            android:textColor="@android:color/white"
-            android:paddingStart="30dp"
-            android:paddingEnd="30dp"
-            android:backgroundTint="#008080"
             android:layout_marginTop="30dp"
             android:layout_marginBottom="50dp"
+            android:backgroundTint="#008080"
+            android:fontFamily="@font/dongle"
+            android:paddingStart="30dp"
+            android:paddingEnd="30dp"
+            android:text="STEP 3"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            app:cornerRadius="5dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/customItemInputLayout"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintTop_toBottomOf="@id/customItemInputLayout" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
