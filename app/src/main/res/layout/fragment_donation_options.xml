@@ -27,7 +27,7 @@
         <!-- LINE UNDER TITLE -->
         <View
             android:id="@+id/titleDivider"
-            android:layout_width="310dp"
+            android:layout_width="0dp"
             android:layout_height="2dp"
             android:layout_marginStart="24dp"
             android:layout_marginTop="4dp"
@@ -42,13 +42,13 @@
             android:id="@+id/txtStep"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="40dp"
+            android:layout_marginEnd="24dp"
             android:fontFamily="@font/dongle"
             android:text="Step 1"
             android:textSize="20sp"
-            app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginEnd="24dp"/>
+            app:layout_constraintTop_toTopOf="parent" />
 
         <!-- SCROLL AREA FOR CATEGORY ITEMS -->
         <ScrollView

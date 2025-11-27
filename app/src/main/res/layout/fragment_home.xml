@@ -1,14 +1,141 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".Home_fragment">
+    android:fillViewport="true">
 
-    <!-- TODO: Update blank fragment layout -->
-    <TextView
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:text="@string/hello_blank_fragment" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        tools:context=".Home_fragment">
 
-</FrameLayout>
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/welcome_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="WELCOME! JUAN M. DELA CRUZ"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginTop="24dp"
+                android:layout_marginStart="16dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+            <ImageView
+                android:id="@+id/user_avatar"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_profile_avatar"
+                android:contentDescription="User Avatar"
+                android:layout_marginEnd="16dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/welcome_text" />
+
+            <EditText
+                android:id="@+id/search_bar"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="4dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/rounded_search_background"
+                android:drawableStart="@drawable/ic_search"
+                android:hint="Search What's Happening..."
+                android:paddingStart="16dp"
+
+                android:paddingEnd="12dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintHorizontal_bias="0.0"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/user_avatar" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <TextView
+            android:id="@+id/txtUrgentNeedsTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="URGENT NEEDS"
+            android:textStyle="bold"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="40dp"
+            android:textSize="16sp" />
+
+        <View
+            android:id="@+id/separatorLine"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="16dp"
+            android:background="@color/black" />
+
+        <LinearLayout
+            android:id="@+id/urgent_needs_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
+
+            <TextView
+                android:id="@+id/tag_food"
+                style="@style/UrgentNeedTagStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔴 Food" />
+
+            <TextView
+                android:id="@+id/tag_relief_packs"
+                style="@style/UrgentNeedTagStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔴 Relief Packs" />
+
+            <TextView
+                android:id="@+id/tag_hygiene_kits"
+                style="@style/UrgentNeedTagStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🟠 Hygiene Kits" />
+
+        </LinearLayout>
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="300dp"
+            android:layout_margin="16dp"
+            app:cardCornerRadius="12dp"  app:cardElevation="4dp">     <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/image_carousel_view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:padding="0dp" />
+
+        </androidx.cardview.widget.CardView>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/announcement_recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"
+            android:layout_marginTop="16dp"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
+            tools:listitem="@layout/item_announcement_card" />
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>
