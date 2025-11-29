@@ -66,21 +66,31 @@ public class SignUpResident_fragment extends Fragment {
         this.selectedResidency = selection;
     }
 
+    // ⭐ UPDATED NAVIGATION LOGIC ⭐
     private void navigateNext() {
         if (selectedResidency == null) {
             Toast.makeText(getContext(), "Please select an option to continue.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // TODO: Navigate to the actual Sign Up Details Form (Step 3)
-        // Fragment nextStepFragment = SignUpDetails_fragment.newInstance(selectedResidency);
-        //
-        // requireActivity().getSupportFragmentManager().beginTransaction()
-        //         .replace(R.id.fragment_container_signup, nextStepFragment)
-        //         .addToBackStack(null)
-        //         .commit();
+        Fragment nextFragment = null;
 
-        Toast.makeText(getContext(), "Continuing as: " + selectedResidency, Toast.LENGTH_SHORT).show();
+        if (selectedResidency.equals("Resident")) {
+            // --- ACTION: Go to Step 1 (Personal Info) ---
+            nextFragment = new SignUpStep1Personal_fragment();
+        } else {
+            // Action for Non-Resident (You can implement this later)
+            Toast.makeText(getContext(), "Non-Resident registration coming soon.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Perform the transition
+        if (nextFragment != null) {
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container_signup, nextFragment) // Replace current screen
+                    .addToBackStack(null) // Add to back stack so "Back" button works
+                    .commit();
+        }
     }
 
     private void navigatePrevious() {
