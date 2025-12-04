@@ -1,64 +1,212 @@
 package com.example.dawnasyon_v1;
 
+import android.graphics.Color;
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link Dashboard_fragment#newInstance} factory method to
- * create an instance of this fragment.
- */
+// MPAndroidChart Imports
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.data.PieData;
+import com.github.mikephil.charting.data.PieDataSet;
+import com.github.mikephil.charting.data.PieEntry;
+import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+
+import java.util.ArrayList;
+import java.util.List;
+
 public class Dashboard_fragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
+    private PieChart chartRelief;
+    private PieChart chartAffected;
+    private LineChart chartFamilies;
+    private LineChart chartDonations; // ⭐ NEW FIELD
 
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
+    // Define your Brand Colors
+    private final int COLOR_DARK_ORANGE = Color.parseColor("#F5901A"); // Main Orange
+    private final int COLOR_MED_ORANGE = Color.parseColor("#FFCC80");  // Lighter
+    private final int COLOR_LIGHT_ORANGE = Color.parseColor("#FFE0B2"); // Lightest
+    private final int COLOR_TEAL = Color.parseColor("#27869B"); // Teal for Donation Trends
 
     public Dashboard_fragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment Dashboard_fragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static Dashboard_fragment newInstance(String param1, String param2) {
-        Dashboard_fragment fragment = new Dashboard_fragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
-
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_dashboard, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        chartRelief = view.findViewById(R.id.chart_relief_status);
+        chartAffected = view.findViewById(R.id.chart_affected_areas);
+        chartFamilies = view.findViewById(R.id.chart_registered_families);
+        chartDonations = view.findViewById(R.id.chart_donation_trends); // ⭐ INITIALIZE NEW CHART
+
+        // Load the data
+        setupReliefPieChart();
+        setupAffectedPieChart();
+        setupFamiliesLineChart();
+        setupDonationTrendsChart(); // ⭐ CALL SETUP METHOD
+    }
+
+    // --- 1. RELIEF GOODS STATUS (Donut Chart) ---
+    private void setupReliefPieChart() {
+        List<PieEntry> entries = new ArrayList<>();
+        entries.add(new PieEntry(170f, "")); // Hygiene Kits
+        entries.add(new PieEntry(58f, ""));  // Relief Packs
+        entries.add(new PieEntry(11f, ""));  // Food
+
+        int[] colors = {COLOR_DARK_ORANGE, COLOR_MED_ORANGE, COLOR_LIGHT_ORANGE};
+
+        PieDataSet dataSet = new PieDataSet(entries, "");
+        dataSet.setColors(colors);
+        dataSet.setSliceSpace(3f);
+        dataSet.setDrawValues(false);
+
+        PieData data = new PieData(dataSet);
+        chartRelief.setData(data);
+
+        chartRelief.setHoleRadius(65f);
+        chartRelief.setTransparentCircleRadius(0f);
+        chartRelief.setHoleColor(Color.TRANSPARENT);
+        chartRelief.getDescription().setEnabled(false);
+        chartRelief.getLegend().setEnabled(false);
+        chartRelief.setTouchEnabled(false);
+        chartRelief.animateY(1000);
+        chartRelief.invalidate();
+    }
+
+    // --- 2. AFFECTED AREAS (Donut Chart) ---
+    private void setupAffectedPieChart() {
+        List<PieEntry> entries = new ArrayList<>();
+        entries.add(new PieEntry(150f, ""));
+        entries.add(new PieEntry(100f, ""));
+        entries.add(new PieEntry(25f, ""));
+
+        int[] colors = {COLOR_DARK_ORANGE, COLOR_MED_ORANGE, COLOR_LIGHT_ORANGE};
+
+        PieDataSet dataSet = new PieDataSet(entries, "");
+        dataSet.setColors(colors);
+        dataSet.setSliceSpace(3f);
+        dataSet.setDrawValues(false);
+
+        PieData data = new PieData(dataSet);
+        chartAffected.setData(data);
+
+        chartAffected.setHoleRadius(65f);
+        chartAffected.setHoleColor(Color.TRANSPARENT);
+        chartAffected.getDescription().setEnabled(false);
+        chartAffected.getLegend().setEnabled(false);
+        chartAffected.setTouchEnabled(false);
+        chartAffected.animateY(1000);
+        chartAffected.invalidate();
+    }
+
+    // --- 3. REGISTERED FAMILY (Line Chart) ---
+    private void setupFamiliesLineChart() {
+        List<Entry> entries = new ArrayList<>();
+        entries.add(new Entry(0f, 20f));
+        entries.add(new Entry(1f, 32f));
+        entries.add(new Entry(2f, 45f));
+        entries.add(new Entry(3f, 88f));
+
+        LineDataSet dataSet = new LineDataSet(entries, "Families");
+        dataSet.setColor(COLOR_DARK_ORANGE);
+        dataSet.setLineWidth(3f);
+        dataSet.setCircleColor(COLOR_DARK_ORANGE);
+        dataSet.setCircleRadius(5f);
+        dataSet.setDrawCircleHole(true);
+        dataSet.setCircleHoleColor(Color.WHITE);
+        dataSet.setDrawValues(false);
+        dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        dataSet.setDrawFilled(false);
+
+        LineData data = new LineData(dataSet);
+        chartFamilies.setData(data);
+
+        XAxis xAxis = chartFamilies.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setDrawGridLines(false);
+        xAxis.setDrawLabels(false);
+
+        chartFamilies.getAxisRight().setEnabled(false);
+        chartFamilies.getAxisLeft().setEnabled(true);
+        chartFamilies.getAxisLeft().setDrawGridLines(true);
+        chartFamilies.getAxisLeft().setGridColor(Color.parseColor("#EEEEEE"));
+
+        chartFamilies.getDescription().setEnabled(false);
+        chartFamilies.getLegend().setEnabled(false);
+        chartFamilies.setTouchEnabled(false);
+        chartFamilies.animateX(1500);
+        chartFamilies.invalidate();
+    }
+
+    // --- 4. DONATION TRENDS (Line Chart - Curved & Filled) ---
+    // ⭐ NEW METHOD ⭐
+    private void setupDonationTrendsChart() {
+        List<Entry> entries = new ArrayList<>();
+        // Data points based on your image (Jan-Jun)
+        entries.add(new Entry(0f, 95f)); // Jan
+        entries.add(new Entry(1f, 65f)); // Feb
+        entries.add(new Entry(2f, 80f)); // Mar
+        entries.add(new Entry(3f, 35f)); // Apr
+        entries.add(new Entry(4f, 55f)); // Jun (skipped May in labels)
+
+        LineDataSet dataSet = new LineDataSet(entries, "Donations");
+
+        // Style: Teal color logic to match image style
+        dataSet.setColor(COLOR_TEAL);
+        dataSet.setLineWidth(2f);
+
+        // Dots
+        dataSet.setCircleColor(COLOR_TEAL);
+        dataSet.setCircleRadius(4f);
+        dataSet.setDrawCircleHole(true);
+        dataSet.setCircleHoleColor(Color.WHITE);
+        dataSet.setDrawValues(false);
+
+        // Fill
+        dataSet.setDrawFilled(true);
+        dataSet.setFillColor(COLOR_TEAL);
+        dataSet.setFillAlpha(30); // Transparency for the fill
+
+        dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+
+        LineData data = new LineData(dataSet);
+        chartDonations.setData(data);
+
+        XAxis xAxis = chartDonations.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setDrawGridLines(true);
+        xAxis.setGridColor(Color.parseColor("#EEEEEE"));
+
+        final String[] months = new String[]{"Jan", "Feb", "Mar", "Apr", "Jun"};
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(months));
+        xAxis.setGranularity(1f);
+
+        chartDonations.getAxisRight().setEnabled(false);
+        chartDonations.getAxisLeft().setDrawGridLines(true);
+        chartDonations.getAxisLeft().setGridColor(Color.parseColor("#EEEEEE"));
+
+        chartDonations.getDescription().setEnabled(false);
+        chartDonations.getLegend().setEnabled(false);
+        chartDonations.setTouchEnabled(false);
+
+        chartDonations.animateX(1500);
+        chartDonations.invalidate();
     }
 }

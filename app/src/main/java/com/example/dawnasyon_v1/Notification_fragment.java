@@ -1,64 +1,50 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
-
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * A simple {@link Fragment} subclass.
- * Use the {@link Notification_fragment#newInstance} factory method to
- * create an instance of this fragment.
- */
 public class Notification_fragment extends Fragment {
 
-    // TODO: Rename parameter arguments, choose names that match
-    // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-    private static final String ARG_PARAM1 = "param1";
-    private static final String ARG_PARAM2 = "param2";
-
-    // TODO: Rename and change types of parameters
-    private String mParam1;
-    private String mParam2;
-
-    public Notification_fragment() {
-        // Required empty public constructor
-    }
-
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @param param1 Parameter 1.
-     * @param param2 Parameter 2.
-     * @return A new instance of fragment Notification_fragment.
-     */
-    // TODO: Rename and change types and number of parameters
-    public static Notification_fragment newInstance(String param1, String param2) {
-        Notification_fragment fragment = new Notification_fragment();
-        Bundle args = new Bundle();
-        args.putString(ARG_PARAM1, param1);
-        args.putString(ARG_PARAM2, param2);
-        fragment.setArguments(args);
-        return fragment;
-    }
+    public Notification_fragment() {}
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            mParam1 = getArguments().getString(ARG_PARAM1);
-            mParam2 = getArguments().getString(ARG_PARAM2);
-        }
-    }
-
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Inflate the layout for this fragment
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_notification, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        // Setup "Earlier" List
+        RecyclerView rvEarlier = view.findViewById(R.id.rv_earlier);
+        rvEarlier.setLayoutManager(new LinearLayoutManager(getContext()));
+
+        List<NotificationItem> earlierList = new ArrayList<>();
+        earlierList.add(new NotificationItem("Relief Operation at Pili Street", "Food packs distribution starts at 3 PM.", "1:28 PM", "Earlier", 0));
+        earlierList.add(new NotificationItem("Application Decline", "Invalid ID Submitted. Please reapply with a clear photo.", "1:28 PM", "Earlier", 1));
+        earlierList.add(new NotificationItem("Account Verified", "Your account has been successfully verified.", "1:28 PM", "Earlier", 0));
+
+        rvEarlier.setAdapter(new NotificationAdapter(earlierList));
+
+
+        // Setup "Yesterday" List
+        RecyclerView rvYesterday = view.findViewById(R.id.rv_yesterday);
+        rvYesterday.setLayoutManager(new LinearLayoutManager(getContext()));
+
+        List<NotificationItem> yesterdayList = new ArrayList<>();
+        yesterdayList.add(new NotificationItem("Relief Goods Status", "Low stock alert for Hygiene Kits.", "1:28 PM", "Yesterday", 0));
+        yesterdayList.add(new NotificationItem("New Donation", "Received 50 packs of rice.", "1:28 PM", "Yesterday", 0));
+
+        rvYesterday.setAdapter(new NotificationAdapter(yesterdayList));
     }
 }

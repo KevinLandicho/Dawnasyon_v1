@@ -47,7 +47,7 @@ public class Profile_fragment extends Fragment {
         TextView detailContact = view.findViewById(R.id.detail_contact);
         TextView userNameHeader = view.findViewById(R.id.user_name);
 
-        // Set placeholder data to make the fields visible on the device
+        // Set placeholder data
         if (detailName != null) detailName.setText("Juan M. Dela Cruz");
         if (detailAddress != null) detailAddress.setText("123 Carmel V Compound Tandang Sora Quezon City");
         if (detailContact != null) detailContact.setText("09123456789");
@@ -63,22 +63,26 @@ public class Profile_fragment extends Fragment {
 
         // --- 4. Attach Click Listeners ---
 
-        // ⭐ NEW: Edit Profile Button now navigates to EditProfile_fragment ⭐
+        // Edit Profile -> EditProfile_fragment
         btnEditProfile.setOnClickListener(v -> navigateToFragment(new EditProfile_fragment()));
+        btnViewQR.setOnClickListener(v -> {
+            // We reuse the DisplayQR_fragment.
+            // Pass the Resource ID of the user's QR code here (e.g., R.drawable.my_profile_qr)
+            // For now, I'm using the placeholder icon as an example.
+            int userQrCode = R.drawable.ic_qrsample;
 
-        btnViewQR.setOnClickListener(v -> handleMenuClick("View QR Code"));
-
-        // Menu Items
-        menuHistory.setOnClickListener(v -> handleMenuClick("Donation History"));
-        menuSuggestion.setOnClickListener(v -> handleMenuClick("Suggestion Form"));
-        menuPassword.setOnClickListener(v -> handleMenuClick("Change Password"));
-
-        menuDelete.setOnClickListener(v -> handleMenuClick("Delete Account"));
+            Fragment qrFragment = DisplayQR_fragment.newInstance(userQrCode);
+            navigateToFragment(qrFragment);
+        });
+        menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
+        menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
+        menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
+        menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
         menuLogout.setOnClickListener(v -> handleMenuClick("Log Out"));
     }
 
     /**
-     * Helper method to set the icon and title for an included menu item (item_profile_menu.xml).
+     * Helper method to set the icon and title for an included menu item.
      */
     private void setupMenuItem(View includedView, int iconResId, String title) {
         ImageView iconView = includedView.findViewById(R.id.menu_icon);
@@ -97,20 +101,17 @@ public class Profile_fragment extends Fragment {
 
     /**
      * Handles the transition to a new fragment.
-     * @param fragment The fragment instance to navigate to.
+     * Adds to back stack so the "Back" button in the new fragment returns here automatically.
      */
     private void navigateToFragment(Fragment fragment) {
         if (getActivity() != null) {
             getActivity().getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, fragment) // ⭐ IMPORTANT: Replace R.id.fragment_container with your actual host ID ⭐
-                    .addToBackStack(null) // Allows the user to press the back button to return here
+                    .replace(R.id.fragment_container, fragment) // ⭐ Ensure this ID matches your Activity's container
+                    .addToBackStack(null) // ⭐ This enables the "Vice Versa" / Back functionality
                     .commit();
         }
     }
 
-    /**
-     * Generic handler for menu item clicks.
-     */
     private void handleMenuClick(String action) {
         Toast.makeText(getContext(), "Navigating to: " + action, Toast.LENGTH_SHORT).show();
     }

@@ -12,15 +12,12 @@
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-
-        android:textColor="@android:color/black"
-        android:textSize="14sp"
-        android:textStyle="bold"
+        android:text=""
 
         app:iconGravity="textStart"
-        app:iconPadding="4dp"
-        app:iconSize="32dp"
+        app:iconPadding="0dp"
+        app:iconSize="50dp"
+
         app:strokeColor="#CCCCCC"
         app:cornerRadius="6dp" />
-
 </LinearLayout>

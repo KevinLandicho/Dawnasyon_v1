@@ -1,6 +1,5 @@
 package com.example.dawnasyon_v1;
 
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.SpannableString;
@@ -39,7 +38,7 @@ public class SignUpStepAccount_fragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         CheckBox cbTerms = view.findViewById(R.id.cb_terms);
-        Button btnSubmit = view.findViewById(R.id.btn_submit);
+        Button btnSubmit = view.findViewById(R.id.btn_submit); // Ensure XML ID matches this
         Button btnPrevious = view.findViewById(R.id.btn_previous);
 
         EditText etPassword = view.findViewById(R.id.et_pass);
@@ -77,15 +76,15 @@ public class SignUpStepAccount_fragment extends Fragment {
                 return;
             }
 
-            // TODO: SAVE DATA TO DATABASE
+            // TODO: SAVE DATA TO DATABASE (Temporarily)
 
-            Toast.makeText(getContext(), "Account Created Successfully!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Details saved. Proceeding to OTP...", Toast.LENGTH_SHORT).show();
 
-            if (getActivity() != null) {
-                Intent intent = new Intent(getActivity(), MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-            }
+            // ⭐ NAVIGATE TO OTP FRAGMENT ⭐
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container_signup, new SignUpOTP_fragment())
+                    .addToBackStack(null)
+                    .commit();
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
@@ -102,11 +101,9 @@ public class SignUpStepAccount_fragment extends Fragment {
         ClickableSpan clickableSpan = new ClickableSpan() {
             @Override
             public void onClick(@NonNull View widget) {
-                // Prevent the click from toggling the checkbox immediately
                 widget.cancelPendingInputEvents();
 
-                // ⭐ OPEN THE TERMS FRAGMENT ⭐
-                // We use .add() instead of .replace() so the user doesn't lose their typed password when they return.
+                // Open Terms Fragment
                 if (getActivity() != null) {
                     getActivity().getSupportFragmentManager().beginTransaction()
                             .add(R.id.fragment_container_signup, new TermsAndConditions_fragment())
