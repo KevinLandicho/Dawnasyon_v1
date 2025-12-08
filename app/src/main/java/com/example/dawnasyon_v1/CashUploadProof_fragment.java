@@ -22,7 +22,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary;
 
-public class CashUploadProof_fragment extends Fragment {
+public class CashUploadProof_fragment extends BaseFragment {
 
     private static final String ARG_AMOUNT = "arg_amount"; // Key for the amount
     private String donationAmount; // Variable to hold the amount

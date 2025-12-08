@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Notification_fragment extends Fragment {
+public class Notification_fragment extends BaseFragment {
 
     public Notification_fragment() {}
 

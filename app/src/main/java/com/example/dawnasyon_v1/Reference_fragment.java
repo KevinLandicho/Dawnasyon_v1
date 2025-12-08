@@ -9,7 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-public class Reference_fragment extends Fragment {
+public class Reference_fragment extends BaseFragment {
 
     private static final String ARG_REFERENCE_NO = "reference_number";
     private String referenceNo;

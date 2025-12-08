@@ -18,7 +18,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
-public class SignUpOptions_fragment extends Fragment {
+public class SignUpOptions_fragment extends BaseFragment {
 
     private Button btnLocal;
     private Button btnOverseas;

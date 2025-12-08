@@ -16,7 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SignUpStep2Household_fragment extends Fragment {
+public class SignUpStep2Household_fragment extends BaseFragment {
 
     private LinearLayout membersContainer;
     private EditText etHouseNum;

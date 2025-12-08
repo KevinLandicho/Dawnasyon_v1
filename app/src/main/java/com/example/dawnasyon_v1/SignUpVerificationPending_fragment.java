@@ -10,7 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SignUpVerificationPending_fragment extends Fragment {
+public class SignUpVerificationPending_fragment extends BaseFragment {
 
     public SignUpVerificationPending_fragment() {
         // Required empty public constructor

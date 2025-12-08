@@ -33,23 +33,34 @@ public class LoginActivity extends BaseActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // ⭐ 1. CHECK SESSION: Is user already logged in?
+        // This runs BEFORE setting the layout. If logged in, we skip to Main immediately.
+        SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
+        boolean isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false);
+
+        if (isLoggedIn) {
+            // User is already logged in! Skip this screen.
+            startActivity(new Intent(LoginActivity.this, MainActivity.class));
+            finish(); // Close LoginActivity so they can't go back
+            return; // Stop running the rest of the code
+        }
+
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
 
         // Initialize Views
-        etEmail = findViewById(R.id.editTextText);      // This will act as your Username field
+        etEmail = findViewById(R.id.editTextText);      // Acts as Username field
         etPassword = findViewById(R.id.editTextTextPassword);
         btnSignin = findViewById(R.id.btnSignin);
         btnSignup = findViewById(R.id.btnSignup);
 
-        // --- 1. Sign In Button Listener (Secured) ---
+        // --- Sign In Button Listener (Secured) ---
         btnSignin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Security Step: Hide Keyboard immediately so user can see messages
                 hideKeyboard();
 
-                // Security Step: Check if user is currently locked out
                 if (isLockedOut) {
                     Toast.makeText(LoginActivity.this, "Too many attempts. Please wait...", Toast.LENGTH_SHORT).show();
                     return;
@@ -58,14 +69,13 @@ public class LoginActivity extends BaseActivity {
                 String inputUsername = etEmail.getText().toString().trim();
                 String inputPassword = etPassword.getText().toString().trim();
 
-                // Security Step: Validate Inputs (Check for empty fields)
                 if (validateInputs(inputUsername, inputPassword)) {
                     performSecureLogin(inputUsername, inputPassword);
                 }
             }
         });
 
-        // --- 2. Sign Up Button Listener ---
+        // --- Sign Up Button Listener ---
         btnSignup.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -81,38 +91,25 @@ public class LoginActivity extends BaseActivity {
         });
     }
 
-    /**
-     * SECURITY: Basic Input Validation
-     * Ensures fields are not empty before processing.
-     */
     private boolean validateInputs(String username, String password) {
         if (TextUtils.isEmpty(username)) {
             etEmail.setError("Username is required");
             etEmail.requestFocus();
             return false;
         }
-
-        // Note: Strict Email regex removed to allow "kevinlandicho" username
-
         if (TextUtils.isEmpty(password)) {
             etPassword.setError("Password is required");
             etPassword.requestFocus();
             return false;
         }
-
         return true;
     }
 
-    /**
-     * SECURITY: Login Logic with Rate Limiting
-     * Handles authentication and brute-force protection.
-     */
     private void performSecureLogin(String username, String password) {
 
         // ⭐ DEFENSE DEMO CREDENTIALS ⭐
         boolean isLoginSuccessful = false;
 
-        // Hardcoded validation for your demo
         if (username.equals("kevinlandicho") && password.equals("admin")) {
             isLoginSuccessful = true;
         }
@@ -120,13 +117,12 @@ public class LoginActivity extends BaseActivity {
         if (isLoginSuccessful) {
             // SUCCESS: Reset security counter
             loginAttempts = 0;
-            saveLoginSession(username); // Security: Save session
+            saveLoginSession(username); // ⭐ Save session so they stay logged in
 
             Toast.makeText(LoginActivity.this, "Login Successful. Welcome Kevin!", Toast.LENGTH_SHORT).show();
 
             // Navigate to Dashboard
             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-            // Clear back stack so user cannot press "Back" to return to login
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
             finish();
@@ -137,24 +133,18 @@ public class LoginActivity extends BaseActivity {
             int remaining = MAX_LOGIN_ATTEMPTS - loginAttempts;
 
             if (loginAttempts >= MAX_LOGIN_ATTEMPTS) {
-                // Too many fails -> Lock the account
                 initiateLockout();
             } else {
-                // Allow retry
                 Toast.makeText(LoginActivity.this, "Invalid Credentials. " + remaining + " attempts remaining.", Toast.LENGTH_LONG).show();
-                etPassword.setText(""); // Clear password field for security
+                etPassword.setText(""); // Clear password field
             }
         }
     }
 
-    /**
-     * SECURITY: Anti-Brute Force Lockout
-     * Locks the login capability for 30 seconds after 3 failed tries.
-     */
     private void initiateLockout() {
         isLockedOut = true;
-        btnSignin.setEnabled(false); // Disable button visually
-        btnSignin.setAlpha(0.5f); // Dim button
+        btnSignin.setEnabled(false);
+        btnSignin.setAlpha(0.5f);
 
         Toast.makeText(this, "Maximum login attempts reached. Locked for 30 seconds.", Toast.LENGTH_LONG).show();
 
@@ -168,16 +158,12 @@ public class LoginActivity extends BaseActivity {
                 loginAttempts = 0;
                 btnSignin.setEnabled(true);
                 btnSignin.setAlpha(1.0f);
-                btnSignin.setText("Sign In"); // Reset text
+                btnSignin.setText("Sign In");
                 Toast.makeText(LoginActivity.this, "You can try again now.", Toast.LENGTH_SHORT).show();
             }
         }.start();
     }
 
-    /**
-     * SECURITY: Session Management placeholder
-     * Stores user login state securely.
-     */
     private void saveLoginSession(String username) {
         SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
@@ -186,10 +172,6 @@ public class LoginActivity extends BaseActivity {
         editor.apply();
     }
 
-    /**
-     * UX/SECURITY: Hide Keyboard
-     * Prevents accidental typing after submission.
-     */
     private void hideKeyboard() {
         View view = this.getCurrentFocus();
         if (view != null) {

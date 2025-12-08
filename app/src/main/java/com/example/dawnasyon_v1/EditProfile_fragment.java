@@ -15,7 +15,7 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.textfield.TextInputEditText;
 
 // ⭐ FIX 1: Implement the required interface to receive the result from the picker
-public class EditProfile_fragment extends Fragment implements AvatarPicker_fragment.OnAvatarSelectedListener {
+public class EditProfile_fragment extends BaseFragment implements AvatarPicker_fragment.OnAvatarSelectedListener {
 
     // You would typically use a ViewModel for real data, but for UI, we use fields:
     private TextInputEditText editName, editProvince, editCity, editBarangay, editStreet, editContact;

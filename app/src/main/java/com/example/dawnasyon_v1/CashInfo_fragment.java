@@ -18,7 +18,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.button.MaterialButton;
 
-public class CashInfo_fragment extends Fragment {
+public class CashInfo_fragment extends BaseFragment {
 
     // Arguments from DonationDetails Fragment
     private static final String ARG_TITLE = "arg_title";

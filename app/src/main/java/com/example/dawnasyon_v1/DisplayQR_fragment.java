@@ -21,7 +21,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import java.io.OutputStream;
 
-public class DisplayQR_fragment extends Fragment {
+public class DisplayQR_fragment extends BaseFragment {
 
     private static final String ARG_QR_RES_ID = "qr_res_id";
     private int qrResId;

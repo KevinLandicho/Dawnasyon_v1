@@ -22,7 +22,7 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
-public class SignUpIDConfirmation_fragment extends Fragment {
+public class SignUpIDConfirmation_fragment extends BaseFragment {
 
     // Static variable to hold the image temporarily
     public static Bitmap capturedImage;

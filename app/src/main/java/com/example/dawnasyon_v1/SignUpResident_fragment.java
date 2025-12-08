@@ -12,7 +12,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
-public class SignUpResident_fragment extends Fragment {
+public class SignUpResident_fragment extends BaseFragment {
 
     private Button btnResident;
     private Button btnNonResident;

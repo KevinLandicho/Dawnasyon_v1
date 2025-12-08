@@ -10,7 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class DonationReceipt_fragment extends Fragment {
+public class DonationReceipt_fragment extends BaseFragment {
 
     // You can add arguments here to pass dynamic data later
     // private static final String ARG_RECEIPT_ID = "receipt_id";

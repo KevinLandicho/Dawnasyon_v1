@@ -17,7 +17,7 @@ import com.example.dawnasyon_v1.R;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Home_fragment extends Fragment {
+public class Home_fragment extends BaseFragment {
 
     // --- Carousel Fields ---
     private ViewPager2 imageCarouselViewPager;

@@ -13,7 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SuggestionForm_fragment extends Fragment {
+public class SuggestionForm_fragment extends BaseFragment {
 
     public SuggestionForm_fragment() {
         // Required empty public constructor

@@ -9,7 +9,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SignUpStep1Personal_fragment extends Fragment {
+public class SignUpStep1Personal_fragment extends BaseFragment {
     public SignUpStep1Personal_fragment() {}
 
     @Override

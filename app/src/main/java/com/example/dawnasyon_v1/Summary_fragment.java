@@ -23,7 +23,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Random;
 
-public class Summary_fragment extends Fragment {
+public class Summary_fragment extends BaseFragment {
 
     private static final String ARG_DONATION_ITEMS = "donation_items";
     private static final String TAG = "SummaryFragment";

@@ -18,7 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SignUpStepAccount_fragment extends Fragment {
+public class SignUpStepAccount_fragment extends BaseFragment {
 
     // Flag to track if terms were actually opened
     private boolean isTermsOpened = false;

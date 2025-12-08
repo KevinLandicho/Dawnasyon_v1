@@ -24,7 +24,7 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Dashboard_fragment extends Fragment {
+public class Dashboard_fragment extends BaseFragment {
 
     private PieChart chartRelief;
     private PieChart chartAffected;

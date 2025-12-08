@@ -13,7 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class DeleteConfirmation_fragment extends Fragment {
+public class DeleteConfirmation_fragment extends BaseFragment {
 
     private CountDownTimer deleteTimer;
     private TextView tvCountdown;

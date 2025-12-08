@@ -19,7 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SignUpValidID_fragment extends Fragment {
+public class SignUpValidID_fragment extends BaseFragment {
 
     private Button btnQcId, btnBrgyId;
     private String selectedIdType = null;

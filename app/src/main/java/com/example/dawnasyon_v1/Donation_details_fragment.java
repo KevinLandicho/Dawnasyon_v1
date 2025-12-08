@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Donation_details_fragment extends Fragment {
+public class Donation_details_fragment extends BaseFragment {
 
   private static final String ARG_TITLE = "arg_title";
   private static final String ARG_DESCRIPTION = "arg_description";

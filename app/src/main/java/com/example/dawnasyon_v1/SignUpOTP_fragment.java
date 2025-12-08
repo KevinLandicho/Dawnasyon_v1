@@ -16,7 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class SignUpOTP_fragment extends Fragment {
+public class SignUpOTP_fragment extends BaseFragment {
 
     private EditText[] otpInputs;
     private TextView tvTimer;

@@ -14,7 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DonationHistory_fragment extends Fragment {
+public class DonationHistory_fragment extends BaseFragment {
 
     public DonationHistory_fragment() {
         // Required empty public constructor

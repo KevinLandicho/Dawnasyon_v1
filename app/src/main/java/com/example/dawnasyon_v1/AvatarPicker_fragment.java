@@ -20,7 +20,7 @@ import java.io.Serializable; // Needed if listener were passed via arguments, bu
 /**
  * Fragment to display a grid of avatars for selection.
  */
-public class AvatarPicker_fragment extends Fragment {
+public class AvatarPicker_fragment extends BaseFragment {
 
     // 1. Interface for communicating the selection back to the calling Fragment
     public interface OnAvatarSelectedListener extends Serializable {

@@ -11,7 +11,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-public class NotificationDetail_fragment extends Fragment {
+public class NotificationDetail_fragment extends BaseFragment {
 
     // Constants for Arguments
     private static final String ARG_TITLE = "title";
