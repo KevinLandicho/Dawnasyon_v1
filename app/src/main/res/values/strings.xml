@@ -1,9 +1,9 @@
 <resources>
     <string name="app_name">Dawnasyon_v1</string>
-    <string name="welcome_back">Welcome Back!</string>
-    <string name="email">"Email"</string>
-    <string name="password">"Password"</string>
-    <string name="large_text">
+    <string name="welcome_back" translatable="false">Welcome Back!</string>
+    <string name="email" translatable="false">"Email"</string>
+    <string name="password" translatable="false">"Password"</string>
+    <string name="large_text" translatable="false">
         "Material is the metaphor.\n\n"
 
         "A material metaphor is the unifying theory of a rationalized space and a system of motion."
@@ -93,14 +93,14 @@
         "when a user tries to pick up one of cards.\n\n"
     </string>
     <!-- TODO: Remove or change this placeholder text -->
-    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="hello_blank_fragment" translatable="false">Hello blank fragment</string>
     <!-- Strings used for fragments for navigation -->
-    <string name="first_fragment_label">First Fragment</string>
-    <string name="second_fragment_label">Second Fragment</string>
+    <string name="first_fragment_label" translatable="false">First Fragment</string>
+    <string name="second_fragment_label" translatable="false">Second Fragment</string>
     <string name="next">Next</string>
     <string name="previous">Previous</string>
 
-    <string name="lorem_ipsum">
+    <string name="lorem_ipsum" translatable="false">
         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris
         volutpat, dolor id interdum ullamcorper, risus dolor egestas lectus, sit amet mattis purus
         dui nec risus. Maecenas non sodales nisi, vel dictum dolor. Class aptent taciti sociosqu ad
@@ -136,4 +136,165 @@
         libero vel nunc consequat, quis tincidunt nisl eleifend. Cras bibendum enim a justo luctus
         vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
     </string>
+    <string name="sign_in">Sign In</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="don_t_have_an_account">Don\'t have an account?</string>
+    <string name="sign_up_here">Sign up here</string>
+    <string name="home" translatable="false">Home</string>
+    <string name="dashboard" translatable="false">Dashboard</string>
+    <string name="notification">Notification</string>
+    <string name="my_profile">My Profile</string>
+    <string name="get_started">Get Started</string>
+    <string name="category">Category</string>
+    <string name="critical">Critical</string>
+    <string name="scan_to_donate">Scan to Donate</string>
+    <string name="input_information">Input Information</string>
+    <string name="step_2" translatable="false">Step 2</string>
+    <string name="food">FOOD</string>
+    <string name="add_custom_item">+ Add Custom Item</string>
+    <string name="small_or_great_your_gift_can_t_wait_with_food_medicine_and_clothes_you_share_our_barangay_shows_that_we_all_care">Small or great, your gift can’t wait. With food, medicine, and clothes you share, our barangay shows that we all care.</string>
+    <string name="donate_now">DONATE NOW</string>
+    <string name="pick_an_avatar">Pick an avatar</string>
+    <string name="select">Select</string>
+    <string name="cash">CASH</string>
+    <string name="funds_for_supplies_and_relief_support">Funds for supplies and relief support.</string>
+    <string name="select_donation_method">Select Donation Method:</string>
+    <string name="amount">Amount</string>
+    <string name="proof_of_payment">Proof of Payment</string>
+    <string name="please_upload_a_screenshot_of_your_successful_transaction">Please upload a screenshot of your successful transaction.</string>
+    <string name="proof_preview">Proof Preview</string>
+    <string name="upload_image">Upload Image</string>
+    <string name="submit_verification">Submit Verification</string>
+    <string name="old_password">Old password</string>
+    <string name="enter_old_password">Enter old password</string>
+    <string name="new_password">New password</string>
+    <string name="enter_new_password">Enter new password</string>
+    <string name="confirm_new_password">Confirm new password</string>
+    <string name="update_password">Update password</string>
+    <string name="relief_goods_status">Relief Goods Status</string>
+    <string name="low_stock">Low Stock</string>
+    <string name="affected_areas_by_disaster">Affected Areas by Disaster</string>
+    <string name="registered_family">Registered Family</string>
+    <string name="of_total_population">of total population</string>
+    <string name="donation_trends">Donation Trends</string>
+    <string name="delete_account">DELETE ACCOUNT</string>
+    <string name="are_you_sure_this_action_cannot_be_undone">Are you sure?\nThis action cannot be undone.</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="delete_confirmation">DELETE CONFIRMATION</string>
+    <string name="your_account_will_be_deleted_in_10_seconds_cancel_if_this_was_a_mistake">Your account will be deleted in 10\nseconds. Cancel if this was a mistake.</string>
+    <string name="scan_qr_code">Scan QR Code</string>
+    <string name="present_this_code_for_scanning_to_claim_your_relief_assistance">Present this code for scanning to claim\nyour relief assistance.</string>
+    <string name="save_to_gallery">Save to Gallery</string>
+    <string name="donation_history">Donation History</string>
+    <string name="select_categories">Select Categories</string>
+    <string name="step_1" translatable="false">Step 1</string>
+    <string name="your_donation_receipt">Your Donation Receipt</string>
+    <string name="thank_you_for_your_donation">Thank you for your donation!</string>
+    <string name="your_support_empowers_us_to_serve_where_help_is_needed_most">Your support empowers us to serve where help is needed most.</string>
+    <string name="you_have_donated">You have donated</string>
+    <string name="rice">Rice</string>
+    <string name="instant_noodles" translatable="false">Instant Noodles</string>
+    <string name="canned_goods">Canned Goods</string>
+    <string name="receipt_no">RECEIPT NO.:</string>
+    <string name="date">DATE:</string>
+    <string name="donor_name">DONOR NAME:</string>
+    <string name="received_by">RECEIVED BY:</string>
+    <string name="save" translatable="false">Save</string>
+    <string name="contact_number" translatable="false">Contact Number</string>
+    <string name="street" translatable="false">Street</string>
+    <string name="barangay" translatable="false">Barangay</string>
+    <string name="city_municipality" translatable="false">City/Municipality</string>
+    <string name="province" translatable="false">Province</string>
+    <string name="name">Name</string>
+    <string name="welcome_juan_m_dela_cruz" translatable="false">WELCOME! JUAN M. DELA CRUZ</string>
+    <string name="search_what_s_happening">Search What\'s Happening...</string>
+    <string name="urgent_needs">URGENT NEEDS</string>
+    <string name="notifications">NOTIFICATIONS</string>
+    <string name="earlier">Earlier</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="see_previous_notifications">See previous notifications</string>
+    <string name="application_decline_invalid_id_submitted" translatable="false">Application Decline - Invalid ID Submitted</string>
+    <string name="edit_profile">Edit profile</string>
+    <string name="view_my_qr_code">View my QR Code</string>
+    <string name="address" translatable="false">Address</string>
+    <string name="thank_you_for_your_support">Thank you for your support.</string>
+    <string name="donation_recorded_proceed_to_the_barangay_and_present_your_reference_no" translatable="false">Donation recorded. Proceed to the barangay and present your Reference No.</string>
+    <string name="reference_no" translatable="false">REFERENCE NO.:</string>
+    <string name="id_verification" translatable="false">ID Verification</string>
+    <string name="align_your_id_keep_it_steady_in_good_light_then_tap_scan">Align your ID, keep it steady in good light,\nthen tap Scan.</string>
+    <string name="scan" translatable="false">Scan</string>
+    <string name="retake">Retake</string>
+    <string name="submit">Submit</string>
+    <string name="choose_your_user_type_to_continue">CHOOSE YOUR USER TYPE TO CONTINUE:</string>
+    <string name="local_community">Local Community</string>
+    <string name="overseas_donor">Overseas Donor</string>
+    <string name="previous1">← Previous</string>
+    <string name="next1">Next →</string>
+    <string name="enter_verification_code">Enter Verification Code</string>
+    <string name="we_ve_sent_a_code_to_juandelacruz_email_com">We\'ve sent a code to juandelacruz@email.com</string>
+    <string name="the_code_will_expire_in_04_59">The code will expire in 04:59</string>
+    <string name="didn_t_get_a_code_click_to_resend">Didn\'t get a code? Click to resend.</string>
+    <string name="are_you_a_resident_of_this_barangay">ARE YOU A RESIDENT OF THIS BARANGAY?</string>
+    <string name="resident">Resident</string>
+    <string name="non_resident">Non-Resident</string>
+    <string name="create_account">CREATE ACCOUNT</string>
+    <string name="personal_information">Personal Information</string>
+    <string name="full_name">Full name</string>
+    <string name="enter_your_full_name_as_shown_on_your_id">Enter your full name as shown on your ID</string>
+    <string name="_11_digit_mobile_number_for_verification" translatable="false">11-digit mobile number for verification</string>
+    <string name="household_information">Household Information</string>
+    <string name="household_number">Household Number</string>
+    <string name="enter_your_household_number">Enter your household number</string>
+    <string name="specify_household_member_gender_and_age">Specify household member gender and age</string>
+    <string name="location_information">Location Information</string>
+    <string name="account_information">Account Information</string>
+    <string name="email_address" translatable="false">Email Address</string>
+    <string name="we_ll_send_updates_to_this_email">We\'ll send updates to this email</string>
+    <string name="create_password" translatable="false">Create Password</string>
+    <string name="create_your_password">Create your password</string>
+    <string name="confirm_password" translatable="false">Confirm Password</string>
+    <string name="confirm_your_password">Confirm your password</string>
+    <string name="i_have_read_and_agree_to_the_terms_and_conditions">I have read and agree to the Terms and Conditions.</string>
+    <string name="valid_id" translatable="false">Valid ID</string>
+    <string name="select_the_type_of_id_you_ll_be_using">Select the type of ID you\'ll be using</string>
+    <string name="scan_id" translatable="false">Scan ID</string>
+    <string name="take_a_clear_photo_of_your_selected_id">Take a clear photo of your selected ID</string>
+    <string name="start_scan" translatable="false">Start Scan</string>
+    <string name="verification_pending" translatable="false">Verification Pending</string>
+    <string name="we_re_verifying_your_identity">We\'re verifying your identity</string>
+    <string name="you_may_log_in_while_verification_is_processed_within_24_hours">You may log in while verification is processed\nwithin 24 hours</string>
+    <string name="confirm">Confirm</string>
+    <string name="we_value_your_suggestions">We Value Your Suggestions</string>
+    <string name="help_us_improve_our_relief_efforts_by_sharing_your_thoughts">Help us improve our relief efforts by sharing your thoughts.</string>
+    <string name="share_your_idea_here">Share your idea here...</string>
+    <string name="send_suggestion">Send Suggestion</string>
+    <string name="thank_you">Thank you!</string>
+    <string name="we_appreciate_your_suggestion_together_we_can_make_our_barangay_stronger">We appreciate your suggestion.\nTogether, we can make our barangay stronger.</string>
+    <string name="summary">SUMMARY</string>
+    <string name="here_s_the_help_you_re_giving">Here\'s the Help You\'re Giving</string>
+    <string name="donate_anonymously">Donate anonymously</string>
+    <string name="your_donation_will_be_recorded_without_your_name_or_details">Your donation will be recorded without your name or details.</string>
+    <string name="apply_to_donate">Apply to Donate</string>
+    <string name="terms_and_conditions">Terms and Conditions</string>
+    <string name="last_updated_september_28_2025">Last Updated September 28, 2025</string>
+    <string name="_1_data_privacy">1. Data Privacy</string>
+    <string name="we_respect_your_right_to_privacy_any_personal_information_you_provide_will_be_collected_stored_and_processed_only_for_the_purpose_of_using_this_system">We respect your right to privacy. Any personal information you provide will be collected, stored, and processed only for the purpose of using this system.</string>
+    <string name="_2_data_security">2. Data Security</string>
+    <string name="we_use_industry_standard_security_measures_to_protect_your_data_against_unauthorized_access_alteration_or_disclosure_while_we_strive_to_keep_your_information_safe_no_system_is_100_secure_and_we_cannot_guarantee_absolute_security">We use industry-standard security measures to protect your data against unauthorized access, alteration, or disclosure. While we strive to keep your information safe, no system is 100% secure, and we cannot guarantee absolute security.</string>
+    <string name="_3_user_responsibility">3. User Responsibility</string>
+    <string name="you_are_responsible_for_keeping_your_account_credentials_username_and_password_confidential_any_activity_under_your_account_will_be_considered_your_responsibility">You are responsible for keeping your account credentials (username and password) confidential. Any activity under your account will be considered your responsibility.</string>
+    <string name="_4_data_usage">4. Data Usage</string>
+    <string name="your_data_will_not_be_sold_rented_or_shared_with_third_parties_without_your_consent_unless_required_by_law_information_may_only_be_used_to_improve_system_services_and_user_experience">Your data will not be sold, rented, or shared with third parties without your consent, unless required by law. Information may only be used to improve system services and user experience.</string>
+    <string name="_5_consent">5. Consent</string>
+    <string name="by_using_this_system_you_agree_to_these_terms_and_conditions_and_consent_to_the_collection_and_secure_handling_of_your_data">By using this system, you agree to these Terms and Conditions and consent to the collection and secure handling of your data.</string>
+    <string name="_6_updates_to_terms">6. Updates to Terms</string>
+    <string name="we_may_update_these_terms_and_conditions_from_time_to_time_users_will_be_notified_of_significant_changes">We may update these Terms and Conditions from time to time. Users will be notified of significant changes.</string>
+    <string name="close">Close</string>
+    <string name="age">Age</string>
+    <string name="body_care">Body Care</string>
+    <string name="e_g_soap_shampoo_toothbrush">e.g. Soap, shampoo, toothbrush</string>
+    <string name="application_decline">Application Decline</string>
+    <string name="description">Description...</string>
+    <string name="thank_you_for_your_application_unfortunately_we_were_unable_to_approve_your_application_due_to_issues_with_your_submitted_id">Thank you for your application. Unfortunately, we were unable to approve your application due to issues with your submitted ID...</string>
 </resources>

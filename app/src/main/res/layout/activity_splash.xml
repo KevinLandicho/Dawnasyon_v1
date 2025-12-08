@@ -8,7 +8,6 @@
     android:layout_height="match_parent"
     tools:context=".SplashActivity">
 
-  <!-- Background Image (fills screen responsively) -->
   <ImageView
       android:id="@+id/imageView"
       android:layout_width="0dp"
@@ -20,7 +19,6 @@
       app:layout_constraintEnd_toEndOf="parent"
       app:srcCompat="@drawable/background" />
 
-  <!-- Logo (takes up ~30% height, centered) -->
   <ImageView
       android:id="@+id/imageView2"
       android:layout_width="0dp"
@@ -33,14 +31,31 @@
       android:scaleType="fitCenter"
       app:srcCompat="@drawable/logo" />
 
-  <!-- Start Button (70% width, fixed height, centered below logo) -->
+  <com.google.android.material.button.MaterialButton
+      android:id="@+id/btn_language"
+      style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="24dp"
+      android:layout_marginEnd="24dp"
+      android:backgroundTint="@color/white"
+      android:text="EN / TL"
+      android:textColor="#F5901A"
+      app:cornerRadius="20dp"
+
+      app:iconTint="#F5901A"
+      app:strokeColor="#F5901A"
+      app:strokeWidth="1dp"
+      app:layout_constraintEnd_toEndOf="parent"
+      app:layout_constraintTop_toTopOf="parent" />
+
   <Button
       android:id="@+id/btnStart"
       android:layout_width="0dp"
       android:layout_height="50dp"
       android:backgroundTint="#27869B"
       android:fontFamily="@font/dongle_light"
-      android:text="Get Started"
+      android:text="@string/get_started"
       android:textAlignment="center"
       android:textColor="#FFFFFF"
       android:textSize="20sp"

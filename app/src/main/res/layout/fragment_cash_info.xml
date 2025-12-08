@@ -19,7 +19,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:fontFamily="@font/dongle"
-            android:text="INPUT INFORMATION"
+            android:text="@string/input_information"
             android:textColor="@android:color/black"
             android:textSize="32sp"
             android:textStyle="bold"
@@ -84,7 +84,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/dongle"
-                        android:text="CASH"
+                        android:text="@string/cash"
                         android:textColor="@android:color/black"
                         android:textSize="32sp"
                         android:textStyle="bold" />
@@ -96,7 +96,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="5dp"
                     android:fontFamily="@font/dongle_light"
-                    android:text="Funds for supplies and relief support."
+                    android:text="@string/funds_for_supplies_and_relief_support"
                     android:textSize="14sp" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>
@@ -105,7 +105,7 @@
             android:id="@+id/txt_method_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Select Donation Method:"
+            android:text="@string/select_donation_method"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
@@ -131,7 +131,7 @@
             android:id="@+id/txt_amount_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Amount"
+            android:text="@string/amount"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"

@@ -17,7 +17,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/dongle"
-            android:text="SUMMARY"
+            android:text="@string/summary"
             android:textSize="32sp"
             android:textStyle="bold" />
 
@@ -47,7 +47,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="10dp"
                     android:fontFamily="@font/dongle"
-                    android:text="Here's the Help You're Giving"
+                    android:text="@string/here_s_the_help_you_re_giving"
                     android:textSize="24sp"
                     android:textStyle="bold" />
 
@@ -65,7 +65,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:fontFamily="@font/dongle"
-            android:text="Donate anonymously"
+            android:text="@string/donate_anonymously"
             android:textSize="20sp" />
 
         <TextView
@@ -74,14 +74,14 @@
             android:layout_marginStart="30dp"
             android:layout_marginBottom="20dp"
             android:fontFamily="@font/dongle_light"
-            android:text="Your donation will be recorded without your name or details."
+            android:text="@string/your_donation_will_be_recorded_without_your_name_or_details"
             android:textSize="15sp" />
 
         <Button
             android:id="@+id/btnApplyToDonate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Apply to Donate"
+            android:text="@string/apply_to_donate"
             android:backgroundTint="#27869B"
             android:textColor="@android:color/white"/>
 

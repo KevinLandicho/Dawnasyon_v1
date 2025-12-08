@@ -17,7 +17,7 @@
     android:id="@+id/txtItemName"
     android:layout_width="0dp"
     android:layout_height="wrap_content"
-    android:text="Rice"
+    android:text="@string/rice"
     android:textSize="16sp"
     app:layout_constraintStart_toStartOf="parent"
     app:layout_constraintTop_toTopOf="parent"

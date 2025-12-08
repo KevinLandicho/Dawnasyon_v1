@@ -31,7 +31,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/dongle"
-                android:text="DELETE ACCOUNT"
+                android:text="@string/delete_account"
                 android:textColor="@color/black"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -50,7 +50,7 @@
                 android:layout_marginTop="24dp"
                 android:fontFamily="@font/dongle"
                 android:gravity="center"
-                android:text="Are you sure?\nThis action cannot be undone."
+                android:text="@string/are_you_sure_this_action_cannot_be_undone"
                 android:textColor="#666666"
                 android:textSize="22sp" />
 
@@ -68,7 +68,7 @@
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
                     android:backgroundTint="#B2DFDB"
-                    android:text="Cancel"
+                    android:text="@string/cancel"
                     android:textColor="#27869B"
                     app:cornerRadius="8dp" />
 
@@ -79,7 +79,7 @@
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:backgroundTint="#27869B"
-                    android:text="Delete"
+                    android:text="@string/delete"
                     android:textColor="@color/white"
                     app:cornerRadius="8dp" />
 

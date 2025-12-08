@@ -72,7 +72,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/dongle"
-                android:text="Home"
+                android:text="@string/home"
                 android:textColor="@android:color/white"
                 android:textSize="14sp" />
         </LinearLayout>
@@ -97,7 +97,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/dongle"
-                android:text="Dashboard"
+                android:text="@string/dashboard"
                 android:textColor="@color/unselected"
                 android:textSize="14sp" />
         </LinearLayout>
@@ -129,7 +129,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/dongle"
-                android:text="Notification"
+                android:text="@string/notification"
                 android:textColor="@color/unselected"
                 android:textSize="14sp" />
         </LinearLayout>
@@ -154,7 +154,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/dongle"
-                android:text="My Profile"
+                android:text="@string/my_profile"
                 android:textColor="@color/unselected"
                 android:textSize="14sp" />
         </LinearLayout>

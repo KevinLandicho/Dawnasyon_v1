@@ -60,7 +60,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:hint="Name">
+                    android:hint="@string/name">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_name"
                         android:layout_width="match_parent"
@@ -72,7 +72,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="Province">
+                    android:hint="@string/province">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_province"
                         android:layout_width="match_parent"
@@ -84,7 +84,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="City/Municipality">
+                    android:hint="@string/city_municipality">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_city"
                         android:layout_width="match_parent"
@@ -96,7 +96,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="Barangay">
+                    android:hint="@string/barangay">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_barangay"
                         android:layout_width="match_parent"
@@ -108,7 +108,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="Street">
+                    android:hint="@string/street">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_street"
                         android:layout_width="match_parent"
@@ -120,7 +120,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="Contact Number">
+                    android:hint="@string/contact_number">
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/edit_contact"
                         android:layout_width="match_parent"
@@ -135,7 +135,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="32dp"
                     android:backgroundTint="#27869B"
-                    android:text="Save"
+                    android:text="@string/save"
                     android:textSize="18sp"
                     app:cornerRadius="6dp" />
 

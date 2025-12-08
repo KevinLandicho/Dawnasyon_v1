@@ -15,7 +15,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends BaseActivity {
 
     LinearLayout homeTab, dashboardTab, notificationTab, profileTab;
     FrameLayout centerButton; // center button is a FrameLayout

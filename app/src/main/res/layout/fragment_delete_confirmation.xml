@@ -31,7 +31,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/dongle"
-                android:text="DELETE CONFIRMATION"
+                android:text="@string/delete_confirmation"
                 android:textColor="@color/black"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -64,7 +64,7 @@
                 android:layout_marginTop="32dp"
                 android:fontFamily="@font/dongle"
                 android:gravity="center"
-                android:text="Your account will be deleted in 10\nseconds. Cancel if this was a mistake."
+                android:text="@string/your_account_will_be_deleted_in_10_seconds_cancel_if_this_was_a_mistake"
                 android:textColor="#666666"
                 android:textSize="20sp" />
 
@@ -82,7 +82,7 @@
                     android:layout_marginEnd="8dp"
                     android:layout_weight="1"
                     android:backgroundTint="#80CBC4"
-                    android:text="Cancel"
+                    android:text="@string/cancel"
                     android:textColor="@color/black"
                     app:cornerRadius="8dp" />
 
@@ -93,7 +93,7 @@
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
                     android:backgroundTint="#27869B"
-                    android:text="Delete"
+                    android:text="@string/delete"
                     android:textColor="@color/white"
                     app:cornerRadius="8dp" />
 

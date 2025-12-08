@@ -20,7 +20,7 @@ import com.google.android.material.button.MaterialButton;
 
 public class CashInfo_fragment extends Fragment {
 
-    // ... existing constants ...
+    // Arguments from DonationDetails Fragment
     private static final String ARG_TITLE = "arg_title";
     private static final String ARG_DESCRIPTION = "arg_description";
     private static final String ARG_STATUS = "arg_status";
@@ -32,15 +32,12 @@ public class CashInfo_fragment extends Fragment {
     private int fImageRes;
 
     private String selectedPaymentMethod = null;
-
-    // ⭐ NEW: Variable to store the amount selected ⭐
     private String selectedAmount = null;
 
     public CashInfo_fragment() {
         // Required empty public constructor
     }
 
-    // ... keep newInstance and onCreate as is ...
     public static CashInfo_fragment newInstance(String title, String description, String status, int imageRes) {
         CashInfo_fragment fragment = new CashInfo_fragment();
         Bundle args = new Bundle();
@@ -86,7 +83,7 @@ public class CashInfo_fragment extends Fragment {
 
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ UPDATE: Pass the selectedAmount to the next screen ⭐
+        // Navigate to Upload Proof Screen
         btnStep3.setOnClickListener(v -> {
             if (selectedPaymentMethod == null) {
                 Toast.makeText(getContext(), "Please select a payment method first.", Toast.LENGTH_SHORT).show();
@@ -97,7 +94,6 @@ public class CashInfo_fragment extends Fragment {
                 return;
             }
 
-            // Pass the amount to the upload screen
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, CashUploadProof_fragment.newInstance(selectedAmount))
                     .addToBackStack(null)
@@ -105,7 +101,6 @@ public class CashInfo_fragment extends Fragment {
         });
     }
 
-    // ... keep setupHeader and setupPaymentButtons ...
     private void setupHeader(View view) {
         TextView tvTitle = view.findViewById(R.id.detailsTitle);
         TextView tvDesc = view.findViewById(R.id.detailsDescription);
@@ -129,17 +124,30 @@ public class CashInfo_fragment extends Fragment {
     private void setupPaymentButtons(View view) {
         View gcashLayout = view.findViewById(R.id.gcash_button_layout);
         View mayaLayout = view.findViewById(R.id.maya_button_layout);
+
+        // Get references to the actual buttons
         MaterialButton btnGcash = gcashLayout.findViewById(R.id.btn_payment_method);
         MaterialButton btnMaya = mayaLayout.findViewById(R.id.btn_payment_method);
 
+        // --- Configure GCash (Initial State) ---
         btnGcash.setText("");
         btnGcash.setIconResource(R.drawable.gcash);
         btnGcash.setIconTint(null);
 
+        // ⭐ FIX: Force the background to be White/Gray initially ⭐
+        btnGcash.setBackgroundTintList(null);
+        btnGcash.setBackgroundResource(R.drawable.bg_option_unselected);
+
+        // --- Configure Maya (Initial State) ---
         btnMaya.setText("");
         btnMaya.setIconResource(R.drawable.maya);
         btnMaya.setIconTint(null);
 
+        // ⭐ FIX: Force the background to be White/Gray initially ⭐
+        btnMaya.setBackgroundTintList(null);
+        btnMaya.setBackgroundResource(R.drawable.bg_option_unselected);
+
+        // Click Listeners
         btnGcash.setOnClickListener(v -> {
             selectedPaymentMethod = "GCash";
             updateButtonVisuals(btnGcash, btnMaya);
@@ -152,9 +160,14 @@ public class CashInfo_fragment extends Fragment {
             Toast.makeText(getContext(), "Maya Selected", Toast.LENGTH_SHORT).show();
         });
     }
-
-    private void updateButtonVisuals(Button selected, Button other) {
+    // Helper to toggle the Orange/Gray background
+    private void updateButtonVisuals(MaterialButton selected, MaterialButton other) {
+        // 1. Selected = Orange Background (Clear tint first)
+        selected.setBackgroundTintList(null);
         selected.setBackgroundResource(R.drawable.bg_option_selected);
+
+        // 2. Other = Gray Background (Clear tint first)
+        other.setBackgroundTintList(null);
         other.setBackgroundResource(R.drawable.bg_option_unselected);
     }
 
@@ -165,17 +178,13 @@ public class CashInfo_fragment extends Fragment {
                 Button btnAmount = (Button) child;
                 btnAmount.setOnClickListener(v -> {
                     String amountText = btnAmount.getText().toString();
-
-                    // ⭐ UPDATE: Save the clicked amount to the variable ⭐
-                    selectedAmount = amountText;
-
+                    selectedAmount = amountText; // Save selection
                     showQrDialog(amountText);
                 });
             }
         }
     }
 
-    // ... keep showQrDialog and getQrDrawableId as is ...
     private void showQrDialog(String amountText) {
         if (selectedPaymentMethod == null) {
             Toast.makeText(getContext(), "Please select a payment method (GCash or Maya) first.", Toast.LENGTH_SHORT).show();
@@ -208,6 +217,7 @@ public class CashInfo_fragment extends Fragment {
     }
 
     private int getQrDrawableId(String paymentMethod, String amountText) {
+        // Replace with your actual QR images (e.g., R.drawable.qr_gcash_100)
         return R.drawable.qr_gcash_50;
     }
 }

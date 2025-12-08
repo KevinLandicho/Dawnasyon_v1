@@ -43,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/dongle"
-                android:text="Thank you!"
+                android:text="@string/thank_you"
                 android:textColor="@color/black"
                 android:textSize="40sp"
                 android:textStyle="bold" />
@@ -63,7 +63,7 @@
                 android:layout_marginTop="24dp"
                 android:fontFamily="@font/dongle"
                 android:gravity="center"
-                android:text="We appreciate your suggestion.\nTogether, we can make our barangay stronger."
+                android:text="@string/we_appreciate_your_suggestion_together_we_can_make_our_barangay_stronger"
                 android:textColor="#666666"
                 android:textSize="24sp" />
 

@@ -24,7 +24,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:fontFamily="@font/dongle"
-        android:text="Your Donation Receipt"
+        android:text="@string/your_donation_receipt"
         android:textColor="@color/black"
         android:textSize="32sp"
         android:textStyle="bold"
@@ -54,7 +54,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
                 android:fontFamily="@font/dongle"
-                android:text="Thank you for your donation!"
+                android:text="@string/thank_you_for_your_donation"
                 android:textColor="@color/black"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -64,7 +64,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
                 android:gravity="center"
-                android:text="Your support empowers us to serve where help is needed most."
+                android:text="@string/your_support_empowers_us_to_serve_where_help_is_needed_most"
                 android:textSize="12sp"
                 android:textColor="#666666"
                 android:layout_marginBottom="24dp"/>
@@ -87,7 +87,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:text="You have donated"
+                        android:text="@string/you_have_donated"
                         android:textStyle="bold"
                         android:textColor="#444444"
                         android:textSize="14sp"
@@ -108,7 +108,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Rice"
+                            android:text="@string/rice"
                             android:textColor="@color/black"
                             android:textSize="14sp"/>
                         <TextView
@@ -130,7 +130,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Instant Noodles"
+                            android:text="@string/instant_noodles"
                             android:textColor="@color/black"
                             android:textSize="14sp"/>
                         <TextView
@@ -152,7 +152,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Canned Goods"
+                            android:text="@string/canned_goods"
                             android:textColor="@color/black"
                             android:textSize="14sp"/>
                         <TextView
@@ -175,7 +175,7 @@
                 android:useDefaultMargins="false">
 
                 <TextView
-                    android:text="RECEIPT NO.:"
+                    android:text="@string/receipt_no"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="#444444"
@@ -191,7 +191,7 @@
                     android:layout_gravity="end"/>
 
                 <TextView
-                    android:text="DATE:"
+                    android:text="@string/date"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="#444444"
@@ -206,7 +206,7 @@
                     android:layout_marginTop="4dp"/>
 
                 <TextView
-                    android:text="DONOR NAME:"
+                    android:text="@string/donor_name"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="#444444"
@@ -221,7 +221,7 @@
                     android:layout_marginTop="4dp"/>
 
                 <TextView
-                    android:text="RECEIVED BY:"
+                    android:text="@string/received_by"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="#444444"

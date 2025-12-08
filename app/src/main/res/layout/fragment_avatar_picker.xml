@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginBottom="16dp"
-                android:text="Pick an avatar"
+                android:text="@string/pick_an_avatar"
                 android:textColor="@android:color/black"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -65,7 +65,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:backgroundTint="#27869B"
-                android:text="Select"
+                android:text="@string/select"
                 android:textSize="18sp"
                 app:cornerRadius="6dp" />
 

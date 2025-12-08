@@ -28,7 +28,7 @@
         android:layout_marginTop="16dp"
         android:layout_marginStart="24dp"
         android:fontFamily="@font/dongle"
-        android:text="Donation History"
+        android:text="@string/donation_history"
         android:textColor="@color/black"
         android:textSize="34sp"
         android:textStyle="bold"

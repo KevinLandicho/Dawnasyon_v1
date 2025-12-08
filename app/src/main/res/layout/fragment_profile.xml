@@ -49,7 +49,7 @@
                     android:layout_marginEnd="8dp"
                     android:backgroundTint="#F5901A"
                     android:fontFamily="@font/dongle"
-                    android:text="Edit profile"
+                    android:text="@string/edit_profile"
                     android:textColor="#000000"
                     android:textSize="16sp"
                     app:cornerRadius="5dp"
@@ -80,7 +80,7 @@
                     android:layout_marginEnd="8dp"
                     android:layout_marginBottom="6dp"
                     android:fontFamily="@font/dongle"
-                    android:text="View my QR Code"
+                    android:text="@string/view_my_qr_code"
                     android:textColor="#F5901A"
                     android:textSize="20sp"
                     app:cornerRadius="6dp"
@@ -114,7 +114,7 @@
                     style="@style/ProfileDetailLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Name" />
+                    android:text="@string/name" />
                 <TextView
                     android:id="@+id/detail_name"
                     style="@style/ProfileDetailValue"
@@ -126,7 +126,7 @@
                     style="@style/ProfileDetailLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Address"
+                    android:text="@string/address"
                     android:layout_marginTop="8dp" />
                 <TextView
                     android:id="@+id/detail_address"
@@ -139,7 +139,7 @@
                     style="@style/ProfileDetailLabel"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Contact Number"
+                    android:text="@string/contact_number"
                     android:layout_marginTop="8dp" />
                 <TextView
                     android:id="@+id/detail_contact"

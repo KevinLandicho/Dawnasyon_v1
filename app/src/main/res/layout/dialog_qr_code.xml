@@ -27,7 +27,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:fontFamily="@font/dongle"
-            android:text="Scan to Donate"
+            android:text="@string/scan_to_donate"
             android:textColor="@android:color/black"
             android:textSize="24sp"
             android:textStyle="bold"
