@@ -1,9 +1,6 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import android.text.InputType;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -12,33 +9,32 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.constraintlayout.widget.ConstraintLayout;
-import java.io.Serializable;
+import androidx.fragment.app.Fragment;
+
+import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// NOTE: Ensure Summary_fragment.java exists and defines ItemForSummary
-import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary;
-
 public class Donation_details_fragment extends Fragment {
 
-  private static final String TAG = "DonationDetailsFrag";
-
-  // --- ARGUMENT CONSTANTS ---
   private static final String ARG_TITLE = "arg_title";
   private static final String ARG_DESCRIPTION = "arg_description";
   private static final String ARG_STATUS = "arg_status";
   private static final String ARG_IMAGE = "arg_image";
 
-  // --- INSTANCE FIELDS ---
   private LinearLayout itemInputsContainer;
   private Button btnAddCustomItem;
   private LinearLayout customItemInputLayout;
@@ -49,20 +45,18 @@ public class Donation_details_fragment extends Fragment {
   private String fStatus;
   private int fImageRes;
 
-  // --- 1. DEFINE UNIT SETS BY CATEGORY ---
-  private static final String[] CASH_UNITS = {"PHP"};
+  // --- Unit Definitions ---
   private static final String[] FOOD_UNITS = {"PCS", "Kilo", "Liter", "Pack"};
   private static final String[] MEDICINE_UNITS = {"Pack", "Bottles", "Set"};
   private static final String[] RELIEF_PACKS_UNITS = {"Set"};
   private static final String[] DEFAULT_UNITS = {"PCS", "Pack", "Set"};
 
-
-  // --- DATA STRUCTURE FOR PRESET ITEMS ---
+  // --- Data Structure ---
   private static class ItemData {
     String name;
     String defaultUnit;
     String description;
-    int layoutType; // 1: Spinner (item_input), 2: Description (item_input_desc)
+    int layoutType; // 1 = Standard (Spinner), 2 = Description (No Spinner)
 
     ItemData(String name, String defaultUnit) {
       this.name = name;
@@ -80,13 +74,6 @@ public class Donation_details_fragment extends Fragment {
   private static final Map<String, List<ItemData>> PRESET_ITEMS = new HashMap<>();
 
   static {
-    // Keys MUST exactly match the titles passed from Step 1 (e.g., "FOOD")
-    PRESET_ITEMS.put("CASH", Arrays.asList(
-            new ItemData("GCash", "PHP"),
-            new ItemData("Maya", "PHP"),
-            new ItemData("Cash (Physical)", "PHP")
-    ));
-
     PRESET_ITEMS.put("FOOD", Arrays.asList(
             new ItemData("Rice", "Kilo"),
             new ItemData("Instant noodles", "PCS"),
@@ -95,10 +82,10 @@ public class Donation_details_fragment extends Fragment {
     ));
 
     PRESET_ITEMS.put("HYGIENE KITS", Arrays.asList(
-            new ItemData("Body Care", "e.g. Soap, shampoo, toothbrush", 2),
-            new ItemData("Sanitation", "e.g. Alcohol, wet wipes, tissue, sanitary napkins", 2),
-            new ItemData("Laundry", "e.g. Detergent powder, bar soap", 2),
-            new ItemData("Protection", "e.g. Face mask, disposable gloves", 2)
+            new ItemData("Body Care", "e.g. Soap, shampoo", 2),
+            new ItemData("Sanitation", "e.g. Alcohol, wipes", 2),
+            new ItemData("Laundry", "e.g. Detergent", 2),
+            new ItemData("Protection", "e.g. Masks", 2)
     ));
 
     PRESET_ITEMS.put("MEDICINE", Arrays.asList(
@@ -113,8 +100,7 @@ public class Donation_details_fragment extends Fragment {
     ));
   }
 
-
-  public Donation_details_fragment() { /* Required empty public constructor */ }
+  public Donation_details_fragment() { }
 
   public static Donation_details_fragment newInstance(String title, String description, String status, int imageRes) {
     Donation_details_fragment fragment = new Donation_details_fragment();
@@ -135,13 +121,11 @@ public class Donation_details_fragment extends Fragment {
       fDescription = getArguments().getString(ARG_DESCRIPTION);
       fStatus = getArguments().getString(ARG_STATUS);
       fImageRes = getArguments().getInt(ARG_IMAGE);
-      Log.d(TAG, "onCreate: fTitle received: " + fTitle);
     }
   }
 
   @Override
-  public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                           Bundle savedInstanceState) {
+  public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
     this.inflater = inflater;
     return inflater.inflate(R.layout.donation_details, container, false);
   }
@@ -150,335 +134,225 @@ public class Donation_details_fragment extends Fragment {
   public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
     super.onViewCreated(view, savedInstanceState);
 
-    // --- CONDITIONALLY ROUTE BASED ON CATEGORY ---
     final String categoryKey = fTitle != null ? fTitle : "FOOD";
 
+    // 1. CASH LOGIC - Redirect Immediately
     if (categoryKey.equals("CASH")) {
-      // ⭐ CRITICAL FIX: If category is CASH, immediately navigate to the CashInfo_fragment
       if (getActivity() != null) {
-        // Pass the initial category info (title, etc.) to the CashInfo fragment
         Fragment cashFragment = CashInfo_fragment.newInstance(fTitle, fDescription, fStatus, fImageRes);
-
         getActivity().getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, cashFragment) // Replace R.id.fragment_container with your host ID
+                .replace(R.id.fragment_container, cashFragment)
                 .addToBackStack(null)
                 .commit();
-
-        // IMPORTANT: Return to stop the rest of the logic from running
         return;
       }
     }
-    // --- END CONDITIONAL ROUTING ---
 
-    // --- The rest of the setup below only runs for NON-CASH categories ---
-
+    // 2. Setup Views
+    View btnBack = view.findViewById(R.id.btnBack);
     itemInputsContainer = view.findViewById(R.id.itemInputsContainer);
     btnAddCustomItem = view.findViewById(R.id.btnAddCustomItem);
     customItemInputLayout = view.findViewById(R.id.customItemInputLayout);
     Button btnStep3 = view.findViewById(R.id.btnStep3);
 
-    // --- STEP 3 BUTTON LISTENER ---
-    btnStep3.setOnClickListener(v -> {
-      ArrayList<ItemForSummary> collectedItems = collectAllInputs();
+    if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-      if (collectedItems.isEmpty()) {
-        Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
-        return;
-      }
-
-      // Launch the Summary fragment (Step 3)
-      launchSummaryFragment(collectedItems);
-    });
-    // --------------------------------------------------------
-
-    // Load Preset Items DYNAMICALLY
-    List<ItemData> items = PRESET_ITEMS.get(categoryKey);
-
-    if (items != null && !items.isEmpty()) {
-      Log.d(TAG, "onViewCreated: Found " + items.size() + " preset items for " + categoryKey);
-      for (ItemData item : items) {
-        addPresetItem(item, categoryKey);
-      }
-    } else {
-      Log.w(TAG, "onViewCreated: No preset items loaded for key: '" + categoryKey + "'.");
-    }
-
-    // Set up Add Custom Item button visibility and listener
-    if (categoryKey.equals("HYGIENE KITS")) {
-      btnAddCustomItem.setVisibility(View.GONE);
-    } else {
-      btnAddCustomItem.setVisibility(View.VISIBLE);
-      btnAddCustomItem.setOnClickListener(v -> {
-        addCustomItemInput();
-        customItemInputLayout.setVisibility(View.VISIBLE);
-      });
-    }
-
-    // Set up Category Header
     TextView txtTitle = view.findViewById(R.id.detailsTitle);
     TextView txtDesc = view.findViewById(R.id.detailsDescription);
     TextView txtStatus = view.findViewById(R.id.detailsStatus);
+    ImageView imgIcon = view.findViewById(R.id.detailsImage);
 
-    // Use arguments to set header content
-    txtTitle.setText(fTitle != null ? fTitle : "FOOD");
-    txtDesc.setText(fDescription != null ? fDescription : "Rice, noodles, and canned goods for nourishment.");
-    txtStatus.setText(fStatus != null ? fStatus : "Critical");
-    // TODO: Add logic to set the detailsImage based on fImageRes
-  }
+    if(txtTitle != null) txtTitle.setText(fTitle);
+    if(txtDesc != null) txtDesc.setText(fDescription);
+    if(txtStatus != null) txtStatus.setText(fStatus);
+    if(imgIcon != null) imgIcon.setImageResource(fImageRes);
 
-  /**
-   * Inflates and configures an item_input view based on the ItemData type.
-   */
-  private void addPresetItem(ItemData item, String categoryKey) {
-    View itemView;
-
-    if (item.layoutType == 2) {
-      // R.layout.item_input_desc for descriptive items (HYGIENE KITS)
-      itemView = inflater.inflate(R.layout.item_input_desc, itemInputsContainer, false);
-      TextView txtItemName = itemView.findViewById(R.id.txtItemName);
-      TextView txtItemDescription = itemView.findViewById(R.id.txtItemDescription);
-
-      txtItemName.setText(item.name);
-      txtItemDescription.setText(item.description);
-
-    } else {
-      // R.layout.item_input for standard spinner items
-      itemView = inflater.inflate(R.layout.item_input, itemInputsContainer, false);
-      TextView txtItemName = itemView.findViewById(R.id.txtItemName);
-      Spinner spinnerUnit = itemView.findViewById(R.id.spinnerUnit);
-
-      txtItemName.setText(item.name);
-      // Pass categoryKey to filter units
-      setupUnitSpinner(spinnerUnit, item.defaultUnit, categoryKey);
+    // 3. Load Presets
+    List<ItemData> items = PRESET_ITEMS.get(categoryKey);
+    if (items != null) {
+      for (ItemData item : items) {
+        addPresetItem(item, categoryKey);
+      }
     }
 
+    // 4. Custom Item Button Logic
+    if (categoryKey.equals("HYGIENE KITS")) {
+      if(btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
+    } else {
+      if(btnAddCustomItem != null) {
+        btnAddCustomItem.setVisibility(View.VISIBLE);
+        btnAddCustomItem.setOnClickListener(v -> {
+          addCustomItemInput();
+          customItemInputLayout.setVisibility(View.VISIBLE);
+        });
+      }
+    }
+
+    // 5. Next Button Logic
+    if(btnStep3 != null) {
+      btnStep3.setOnClickListener(v -> {
+        ArrayList<ItemForSummary> collectedItems = collectAllInputs();
+
+        // ⭐ FIX: Now requires at least one item for ALL categories
+        if (collectedItems.isEmpty()) {
+          Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
+          return;
+        }
+
+        launchSummaryFragment(collectedItems);
+      });
+    }
+  }
+
+  private void addPresetItem(ItemData item, String categoryKey) {
+    if(itemInputsContainer == null) return;
+
+    View itemView;
+    if (item.layoutType == 2) {
+      // Description Type (Hygiene Kits)
+      itemView = inflater.inflate(R.layout.item_input_desc, itemInputsContainer, false);
+      TextView txtName = itemView.findViewById(R.id.txtItemName);
+      TextView txtDesc = itemView.findViewById(R.id.txtItemDescription);
+      if (txtName != null) txtName.setText(item.name);
+      if (txtDesc != null) txtDesc.setText(item.description);
+    } else {
+      // Standard Type (Food)
+      itemView = inflater.inflate(R.layout.item_input, itemInputsContainer, false);
+      TextView txtName = itemView.findViewById(R.id.txtItemName);
+      Spinner spinner = itemView.findViewById(R.id.spinnerUnit);
+      if (txtName != null) txtName.setText(item.name);
+      setupUnitSpinner(spinner, item.defaultUnit, categoryKey);
+    }
     setupQuantityControls(itemView);
     itemInputsContainer.addView(itemView);
   }
 
-  // --- Custom Item Input Logic ---
-
   private void addCustomItemInput() {
-    View customItemView = inflater.inflate(R.layout.item_input, customItemInputLayout, false);
+    if (customItemInputLayout == null) return;
 
-    // Find parent ConstraintLayout inside the CardView
-    ConstraintLayout constraintParent = customItemView.findViewById(R.id.constraintLayoutRoot);
+    View customView = inflater.inflate(R.layout.item_input, customItemInputLayout, false);
+    ConstraintLayout parent = customView.findViewById(R.id.constraintLayoutRoot);
+    TextView originalName = customView.findViewById(R.id.txtItemName);
 
-    // --- DYNAMICALLY REPLACE TEXTVIEW WITH EDITTEXT (for the Item Name) ---
-    TextView presetTxtItemName = customItemView.findViewById(R.id.txtItemName);
+    if (parent != null && originalName != null) {
+      parent.removeView(originalName);
 
-    if (constraintParent != null) {
-      constraintParent.removeView(presetTxtItemName);
+      EditText editName = new EditText(requireContext());
+      editName.setId(R.id.txtItemName);
+      editName.setHint("Enter Item");
+      editName.setTextSize(16f);
+      editName.setBackground(null);
+      editName.setLayoutParams(originalName.getLayoutParams());
+      parent.addView(editName, 0);
 
-      // Create and configure the custom item name EditText
-      EditText customItemEditText = new EditText(requireContext());
-      customItemEditText.setId(R.id.txtItemName);
-      customItemEditText.setHint("Enter Item");
-      customItemEditText.setTextSize(16f);
-      customItemEditText.setSingleLine(true);
-      customItemEditText.setBackground(null);
-
-      customItemEditText.setLayoutParams(presetTxtItemName.getLayoutParams());
-      constraintParent.addView(customItemEditText, 0);
-    }
-
-    // --- ADD THE 'X' CLOSE BUTTON ---
-    TextView btnPlus = customItemView.findViewById(R.id.btnPlus);
-    if (constraintParent != null) {
-
-      TextView btnCloseX = new TextView(requireContext());
-      btnCloseX.setId(View.generateViewId());
-      btnCloseX.setText("X");
-      btnCloseX.setTextSize(18f);
-      btnCloseX.setGravity(View.TEXT_ALIGNMENT_CENTER);
-      btnCloseX.setTextColor(getResources().getColor(android.R.color.black));
+      // Close Button
+      TextView btnPlus = customView.findViewById(R.id.btnPlus);
+      TextView closeBtn = new TextView(requireContext());
+      closeBtn.setText("X");
+      closeBtn.setTextSize(18f);
+      closeBtn.setPadding(10, 10, 10, 10);
 
       int dp35 = (int) (35 * getResources().getDisplayMetrics().density);
-      int dp8 = (int) (8 * getResources().getDisplayMetrics().density);
+      ConstraintLayout.LayoutParams params = new ConstraintLayout.LayoutParams(dp35, dp35);
 
-      ConstraintLayout.LayoutParams closeParams = new ConstraintLayout.LayoutParams(dp35, dp35);
+      if(btnPlus != null) {
+        params.topToTop = btnPlus.getId();
+        params.bottomToBottom = btnPlus.getId();
+        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+      }
 
-      closeParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-      closeParams.topToTop = btnPlus.getId();
-      closeParams.bottomToBottom = btnPlus.getId();
-      closeParams.setMarginStart(dp8);
-
-      ConstraintLayout.LayoutParams plusParams = (ConstraintLayout.LayoutParams) btnPlus.getLayoutParams();
-      plusParams.endToStart = btnCloseX.getId();
-
-      constraintParent.addView(btnCloseX, closeParams);
-      btnPlus.setLayoutParams(plusParams);
-
-      // The remove button now removes *only* its parent custom item view
-      btnCloseX.setOnClickListener(v -> {
-        customItemInputLayout.removeView(customItemView);
-        if (customItemInputLayout.getChildCount() == 0) {
-          customItemInputLayout.setVisibility(View.GONE);
-        }
-      });
+      parent.addView(closeBtn, params);
+      closeBtn.setOnClickListener(v -> customItemInputLayout.removeView(customView));
     }
 
-    // 4. Setup controls
-    Spinner spinnerUnit = customItemView.findViewById(R.id.spinnerUnit);
-    final String categoryKey = fTitle != null ? fTitle : "FOOD";
-    setupUnitSpinner(spinnerUnit, "PCS", categoryKey);
+    Spinner spinner = customView.findViewById(R.id.spinnerUnit);
+    setupUnitSpinner(spinner, "PCS", "FOOD");
+    setupQuantityControls(customView);
 
-    setupQuantityControls(customItemView); // Uses the updated logic for EditText
-
-    // 5. Add the new custom item row to the container
-    customItemInputLayout.addView(customItemView);
+    customItemInputLayout.addView(customView);
   }
 
-  // --- HELPER METHODS ---
-
-  /**
-   * Configures the Unit Spinner with category-specific unit options.
-   */
-  private void setupUnitSpinner(Spinner spinner, String defaultUnit, String categoryKey) {
-
-    String[] units;
-
-    // Use the category key to select the appropriate unit set
-    switch (categoryKey) {
-      case "CASH":
-        units = CASH_UNITS;
-        break;
-      case "FOOD":
-        units = FOOD_UNITS;
-        break;
-      case "MEDICINE":
-        units = MEDICINE_UNITS;
-        break;
-      case "RELIEF PACKS":
-        units = RELIEF_PACKS_UNITS;
-        break;
-      default:
-        // Fallback for categories not explicitly listed or custom items
-        units = DEFAULT_UNITS;
-        break;
-    }
-
-    ArrayAdapter<String> adapter = new ArrayAdapter<>(
-            requireContext(),
-            android.R.layout.simple_spinner_dropdown_item,
-            units
-    );
-    spinner.setAdapter(adapter);
-
-    // Set the default unit selection
-    int defaultPosition = adapter.getPosition(defaultUnit);
-    if (defaultPosition >= 0) {
-      spinner.setSelection(defaultPosition);
-    } else if (units.length > 0) {
-      // If the default unit isn't in the filtered list, select the first available unit.
-      spinner.setSelection(0);
-    }
-  }
-
-  /**
-   * Updates quantity control to use EditText (manual input).
-   */
   private void setupQuantityControls(View itemView) {
-    TextView btnMinus = itemView.findViewById(R.id.btnMinus);
-    EditText txtQty = itemView.findViewById(R.id.txtQty);
-    TextView btnPlus = itemView.findViewById(R.id.btnPlus);
+    View vMinus = itemView.findViewById(R.id.btnMinus);
+    View vQty = itemView.findViewById(R.id.txtQty);
+    View vPlus = itemView.findViewById(R.id.btnPlus);
 
-    // Configure EditText properties
-    txtQty.setInputType(InputType.TYPE_CLASS_NUMBER);
-    if (txtQty.getText().toString().isEmpty()) {
-      txtQty.setText("0");
-    }
+    // Safe Check: If controls don't exist in this layout, skip setup
+    if (vMinus == null || vQty == null || vPlus == null) return;
 
-    btnMinus.setOnClickListener(v -> {
+    // ⭐ FIX: Treat as TextView to support both EditText (Food) and TextView (Hygiene)
+    TextView txtQty = (TextView) vQty;
+
+    if (txtQty.getText().toString().isEmpty()) txtQty.setText("0");
+
+    vMinus.setOnClickListener(v -> {
       try {
-        int currentQty = Integer.parseInt(txtQty.getText().toString());
-        if (currentQty > 0) {
-          txtQty.setText(String.valueOf(currentQty - 1));
-        }
-      } catch (NumberFormatException e) {
-        txtQty.setText("0");
-      }
+        int q = Integer.parseInt(txtQty.getText().toString());
+        if (q > 0) txtQty.setText(String.valueOf(q - 1));
+      } catch (Exception e) { txtQty.setText("0"); }
     });
 
-    btnPlus.setOnClickListener(v -> {
+    vPlus.setOnClickListener(v -> {
       try {
-        int currentQty = Integer.parseInt(txtQty.getText().toString());
-        txtQty.setText(String.valueOf(currentQty + 1));
-      } catch (NumberFormatException e) {
-        txtQty.setText("1");
-      }
+        int q = Integer.parseInt(txtQty.getText().toString());
+        txtQty.setText(String.valueOf(q + 1));
+      } catch (Exception e) { txtQty.setText("1"); }
     });
   }
 
-  // --- NEW METHODS FOR DATA COLLECTION AND FRAGMENT NAVIGATION ---
+  private void setupUnitSpinner(Spinner spinner, String defaultUnit, String categoryKey) {
+    if (spinner == null) return;
+    String[] units;
+    switch (categoryKey) {
+      case "FOOD": units = FOOD_UNITS; break;
+      case "MEDICINE": units = MEDICINE_UNITS; break;
+      case "RELIEF PACKS": units = RELIEF_PACKS_UNITS; break;
+      default: units = DEFAULT_UNITS; break;
+    }
+    ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, units);
+    spinner.setAdapter(adapter);
+    int pos = adapter.getPosition(defaultUnit);
+    if (pos >= 0) spinner.setSelection(pos);
+  }
 
-  /**
-   * Collects data from all item rows (preset and custom) where quantity > 0.
-   */
   private ArrayList<ItemForSummary> collectAllInputs() {
     ArrayList<ItemForSummary> items = new ArrayList<>();
-
     collectInputsFromContainer(itemInputsContainer, items);
     collectInputsFromContainer(customItemInputLayout, items);
-
     return items;
   }
 
-  /**
-   * Helper to iterate through a LinearLayout and extract the donation details.
-   */
   private void collectInputsFromContainer(LinearLayout container, ArrayList<ItemForSummary> items) {
+    if (container == null) return;
     for (int i = 0; i < container.getChildCount(); i++) {
-      View itemView = container.getChildAt(i);
-      View itemLayout = itemView;
+      View view = container.getChildAt(i);
 
-      if (itemLayout instanceof ConstraintLayout) {
+      // ⭐ FIX: Use TextView here too to prevent ClassCastException
+      TextView txtQty = view.findViewById(R.id.txtQty);
+      if (txtQty == null) continue;
 
-        EditText txtQty = itemLayout.findViewById(R.id.txtQty);
-        if (txtQty == null) continue;
+      int qty = 0;
+      try { qty = Integer.parseInt(txtQty.getText().toString()); } catch (Exception e) {}
 
-        int quantity = 0;
-        try {
-          quantity = Integer.parseInt(txtQty.getText().toString());
-        } catch (NumberFormatException ignored) {
-          // Quantity is 0 if not a valid number
-        }
+      if (qty > 0) {
+        TextView txtName = view.findViewById(R.id.txtItemName);
+        String name = (txtName != null) ? txtName.getText().toString() : "Unknown";
 
-        if (quantity > 0) {
-          TextView nameView = itemLayout.findViewById(R.id.txtItemName);
-          String itemName = nameView != null ? nameView.getText().toString() : "Unknown Item";
+        Spinner spinner = view.findViewById(R.id.spinnerUnit);
+        String unit = (spinner != null) ? spinner.getSelectedItem().toString() : "";
 
-          Spinner spinnerUnit = itemLayout.findViewById(R.id.spinnerUnit);
-          String unit = spinnerUnit != null ? (String) spinnerUnit.getSelectedItem() : "";
-
-          if (nameView instanceof EditText && (itemName.isEmpty() || itemName.equals("Enter Item"))) {
-            continue;
-          }
-
-          String quantityUnit = quantity + unit;
-          items.add(new ItemForSummary(itemName, quantityUnit));
-        }
+        items.add(new ItemForSummary(name, qty + " " + unit));
       }
     }
   }
 
-  /**
-   * Handles the navigation to the Summary Fragment (Step 3).
-   */
   private void launchSummaryFragment(ArrayList<ItemForSummary> collectedItems) {
-
     if (getActivity() != null) {
-      try {
-        Fragment summaryFragment = Summary_fragment.newInstance(collectedItems);
-
-        getActivity().getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, summaryFragment) // Replace R.id.fragment_container with your actual host ID
-                .addToBackStack(null)
-                .commit();
-      } catch (NoClassDefFoundError | NoSuchMethodError e) {
-        Log.e(TAG, "Summary_fragment class or newInstance method not found.", e);
-        Toast.makeText(getContext(), "ERROR: Step 3 fragment is missing or misconfigured.", Toast.LENGTH_LONG).show();
-      }
+      Fragment summaryFragment = Summary_fragment.newInstance(collectedItems);
+      getActivity().getSupportFragmentManager().beginTransaction()
+              .replace(R.id.fragment_container, summaryFragment)
+              .addToBackStack(null)
+              .commit();
     }
   }
 }
