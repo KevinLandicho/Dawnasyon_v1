@@ -15,14 +15,23 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
 
     private List<Announcement> announcementList;
 
-    public AnnouncementAdapter(List<Announcement> announcementList) {
+    // [NEW] 1. Define an interface for the click event
+    public interface OnApplyClickListener {
+        void onApplyClick(Announcement announcement);
+    }
+
+    // [NEW] 2. Add a variable to hold the listener
+    private OnApplyClickListener listener;
+
+    // [UPDATED] 3. Update constructor to accept the listener
+    public AnnouncementAdapter(List<Announcement> announcementList, OnApplyClickListener listener) {
         this.announcementList = announcementList;
+        this.listener = listener;
     }
 
     @NonNull
     @Override
     public AnnouncementViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // R.layout.item_announcement_card is the reusable layout you created
         View view = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.item_announcement_card, parent, false);
         return new AnnouncementViewHolder(view);
@@ -32,12 +41,22 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position) {
         Announcement currentAnnouncement = announcementList.get(position);
 
+        // Bind data to views
         holder.title.setText(currentAnnouncement.getTitle());
         holder.timestamp.setText(currentAnnouncement.getTimestamp());
         holder.description.setText(currentAnnouncement.getDescription());
         holder.image.setImageResource(currentAnnouncement.getImageResId());
 
-        // Setup click listeners for buttons if needed
+        // [NEW] 4. Set the click listener on the "Apply" button
+        holder.btnApply.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Check if listener is not null before calling it
+                if (listener != null) {
+                    listener.onApplyClick(currentAnnouncement);
+                }
+            }
+        });
     }
 
     @Override

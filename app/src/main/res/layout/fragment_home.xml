@@ -21,12 +21,13 @@
                 android:id="@+id/welcome_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/welcome_juan_m_dela_cruz"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black"
-                android:layout_marginTop="24dp"
                 android:layout_marginStart="16dp"
+                android:layout_marginTop="30dp"
+                android:fontFamily="@font/dongle"
+                android:text="@string/welcome_juan_m_dela_cruz"
+                android:textColor="@android:color/black"
+                android:textSize="20sp"
+                android:textStyle="bold"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
 
@@ -34,25 +35,28 @@
                 android:id="@+id/user_avatar"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:src="@drawable/ic_profile_avatar"
-                android:contentDescription="User Avatar"
+                android:layout_marginTop="24dp"
                 android:layout_marginEnd="16dp"
+                android:contentDescription="User Avatar"
+                android:src="@drawable/ic_profile_avatar"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/welcome_text" />
+                app:layout_constraintTop_toTopOf="parent" />
 
             <EditText
                 android:id="@+id/search_bar"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_marginStart="16dp"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="16dp"
                 android:layout_marginEnd="16dp"
                 android:background="@drawable/rounded_search_background"
                 android:drawableStart="@drawable/ic_search"
+                android:fontFamily="@font/dongle"
                 android:hint="@string/search_what_s_happening"
-                android:paddingStart="16dp"
 
+                android:paddingStart="16dp"
                 android:paddingEnd="12dp"
+                android:textSize="13sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintHorizontal_bias="0.0"
                 app:layout_constraintStart_toStartOf="parent"
@@ -64,11 +68,12 @@
             android:id="@+id/txtUrgentNeedsTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/urgent_needs"
-            android:textStyle="bold"
             android:layout_marginStart="16dp"
             android:layout_marginTop="40dp"
-            android:textSize="16sp" />
+            android:fontFamily="@font/dongle"
+            android:text="@string/urgent_needs"
+            android:textSize="26sp"
+            android:textStyle="bold" />
 
         <View
             android:id="@+id/separatorLine"
@@ -94,21 +99,27 @@
                 style="@style/UrgentNeedTagStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔴 Food" />
+                android:fontFamily="@font/dongle"
+                android:text="Food"
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/tag_relief_packs"
                 style="@style/UrgentNeedTagStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🔴 Relief Packs" />
+                android:fontFamily="@font/dongle"
+                android:text="Relief Packs"
+                android:textSize="20sp" />
 
             <TextView
                 android:id="@+id/tag_hygiene_kits"
                 style="@style/UrgentNeedTagStyle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🟠 Hygiene Kits" />
+                android:fontFamily="@font/dongle"
+                android:text="Hygiene Kits"
+                android:textSize="20sp" />
 
         </LinearLayout>
 

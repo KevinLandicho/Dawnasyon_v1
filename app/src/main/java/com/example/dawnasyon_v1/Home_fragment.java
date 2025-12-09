@@ -8,12 +8,10 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
-import com.example.dawnasyon_v1.R;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,7 +21,7 @@ public class Home_fragment extends BaseFragment {
     private ViewPager2 imageCarouselViewPager;
     private ImageCarouselAdapter carouselAdapter;
     private Handler sliderHandler = new Handler();
-    private final int SLIDE_INTERVAL_MS = 5000; // 5 seconds
+    private final int SLIDE_INTERVAL_MS = 3000; // 3 seconds
 
     // --- Announcement Fields ---
     private RecyclerView announcementRecyclerView;
@@ -52,7 +50,6 @@ public class Home_fragment extends BaseFragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
 
-        // Inflate the layout (R.layout.fragment_home is your main layout)
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
         // 1. Initialize Views
@@ -73,7 +70,6 @@ public class Home_fragment extends BaseFragment {
     // -------------------------------------------------------------------
 
     private void setupCarousel() {
-        // Prepare Data: List of your 5 images (must be in res/drawable)
         List<Integer> imageList = new ArrayList<>();
         imageList.add(R.drawable.una);
         imageList.add(R.drawable.pangalawa);
@@ -81,26 +77,39 @@ public class Home_fragment extends BaseFragment {
         imageList.add(R.drawable.pangapat);
         imageList.add(R.drawable.panglima);
 
-        // Setup the Carousel Adapter
         carouselAdapter = new ImageCarouselAdapter(imageList);
         imageCarouselViewPager.setAdapter(carouselAdapter);
     }
 
     // -------------------------------------------------------------------
-    // --- ANNOUNCEMENT LIST LOGIC ---
+    // --- ANNOUNCEMENT LIST LOGIC (UPDATED) ---
     // -------------------------------------------------------------------
 
     private void setupAnnouncementsList() {
-        // Set a Layout Manager (Vertical scroll is standard)
-        // Ensure you have R.id.announcement_recycler_view in your fragment_home.xml
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-
-        // Create Sample Announcement Data
         List<Announcement> sampleAnnouncements = createSampleAnnouncements();
 
-        // Setup the Announcement Adapter and attach it
-        announcementAdapter = new AnnouncementAdapter(sampleAnnouncements);
+        // [UPDATED] Initialize Adapter with the Click Listener
+        announcementAdapter = new AnnouncementAdapter(sampleAnnouncements, new AnnouncementAdapter.OnApplyClickListener() {
+            @Override
+            public void onApplyClick(Announcement announcement) {
+                // When the button inside the adapter is clicked, this runs:
+                showApplyDialog(announcement);
+            }
+        });
+
         announcementRecyclerView.setAdapter(announcementAdapter);
+    }
+
+    /**
+     * [NEW] Helper method to show the ApplyConfirmationDialogFragment
+     */
+    private void showApplyDialog(Announcement announcement) {
+        // Create the dialog instance
+        ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
+
+        // Show the dialog using the parent fragment manager
+        dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
 
     /**
@@ -108,28 +117,26 @@ public class Home_fragment extends BaseFragment {
      */
     private List<Announcement> createSampleAnnouncements() {
         List<Announcement> announcements = new ArrayList<>();
-
-        // Use R.drawable.ic_image_placeholder (must exist)
-        int placeholderImage = R.drawable.ic_image_placeholder;
+        int placeholderImage = R.drawable.ic_image_placeholder; // Ensure this exists
 
         announcements.add(new Announcement(
                 "Urgent Food Drive in Brgy. 143",
                 "Thursday, 11:30AM",
-                "We are calling for volunteers to help sort and pack relief goods for the communities affected by the recent flooding...",
+                "We are calling for volunteers to help sort and pack relief goods...",
                 placeholderImage
         ));
 
         announcements.add(new Announcement(
                 "Medicine Donations Needed",
                 "Friday, 2:00PM",
-                "The health center requires immediate donations of pain relievers, vitamins, and basic first aid supplies.",
+                "The health center requires immediate donations of pain relievers...",
                 placeholderImage
         ));
 
         announcements.add(new Announcement(
                 "Call for Hygiene Kit Volunteers",
                 "Saturday, 9:00AM",
-                "Assist in distributing hygiene kits door-to-door in vulnerable areas this weekend.",
+                "Assist in distributing hygiene kits door-to-door in vulnerable areas...",
                 placeholderImage
         ));
 
@@ -137,10 +144,9 @@ public class Home_fragment extends BaseFragment {
     }
 
     // -------------------------------------------------------------------
-    // --- LIFECYCLE MANAGEMENT FOR AUTO-SWIPE ---
+    // --- LIFECYCLE MANAGEMENT ---
     // -------------------------------------------------------------------
 
-    // Start the auto-slide mechanism when the fragment comes into view
     @Override
     public void onResume() {
         super.onResume();
@@ -149,14 +155,12 @@ public class Home_fragment extends BaseFragment {
         }
     }
 
-    // Stop the auto-slide when the user leaves the fragment
     @Override
     public void onPause() {
         super.onPause();
         sliderHandler.removeCallbacks(sliderRunnable);
     }
 
-    // Clean up to prevent memory leaks
     @Override
     public void onDestroy() {
         super.onDestroy();
