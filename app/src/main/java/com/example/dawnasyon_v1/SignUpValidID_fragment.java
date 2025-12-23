@@ -26,7 +26,10 @@ import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+// Add Face Detection Import (Optional - see note below)
+// import com.google.mlkit.vision.face.FaceDetection;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,27 +38,19 @@ public class SignUpValidID_fragment extends BaseFragment {
     private Button btnNationalId, btnQcId, btnBrgyId, btnPassport, btnLicense;
     private Button btnStartScan, btnPrevious;
 
-    // Logic Variables
     private String selectedIdType = null;
     private List<Button> allIdButtons;
 
-    // OCR Data Holders
     private Uri capturedImageUri = null;
-    private String extractFName = "";
-    private String extractLName = "";
-    private String extractMName = "";
+    private String extractFName = "", extractLName = "", extractMName = "";
 
-    // Launchers
     private ActivityResultLauncher<IntentSenderRequest> scannerLauncher;
     private ActivityResultLauncher<String> galleryLauncher;
 
-    public SignUpValidID_fragment() {
-        // Required empty public constructor
-    }
+    public SignUpValidID_fragment() {}
 
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_sign_up_valid_id, container, false);
     }
 
@@ -63,7 +58,7 @@ public class SignUpValidID_fragment extends BaseFragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. Init Camera Scanner
+        // 1. Camera Scanner
         scannerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartIntentSenderForResult(),
                 result -> {
@@ -72,20 +67,20 @@ public class SignUpValidID_fragment extends BaseFragment {
                             GmsDocumentScanningResult res = GmsDocumentScanningResult.fromActivityResultIntent(result.getData());
                             if (res != null && !res.getPages().isEmpty()) {
                                 capturedImageUri = res.getPages().get(0).getImageUri();
-                                runTextRecognition(capturedImageUri);
+                                verifyAndProcessImage(capturedImageUri); // CHANGED: Verify first!
                             }
                         } catch (Exception e) {}
                     }
                 }
         );
 
-        // 2. Init Gallery Picker
+        // 2. Gallery Picker
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
                         capturedImageUri = uri;
-                        runTextRecognition(capturedImageUri);
+                        verifyAndProcessImage(capturedImageUri); // CHANGED: Verify first!
                     }
                 }
         );
@@ -95,7 +90,6 @@ public class SignUpValidID_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Initialize Views
         btnNationalId = view.findViewById(R.id.btn_national_id);
         btnQcId = view.findViewById(R.id.btn_qc_id);
         btnBrgyId = view.findViewById(R.id.btn_brgy_id);
@@ -104,7 +98,6 @@ public class SignUpValidID_fragment extends BaseFragment {
         btnStartScan = view.findViewById(R.id.btn_start_scan);
         btnPrevious = view.findViewById(R.id.btn_previous);
 
-        // Add buttons to list
         allIdButtons = new ArrayList<>();
         allIdButtons.add(btnNationalId);
         allIdButtons.add(btnQcId);
@@ -112,14 +105,12 @@ public class SignUpValidID_fragment extends BaseFragment {
         allIdButtons.add(btnPassport);
         allIdButtons.add(btnLicense);
 
-        // Click Listeners for Selection
         btnNationalId.setOnClickListener(v -> handleIdSelection("NATIONAL_ID", btnNationalId));
         btnQcId.setOnClickListener(v -> handleIdSelection("QC_ID", btnQcId));
         btnBrgyId.setOnClickListener(v -> handleIdSelection("BRGY_ID", btnBrgyId));
         btnPassport.setOnClickListener(v -> handleIdSelection("PASSPORT", btnPassport));
         btnLicense.setOnClickListener(v -> handleIdSelection("LICENSE", btnLicense));
 
-        // Start Scan / Upload Logic
         btnStartScan.setOnClickListener(v -> {
             if (selectedIdType == null) {
                 Toast.makeText(getContext(), "Please select an ID type first.", Toast.LENGTH_SHORT).show();
@@ -131,20 +122,101 @@ public class SignUpValidID_fragment extends BaseFragment {
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 
-    // --- 1. UI HELPERS ---
+    // --- 🛡️ SECURE VERIFICATION LOGIC ---
+
+    private void verifyAndProcessImage(Uri uri) {
+        try {
+            InputImage image = InputImage.fromFilePath(requireContext(), uri);
+            TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+
+            btnStartScan.setText("Verifying Authenticity...");
+            btnStartScan.setEnabled(false);
+
+            recognizer.process(image)
+                    .addOnSuccessListener(visionText -> {
+                        // 1. RUN SECURITY CHECK
+                        if (isContentValid(visionText.getText(), selectedIdType)) {
+                            // 2. If valid, proceed to extraction
+                            processTextResult(visionText, selectedIdType);
+                            proceedToStep1();
+                        } else {
+                            // 3. If invalid, reject
+                            showInvalidIdDialog();
+                            btnStartScan.setText("Start Scan");
+                            btnStartScan.setEnabled(true);
+                            capturedImageUri = null; // Discard invalid image
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(getContext(), "Verification Failed. Try again.", Toast.LENGTH_SHORT).show();
+                        btnStartScan.setEnabled(true);
+                    });
+
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private boolean isContentValid(String rawText, String expectedType) {
+        String text = rawText.toUpperCase();
+
+        // GLOBAL CHECKS (Must have at least one of these to be a PH ID)
+        boolean hasGovKeywords = text.contains("REPUBLIC") || text.contains("PILIPINAS") ||
+                text.contains("PHILIPPINES") || text.contains("GOVERNMENT");
+
+        if (!hasGovKeywords && !expectedType.equals("QC_ID")) {
+            // QC ID sometimes has different headers, but generally all PH IDs have "Republic"
+            // If strictly missing 'Republic', we might reject immediately unless it's a very clear view.
+            return false;
+        }
+
+        // SPECIFIC CHECKS based on what button they clicked
+        switch (expectedType) {
+            case "NATIONAL_ID":
+                return text.contains("PHILSYS") || text.contains("PAMBANSANG") || text.contains("PCN");
+
+            case "QC_ID":
+                return text.contains("QCITIZEN") || text.contains("QUEZON CITY") || text.contains("MAYOR");
+
+            case "BRGY_ID":
+                return text.contains("BARANGAY") || text.contains("BRGY") || text.contains("OFFICE OF THE");
+
+            case "PASSPORT":
+                return text.contains("PASSPORT") || text.contains("PASAPORTE") || text.contains("P<PHL");
+
+            case "LICENSE":
+                return text.contains("DRIVER") && text.contains("LICENSE");
+
+            default:
+                return hasGovKeywords; // Fallback
+        }
+    }
+
+    private void showInvalidIdDialog() {
+        new AlertDialog.Builder(getContext())
+                .setTitle("Validation Failed")
+                .setMessage("The image you scanned does not appear to be a valid " + getReadableIdName() + ".\n\nPlease ensure the text is clear and readable.")
+                .setPositiveButton("Try Again", null)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
+    }
+
+    private String getReadableIdName() {
+        switch (selectedIdType) {
+            case "NATIONAL_ID": return "National ID";
+            case "QC_ID": return "Quezon City ID";
+            case "PASSPORT": return "Passport";
+            default: return "ID";
+        }
+    }
+
+    // --- STANDARD METHODS (Unchanged) ---
 
     private void handleIdSelection(String idType, Button selectedButton) {
         selectedIdType = idType;
-        // Reset all to gray
-        for (Button btn : allIdButtons) {
-            btn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E0E0E0")));
-        }
-        // Highlight selected (Peach/Orange)
+        for (Button btn : allIdButtons) btn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E0E0E0")));
         selectedButton.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FFDAB9")));
     }
 
     private void showScanOptionsDialog() {
-        // Since we only have one button, we show a dialog to choose source
         new AlertDialog.Builder(getContext())
                 .setTitle("Scan ID")
                 .setMessage("Choose an option:")
@@ -153,8 +225,6 @@ public class SignUpValidID_fragment extends BaseFragment {
                 .show();
     }
 
-    // --- 2. SCANNING LOGIC ---
-
     private void startCameraScan() {
         GmsDocumentScannerOptions options = new GmsDocumentScannerOptions.Builder()
                 .setGalleryImportAllowed(false)
@@ -162,83 +232,41 @@ public class SignUpValidID_fragment extends BaseFragment {
                 .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
                 .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
                 .build();
-
         GmsDocumentScanning.getClient(options).getStartScanIntent(requireActivity())
-                .addOnSuccessListener(intentSender ->
-                        scannerLauncher.launch(new IntentSenderRequest.Builder(intentSender).build())
-                );
-    }
-
-    private void runTextRecognition(Uri uri) {
-        try {
-            InputImage image = InputImage.fromFilePath(requireContext(), uri);
-            TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
-
-            btnStartScan.setText("Processing...");
-            btnStartScan.setEnabled(false);
-
-            recognizer.process(image)
-                    .addOnSuccessListener(visionText -> {
-                        // Pass the SELECTED ID TYPE to the parser
-                        processTextResult(visionText, selectedIdType);
-                        proceedToStep1();
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(getContext(), "Failed to read ID.", Toast.LENGTH_SHORT).show();
-                        proceedToStep1(); // Proceed anyway with just image
-                    });
-
-        } catch (Exception e) { e.printStackTrace(); }
+                .addOnSuccessListener(i -> scannerLauncher.launch(new IntentSenderRequest.Builder(i).build()));
     }
 
     private void proceedToStep1() {
         SignUpStep1Personal_fragment step1 = new SignUpStep1Personal_fragment();
         Bundle args = new Bundle();
-
         args.putString("FNAME", extractFName);
         args.putString("LNAME", extractLName);
         args.putString("MNAME", extractMName);
         if (capturedImageUri != null) args.putString("ID_IMAGE_URI", capturedImageUri.toString());
-
         step1.setArguments(args);
-
         getParentFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container_signup, step1)
                 .addToBackStack(null)
                 .commit();
     }
 
-    // --- 3. SMARTER PARSING LOGIC ---
-    // Now we use the 'type' the user clicked to pick the right parser immediately!
-
     private void processTextResult(Text text, String type) {
         String[] lines = text.getText().split("\n");
-
         switch (type) {
-            case "QC_ID":
-                parseQCID(lines);
-                break;
-            case "NATIONAL_ID":
-                parseNationalID(lines);
-                break;
-            case "BRGY_ID":
-                parseBarangayID(lines);
-                break;
-            case "PASSPORT":
-                parsePassport(lines);
-                break;
-            default:
-                parseGenericID(lines);
-                break;
+            case "QC_ID": parseQCID(lines); break;
+            case "NATIONAL_ID": parseNationalID(lines); break;
+            case "BRGY_ID": parseBarangayID(lines); break;
+            case "PASSPORT": parsePassport(lines); break;
+            default: parseGenericID(lines); break;
         }
     }
 
-    // --- 4. PARSERS (Same as before) ---
+    // ... [Include parseQCID, parseNationalID, parseBarangayID, parsePassport, cleanText helpers here] ...
+    // (These are the same as the previous response)
 
     private void parseQCID(String[] lines) {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim().toUpperCase();
-            // QC ID usually has "Last Name, First Name" label
             if (line.contains("LAST NAME") && line.contains("FIRST NAME")) {
                 if (i + 1 < lines.length) {
                     String val = lines[i + 1].trim();
@@ -271,8 +299,6 @@ public class SignUpValidID_fragment extends BaseFragment {
             String line = lines[i].trim().toUpperCase();
             if (line.contains("SURNAME") && i+1 < lines.length) extractLName = cleanText(lines[i+1]);
             if (line.contains("GIVEN NAME") && i+1 < lines.length) extractFName = cleanText(lines[i+1]);
-
-            // MRZ Backup
             if (line.contains("P<PHL")) {
                 try {
                     String raw = line.substring(line.indexOf("P<PHL")).replace("P<PHL", "");
@@ -291,7 +317,6 @@ public class SignUpValidID_fragment extends BaseFragment {
             String line = rawLine.trim();
             String upper = line.toUpperCase();
             if (upper.contains("REPUBLIC") || upper.contains("BARANGAY") || upper.contains("ADDRESS")) continue;
-
             if (upper.matches("[A-Z Ññ.-]{5,}") && !upper.matches(".*\\d.*")) {
                 String[] words = line.split("\\s+");
                 if (words.length > 1) {
