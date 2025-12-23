@@ -106,7 +106,7 @@ public class SignUpOTP_fragment extends BaseFragment {
 
                 // NAVIGATE TO VALID ID SCREEN
                 getParentFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container_signup, new SignUpValidID_fragment())
+                        .replace(R.id.fragment_container_signup, new SignUpVerificationPending_fragment())
                         .addToBackStack(null)
                         .commit();
             } else {

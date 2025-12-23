@@ -77,7 +77,7 @@ public class SignUpResident_fragment extends BaseFragment {
 
         if (selectedResidency.equals("Resident")) {
             // --- ACTION: Go to Step 1 (Personal Info) ---
-            nextFragment = new SignUpStep1Personal_fragment();
+            nextFragment = new SignUpValidID_fragment();
         } else {
             // Action for Non-Resident (You can implement this later)
             Toast.makeText(getContext(), "Non-Resident registration coming soon.", Toast.LENGTH_SHORT).show();

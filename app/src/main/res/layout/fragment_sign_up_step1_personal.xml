@@ -37,6 +37,7 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="160dp"
+        android:layout_marginBottom="0dp"
         app:cardCornerRadius="20dp"
         app:cardElevation="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -44,180 +45,252 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:padding="24dp">
+            android:fillViewport="true"
+            android:scrollbars="none">
 
-            <TextView
-                android:id="@+id/tv_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="30dp"
-                android:fontFamily="@font/dongle"
-                android:text="@string/create_account"
-                android:textColor="@color/black"
-                android:textSize="40sp"
-                android:textStyle="bold"
-                android:typeface="normal"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-            <View
-                android:id="@+id/divider"
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_marginTop="16dp"
-                android:background="#CCCCCC"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tv_title" />
-
-            <TextView
-                android:id="@+id/tv_subtitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:drawableStart="@drawable/ic_check"
-                android:drawablePadding="8dp"
-                android:fontFamily="@font/dongle_light"
-                android:text="@string/personal_information"
-                android:textColor="@color/black"
-                android:textSize="32sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/divider" />
-
-            <TextView
-                android:id="@+id/lbl_fullname"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:fontFamily="@font/dongle"
-                android:text="@string/full_name"
-                android:textColor="#444444"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tv_subtitle" />
-
-            <EditText
-                android:id="@+id/et_fullname"
-                android:layout_width="0dp"
-                android:layout_height="50dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_field"
-                android:drawableStart="@drawable/ic_person_placeholder"
-                android:drawablePadding="12dp"
-                android:fontFamily="@font/dongle"
-                android:hint="Ex. Juan M. Dela Cruz"
-                android:inputType="textPersonName"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:textSize="20sp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/lbl_fullname" />
-
-            <TextView
-                android:id="@+id/helper_fullname"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:fontFamily="@font/dongle"
-                android:text="@string/enter_your_full_name_as_shown_on_your_id"
-                android:textColor="#999999"
-                android:textSize="20sp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/et_fullname" />
-
-            <TextView
-                android:id="@+id/lbl_contact"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:fontFamily="@font/dongle"
-                android:text="@string/contact_number"
-                android:textColor="#444444"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/helper_fullname" />
-
-            <EditText
-                android:id="@+id/et_contact"
-                android:layout_width="0dp"
-                android:layout_height="50dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_input_field"
-                android:drawableStart="@drawable/ic_number_placeholder"
-                android:drawablePadding="12dp"
-                android:fontFamily="@font/dongle"
-                android:hint="Ex. 09129812572"
-                android:inputType="phone"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:textSize="20sp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/lbl_contact" />
-
-            <TextView
-                android:id="@+id/helper_contact"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:fontFamily="@font/dongle"
-                android:text="@string/_11_digit_mobile_number_for_verification"
-                android:textColor="#999999"
-                android:textSize="20sp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/et_contact" />
-
-            <ImageView
-                android:id="@+id/progress_dots"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:contentDescription="Step 1"
-                android:src="@drawable/progress1"
-                app:layout_constraintBottom_toTopOf="@+id/nav_container"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent" />
-
-            <LinearLayout
-                android:id="@+id/nav_container"
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="24dp"
-                android:gravity="center_horizontal"
-                android:orientation="horizontal"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent">
+                android:padding="24dp">
 
-                <Button
-                    android:id="@+id/btn_previous"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="130dp"
+                <TextView
+                    android:id="@+id/tv_title"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="16dp"
-                    android:backgroundTint="#27869B"
-                    android:text="@string/previous1"
-                    android:textColor="@color/white"
-                    app:cornerRadius="6dp" />
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="@string/create_account"
+                    android:textColor="@color/black"
+                    android:textSize="40sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent" />
 
-                <Button
-                    android:id="@+id/btn_next"
-                    android:layout_width="130dp"
+                <View
+                    android:id="@+id/divider"
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#CCCCCC"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tv_title" />
+
+                <TextView
+                    android:id="@+id/tv_subtitle"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:backgroundTint="#27859A"
-                    android:text="@string/next1"
-                    android:textColor="@color/white"
-                    app:cornerRadius="6dp" />
-            </LinearLayout>
+                    android:layout_marginTop="16dp"
+                    android:drawableStart="@drawable/ic_check"
+                    android:drawablePadding="8dp"
+                    android:fontFamily="@font/dongle_light"
+                    android:text="@string/personal_information"
+                    android:textColor="@color/black"
+                    android:textSize="32sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/divider" />
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/cv_id_preview"
+                    android:layout_width="200dp"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="8dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="4dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tv_subtitle">
+
+                    <ImageView
+                        android:id="@+id/iv_id_preview"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:scaleType="centerCrop"
+                        android:src="@drawable/background" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="ID Attached"
+                        android:textColor="@color/white"
+                        android:background="#99000000"
+                        android:padding="4dp"
+                        android:fontFamily="@font/dongle"
+                        android:textSize="18sp"
+                        android:layout_gravity="bottom|start"/>
+                </androidx.cardview.widget.CardView>
+
+                <TextView
+                    android:id="@+id/lbl_firstname"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="First Name"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/cv_id_preview" />
+
+                <EditText
+                    android:id="@+id/et_firstname"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:background="@drawable/bg_input_field"
+                    android:drawableStart="@drawable/ic_person_placeholder"
+                    android:drawablePadding="12dp"
+                    android:fontFamily="@font/dongle"
+                    android:hint="Ex. Juan"
+                    android:inputType="textPersonName"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_firstname" />
+
+                <TextView
+                    android:id="@+id/lbl_middlename"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="Middle Name"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/et_firstname" />
+
+                <EditText
+                    android:id="@+id/et_middlename"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:background="@drawable/bg_input_field"
+                    android:drawableStart="@drawable/ic_person_placeholder"
+                    android:drawablePadding="12dp"
+                    android:fontFamily="@font/dongle"
+                    android:hint="Ex. M."
+                    android:inputType="textPersonName"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_middlename" />
+
+                <CheckBox
+                    android:id="@+id/cb_no_middlename"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/dongle"
+                    android:text="I do not have a middle name"
+                    android:textSize="20sp"
+                    android:textColor="#555555"
+                    android:buttonTint="#27859A"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/et_middlename"/>
+
+                <TextView
+                    android:id="@+id/lbl_lastname"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="0dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="Last Name"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/cb_no_middlename" />
+
+                <EditText
+                    android:id="@+id/et_lastname"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:background="@drawable/bg_input_field"
+                    android:drawableStart="@drawable/ic_person_placeholder"
+                    android:drawablePadding="12dp"
+                    android:fontFamily="@font/dongle"
+                    android:hint="Ex. Dela Cruz"
+                    android:inputType="textPersonName"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_lastname" />
+
+                <TextView
+                    android:id="@+id/lbl_contact"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="@string/contact_number"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/et_lastname" />
+
+                <EditText
+                    android:id="@+id/et_contact"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:background="@drawable/bg_input_field"
+                    android:drawableStart="@drawable/ic_number_placeholder"
+                    android:drawablePadding="12dp"
+                    android:fontFamily="@font/dongle"
+                    android:hint="Ex. 09129812572"
+                    android:inputType="phone"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_contact" />
+
+                <LinearLayout
+                    android:id="@+id/nav_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:layout_marginBottom="32dp"
+                    android:gravity="center_horizontal"
+                    android:orientation="horizontal"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/et_contact">
+
+                    <Button
+                        android:id="@+id/btn_previous"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="130dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="16dp"
+                        android:backgroundTint="#27869B"
+                        android:text="@string/previous1"
+                        android:textColor="@color/white"
+                        app:cornerRadius="6dp" />
+
+                    <Button
+                        android:id="@+id/btn_next"
+                        android:layout_width="130dp"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#27859A"
+                        android:text="@string/next1"
+                        android:textColor="@color/white"
+                        app:cornerRadius="6dp" />
+                </LinearLayout>
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+        </ScrollView>
     </androidx.cardview.widget.CardView>
 </androidx.constraintlayout.widget.ConstraintLayout>

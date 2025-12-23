@@ -36,12 +36,21 @@ android {
 
 dependencies {
     implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    // Google ML Kit for Text Recognition (Offline version)
+    implementation ("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
+
+// CameraX (For easier camera handling)
+    implementation ("androidx.camera:camera-core:1.2.3")
+    implementation ("androidx.camera:camera-lifecycle:1.2.3")
+    implementation ("androidx.camera:camera-view:1.2.3")
+    implementation ("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
     implementation(libs.navigation.fragment)
     implementation(libs.navigation.ui)
+    implementation("androidx.security:security-crypto:1.0.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

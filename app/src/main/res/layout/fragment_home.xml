@@ -56,7 +56,7 @@
 
                 android:paddingStart="16dp"
                 android:paddingEnd="12dp"
-                android:textSize="13sp"
+                android:textSize="24sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintHorizontal_bias="0.0"
                 app:layout_constraintStart_toStartOf="parent"

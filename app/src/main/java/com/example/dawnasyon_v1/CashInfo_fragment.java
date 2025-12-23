@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -33,6 +34,9 @@ public class CashInfo_fragment extends BaseFragment {
 
     private String selectedPaymentMethod = null;
     private String selectedAmount = null;
+
+    private EditText etOtherAmount;
+    private Button btnConfirmOther;
 
     public CashInfo_fragment() {
         // Required empty public constructor
@@ -78,6 +82,23 @@ public class CashInfo_fragment extends BaseFragment {
             setupAmountGrid(amountGrid);
         }
 
+        // Initialize "Other" amount views
+        etOtherAmount = view.findViewById(R.id.et_other_amount);
+        btnConfirmOther = view.findViewById(R.id.btn_confirm_other);
+
+        // Logic for "Other" amount confirm button
+        btnConfirmOther.setOnClickListener(v -> {
+            String otherAmount = etOtherAmount.getText().toString().trim();
+            if (otherAmount.isEmpty()) {
+                Toast.makeText(getContext(), "Please enter an amount", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            // Format it nicely
+            String formattedAmount = "PHP " + otherAmount;
+            selectedAmount = formattedAmount;
+            showQrDialog(formattedAmount);
+        });
+
         Button btnBack = view.findViewById(R.id.btnBack);
         Button btnStep3 = view.findViewById(R.id.btnStep3);
 
@@ -90,8 +111,14 @@ public class CashInfo_fragment extends BaseFragment {
                 return;
             }
             if (selectedAmount == null) {
-                Toast.makeText(getContext(), "Please select an amount first.", Toast.LENGTH_SHORT).show();
-                return;
+                // If they typed in "Other" but didn't click Scan, check if the box has text
+                String otherAmount = etOtherAmount.getText().toString().trim();
+                if (!otherAmount.isEmpty()) {
+                    selectedAmount = "PHP " + otherAmount;
+                } else {
+                    Toast.makeText(getContext(), "Please select or enter an amount.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
             }
 
             getParentFragmentManager().beginTransaction()
@@ -133,8 +160,6 @@ public class CashInfo_fragment extends BaseFragment {
         btnGcash.setText("");
         btnGcash.setIconResource(R.drawable.gcash);
         btnGcash.setIconTint(null);
-
-        // ⭐ FIX: Force the background to be White/Gray initially ⭐
         btnGcash.setBackgroundTintList(null);
         btnGcash.setBackgroundResource(R.drawable.bg_option_unselected);
 
@@ -142,8 +167,6 @@ public class CashInfo_fragment extends BaseFragment {
         btnMaya.setText("");
         btnMaya.setIconResource(R.drawable.maya);
         btnMaya.setIconTint(null);
-
-        // ⭐ FIX: Force the background to be White/Gray initially ⭐
         btnMaya.setBackgroundTintList(null);
         btnMaya.setBackgroundResource(R.drawable.bg_option_unselected);
 
@@ -160,13 +183,10 @@ public class CashInfo_fragment extends BaseFragment {
             Toast.makeText(getContext(), "Maya Selected", Toast.LENGTH_SHORT).show();
         });
     }
-    // Helper to toggle the Orange/Gray background
+
     private void updateButtonVisuals(MaterialButton selected, MaterialButton other) {
-        // 1. Selected = Orange Background (Clear tint first)
         selected.setBackgroundTintList(null);
         selected.setBackgroundResource(R.drawable.bg_option_selected);
-
-        // 2. Other = Gray Background (Clear tint first)
         other.setBackgroundTintList(null);
         other.setBackgroundResource(R.drawable.bg_option_unselected);
     }
@@ -177,8 +197,11 @@ public class CashInfo_fragment extends BaseFragment {
             if (child instanceof Button) {
                 Button btnAmount = (Button) child;
                 btnAmount.setOnClickListener(v -> {
+                    // Clear the "Other" input if they select a preset
+                    if (etOtherAmount != null) etOtherAmount.setText("");
+
                     String amountText = btnAmount.getText().toString();
-                    selectedAmount = amountText; // Save selection
+                    selectedAmount = amountText;
                     showQrDialog(amountText);
                 });
             }
@@ -217,7 +240,14 @@ public class CashInfo_fragment extends BaseFragment {
     }
 
     private int getQrDrawableId(String paymentMethod, String amountText) {
-        // Replace with your actual QR images (e.g., R.drawable.qr_gcash_100)
-        return R.drawable.qr_gcash_50;
+        // Simple logic to return the QR code.
+        // Since it's dynamic, you can just return one default QR code for now
+        // or add logic to check ranges if you have multiple images.
+
+        if (paymentMethod.equals("GCash")) {
+            return R.drawable.qr_gcash_50; // Replace with a generic GCash QR if you have one
+        } else {
+            return R.drawable.qr_gcash_50; // Replace with a generic Maya QR
+        }
     }
 }

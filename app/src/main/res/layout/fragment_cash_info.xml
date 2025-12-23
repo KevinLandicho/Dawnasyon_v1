@@ -243,6 +243,49 @@
                 </GridLayout>
 
                 <LinearLayout
+                    android:id="@+id/layout_other_amount"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="16dp"
+                    android:background="@drawable/bg_option_unselected"
+                    android:padding="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Other:"
+                        android:fontFamily="@font/dongle"
+                        android:textSize="24sp"
+                        android:textColor="@color/black"
+                        android:layout_marginEnd="8dp"/>
+
+                    <EditText
+                        android:id="@+id/et_other_amount"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="Enter amount"
+                        android:inputType="numberDecimal"
+                        android:fontFamily="@font/dongle"
+                        android:textSize="24sp"
+                        android:background="@android:color/transparent"/>
+
+                    <Button
+                        android:id="@+id/btn_confirm_other"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Scan"
+                        android:fontFamily="@font/dongle"
+                        android:textSize="20sp"
+                        android:backgroundTint="#27869B"
+                        android:textColor="@color/white"
+                        app:cornerRadius="8dp"/>
+
+                </LinearLayout>
+
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
