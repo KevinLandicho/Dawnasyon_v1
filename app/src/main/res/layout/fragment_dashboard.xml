@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-
     tools:context=".Dashboard_fragment">
 
     <TextView
@@ -27,10 +27,10 @@
         android:layout_height="32dp"
         android:layout_marginEnd="24dp"
         android:src="@drawable/ic_filter"
+        android:contentDescription="Filter"
         app:layout_constraintBottom_toBottomOf="@id/tv_dashboard_title"
         app:layout_constraintTop_toTopOf="@id/tv_dashboard_title"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:contentDescription="Filter" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <View
         android:id="@+id/header_divider"
@@ -57,6 +57,170 @@
             android:orientation="vertical"
             android:paddingStart="24dp"
             android:paddingEnd="24dp">
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/white">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="💡 AI Analytics &amp; Predictions"
+                        android:fontFamily="@font/dongle"
+                        android:textStyle="bold"
+                        android:textSize="24sp"
+                        android:textColor="#F5901A"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Relief Coverage Ratio"
+                        android:textStyle="bold"
+                        android:textColor="#444"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="4dp">
+
+                        <ProgressBar
+                            android:id="@+id/progress_coverage"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="12dp"
+                            android:layout_weight="1"
+                            android:progress="65"
+                            android:progressTint="#F5901A"/>
+
+                        <TextView
+                            android:id="@+id/txt_coverage_percent"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="65%"
+                            android:layout_marginStart="8dp"
+                            android:textStyle="bold"
+                            android:textColor="#333"/>
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/txt_coverage_insight"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="⚠️ Deficit: 35 families still need aid."
+                        android:textColor="#D32F2F"
+                        android:textSize="14sp"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="12dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Stock Depletion Forecast"
+                        android:textStyle="bold"
+                        android:textColor="#444"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="#FFF3E0"
+                        android:padding="10dp"
+                        android:layout_marginTop="6dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@android:drawable/ic_dialog_alert"
+                            app:tint="#F5901A"
+                            android:contentDescription="@null"/>
+
+                        <TextView
+                            android:id="@+id/txt_prediction"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Based on current speed, stocks will run out in 4 days."
+                            android:textColor="#E65100"
+                            android:textSize="13sp"
+                            android:textStyle="italic"/>
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#E0E0E0"
+                        android:layout_marginTop="16dp"
+                        android:layout_marginBottom="16dp"/>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Real-time Risk Index"
+                        android:textStyle="bold"
+                        android:textColor="#444"/>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginTop="8dp">
+
+                        <TextView
+                            android:id="@+id/txt_risk_badge"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="HIGH RISK"
+                            android:background="#FFEBEE"
+                            android:textColor="#D32F2F"
+                            android:paddingStart="12dp"
+                            android:paddingEnd="12dp"
+                            android:paddingTop="4dp"
+                            android:paddingBottom="4dp"
+                            android:textStyle="bold"
+                            android:textSize="14sp"/>
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:layout_marginStart="12dp">
+
+                            <TextView
+                                android:id="@+id/txt_affected_families"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="275 / 500 Families Affected"
+                                android:textSize="14sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/black"/>
+
+                            <TextView
+                                android:id="@+id/txt_risk_desc"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Majority of population in danger zone."
+                                android:textSize="12sp"
+                                android:textColor="#666"/>
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
 
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
