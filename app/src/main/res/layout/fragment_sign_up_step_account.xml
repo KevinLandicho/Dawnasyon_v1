@@ -92,58 +92,17 @@
                     app:layout_constraintTop_toBottomOf="@id/divider" />
 
                 <TextView
-                    android:id="@+id/lbl_email"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/dongle"
-                    android:text="@string/email_address"
-                    android:textColor="#444444"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tv_subtitle" />
-
-                <EditText
-                    android:id="@+id/et_email"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_email_placeholder"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="Ex. juan@gmail.com"
-                    android:inputType="textEmailAddress"
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_email" />
-
-                <TextView
-                    android:id="@+id/helper_email"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:fontFamily="@font/dongle"
-                    android:text="@string/we_ll_send_updates_to_this_email"
-                    android:textColor="#999999"
-                    android:textSize="14sp"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_email" />
-
-                <TextView
                     android:id="@+id/lbl_pass"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="24dp"
                     android:fontFamily="@font/dongle"
                     android:text="@string/create_password"
                     android:textColor="#444444"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/helper_email" />
+                    app:layout_constraintTop_toBottomOf="@+id/tv_subtitle" />
 
                 <EditText
                     android:id="@+id/et_pass"

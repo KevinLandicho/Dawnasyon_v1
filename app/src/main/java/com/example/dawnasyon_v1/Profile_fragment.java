@@ -20,6 +20,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.material.button.MaterialButton;
+
 public class Profile_fragment extends BaseFragment {
 
     public Profile_fragment() {
@@ -43,12 +45,12 @@ public class Profile_fragment extends BaseFragment {
         LinearLayout menuDelete = view.findViewById(R.id.menu_delete);
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
-        // ⭐ Check if you added the Language button in XML
-
-
         // Find the top buttons
         Button btnEditProfile = view.findViewById(R.id.btn_edit_profile);
         Button btnViewQR = view.findViewById(R.id.btn_view_qr);
+
+        // Find the Pin Location Button
+        MaterialButton btnPinLocation = view.findViewById(R.id.btn_pin_location);
 
         // --- 2. Fix: Find and set the user detail text views ---
         TextView detailName = view.findViewById(R.id.detail_name);
@@ -69,53 +71,49 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuDelete, R.drawable.ic_delete, "Delete account");
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
 
-        // Initialize Language Button if it exists
-
-
         // --- 4. Attach Click Listeners ---
 
-        // Edit Profile
         btnEditProfile.setOnClickListener(v -> navigateToFragment(new EditProfile_fragment()));
 
-        // View QR
         btnViewQR.setOnClickListener(v -> {
             int userQrCode = R.drawable.ic_qrsample;
             Fragment qrFragment = DisplayQR_fragment.newInstance(userQrCode);
             navigateToFragment(qrFragment);
         });
 
-        // Menus
+        // ⭐ PIN LOCATION LISTENER ⭐
+        if (btnPinLocation != null) {
+            btnPinLocation.setOnClickListener(v -> {
+                String addressToPin = "Barangay Hall"; // Default
+
+                // Get the actual text from the field
+                if (detailAddress != null && detailAddress.getText() != null) {
+                    addressToPin = detailAddress.getText().toString();
+                }
+
+                // Pass it to the Live Map
+                Fragment mapFragment = LiveMap_fragment.newInstance(addressToPin);
+                navigateToFragment(mapFragment);
+
+                Toast.makeText(getContext(), "Locating: " + addressToPin, Toast.LENGTH_SHORT).show();
+            });
+        }
+
         menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
         menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
         menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
-
-        // ⭐ LOGOUT LISTENER (Shows Confirmation Dialog) ⭐
         menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
-
-        // ⭐ LANGUAGE LISTENER (Toggles Language) ⭐
-
-
     }
 
-    /**
-     * Shows the "Are you sure you want to log out?" dialog.
-     */
     private void showLogoutConfirmationDialog() {
         if (getContext() == null) return;
-
-        // Inflate the custom dialog layout (reusing the one we made earlier)
-        // If you don't have dialog_logout_confirmation.xml, use a standard AlertDialog below
         try {
             View dialogView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_logout_confirmation, null);
-
             AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
             builder.setView(dialogView);
             AlertDialog dialog = builder.create();
-
-            if (dialog.getWindow() != null) {
-                dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            }
+            if (dialog.getWindow() != null) dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
             Button btnCancel = dialogView.findViewById(R.id.btn_dialog_cancel);
             Button btnConfirm = dialogView.findViewById(R.id.btn_dialog_logout);
@@ -123,12 +121,10 @@ public class Profile_fragment extends BaseFragment {
             btnCancel.setOnClickListener(v -> dialog.dismiss());
             btnConfirm.setOnClickListener(v -> {
                 dialog.dismiss();
-                performLogout(); // Call the actual logout logic
+                performLogout();
             });
-
             dialog.show();
         } catch (Exception e) {
-            // Fallback if custom layout is missing
             new AlertDialog.Builder(getContext())
                     .setTitle("Log Out")
                     .setMessage("Are you sure you want to log out?")
@@ -138,39 +134,26 @@ public class Profile_fragment extends BaseFragment {
         }
     }
 
-    /**
-     * CLEARS SESSION AND GOES TO LOGIN
-     */
     private void performLogout() {
         if (getActivity() == null) return;
-
-        // 1. Clear SharedPreferences "UserSession"
         SharedPreferences sharedPreferences = getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.clear(); // Wipes the "isLoggedIn" flag
+        editor.clear();
         editor.apply();
-
         Toast.makeText(getContext(), "Logged out successfully.", Toast.LENGTH_SHORT).show();
-
-        // 2. Navigate back to LoginActivity
         Intent intent = new Intent(getActivity(), LoginActivity.class);
-        // Clear the back stack so user can't press "Back" to return to Profile
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
     }
 
     private void setupMenuItem(View includedView, int iconResId, String title) {
+        if (includedView == null) return;
         ImageView iconView = includedView.findViewById(R.id.menu_icon);
         TextView titleView = includedView.findViewById(R.id.menu_title);
-
-        if (iconView != null) {
-            iconView.setImageResource(iconResId);
-        }
+        if (iconView != null) iconView.setImageResource(iconResId);
         if (titleView != null) {
             titleView.setText(title);
-            if (title.equals("Delete account")) {
-                titleView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-            }
+            if (title.equals("Delete account")) titleView.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         }
     }
 

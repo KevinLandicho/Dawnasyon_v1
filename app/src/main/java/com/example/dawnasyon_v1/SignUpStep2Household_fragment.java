@@ -14,7 +14,6 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class SignUpStep2Household_fragment extends BaseFragment {
 
@@ -53,6 +52,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
         // Navigation
         btnNext.setOnClickListener(v -> {
+            // TODO: Here you would loop through membersContainer to save the Names/Relations
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container_signup, new SignUpStep3Location_fragment())
                     .addToBackStack(null)
@@ -62,9 +62,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 
-    /**
-     * dynamically adds or removes rows based on the input number.
-     */
     private void updateMemberRows(String input) {
         int count = 0;
         try {
@@ -75,29 +72,21 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             count = 0;
         }
 
-        // Limit the number to prevent app crashing/lag (optional safety)
-        if (count > 20) count = 20;
+        if (count > 15) count = 15; // Cap at 15 for performance
 
         int currentChildCount = membersContainer.getChildCount();
 
-        // If we need MORE rows
         if (count > currentChildCount) {
             for (int i = currentChildCount; i < count; i++) {
                 addMemberRow(i + 1);
             }
-        }
-        // If we need FEWER rows
-        else if (count < currentChildCount) {
-            // Remove from the bottom up to preserve top data
+        } else if (count < currentChildCount) {
             for (int i = currentChildCount - 1; i >= count; i--) {
                 membersContainer.removeViewAt(i);
             }
         }
     }
 
-    /**
-     * Inflates a single row layout and adds it to the container.
-     */
     private void addMemberRow(int index) {
         View row = LayoutInflater.from(getContext()).inflate(R.layout.item_household_member, membersContainer, false);
 
@@ -105,13 +94,27 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         TextView tvNumber = row.findViewById(R.id.tv_row_number);
         tvNumber.setText(index + ".");
 
-        // 2. Setup Spinner
+        // 2. Setup GENDER Spinner
         Spinner spGender = row.findViewById(R.id.sp_gender);
-        String[] genders = {"Gender", "Male", "Female", "Other"};
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, genders);
-        spGender.setAdapter(adapter);
+        String[] genders = {"Male", "Female", "Other"};
+        ArrayAdapter<String> genderAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, genders);
+        spGender.setAdapter(genderAdapter);
 
-        // 3. Setup Age Buttons
+        // 3. Setup RELATION Spinner (New Feature for Family Tree)
+        Spinner spRelation = row.findViewById(R.id.sp_relation);
+        String[] relations = {"Head", "Spouse", "Son", "Daughter", "Parent", "Relative"};
+        ArrayAdapter<String> relationAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, relations);
+        spRelation.setAdapter(relationAdapter);
+
+        // Smart Defaulting: If it's Row 1, default to "Head". Else default to "Son" (or index 2)
+        if (index == 1) {
+            spRelation.setSelection(0); // Head
+            spRelation.setEnabled(false); // Lock the head role? Optional.
+        } else {
+            spRelation.setSelection(2); // Default to Son/Daughter
+        }
+
+        // 4. Setup Age Buttons
         EditText etAge = row.findViewById(R.id.et_age);
         View btnUp = row.findViewById(R.id.btn_age_up);
         View btnDown = row.findViewById(R.id.btn_age_down);

@@ -16,12 +16,11 @@ import android.widget.EditText;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class SignUpStepAccount_fragment extends BaseFragment {
 
-    // Flag to track if terms were actually opened
     private boolean isTermsOpened = false;
+    private Button btnSubmit;
 
     public SignUpStepAccount_fragment() {
         // Required empty public constructor
@@ -37,8 +36,9 @@ public class SignUpStepAccount_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Bind Views
         CheckBox cbTerms = view.findViewById(R.id.cb_terms);
-        Button btnSubmit = view.findViewById(R.id.btn_submit); // Ensure XML ID matches this
+        btnSubmit = view.findViewById(R.id.btn_submit);
         Button btnPrevious = view.findViewById(R.id.btn_previous);
 
         EditText etPassword = view.findViewById(R.id.et_pass);
@@ -47,28 +47,26 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         // --- 1. SETUP CLICKABLE LINK ---
         setupClickableTerms(cbTerms);
 
-        // Optional: Prevent manual checking if they haven't clicked the link
         cbTerms.setOnClickListener(v -> {
             if (!isTermsOpened && cbTerms.isChecked()) {
-                cbTerms.setChecked(false); // Revert check
-                Toast.makeText(getContext(), "Please click 'Terms and Conditions' to read them first.", Toast.LENGTH_SHORT).show();
+                cbTerms.setChecked(false);
+                Toast.makeText(getContext(), "Please read the Terms and Conditions first.", Toast.LENGTH_SHORT).show();
             }
         });
 
         // --- 2. SUBMIT LOGIC ---
         btnSubmit.setOnClickListener(v -> {
-            // Check 1: Terms Validation
+            // A. Validation
             if (!cbTerms.isChecked()) {
-                Toast.makeText(getContext(), "Please Read the Terms and Conditions first.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Please agree to the Terms and Conditions.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check 2: Passwords Validation
             String p1 = etPassword.getText().toString();
             String p2 = etConfirm.getText().toString();
 
-            if (p1.isEmpty() || p1.length() < 8) {
-                Toast.makeText(getContext(), "Password must be at least 8 characters", Toast.LENGTH_SHORT).show();
+            if (p1.isEmpty() || p1.length() < 6) {
+                Toast.makeText(getContext(), "Password must be at least 6 characters", Toast.LENGTH_SHORT).show();
                 return;
             }
             if (!p1.equals(p2)) {
@@ -76,18 +74,55 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                 return;
             }
 
-            // TODO: SAVE DATA TO DATABASE (Temporarily)
+            // ⭐ CRITICAL: Save Password to Cache
+            RegistrationCache.tempPassword = p1;
 
-            Toast.makeText(getContext(), "Details saved. Proceeding to OTP...", Toast.LENGTH_SHORT).show();
+            // ⭐ CRITICAL: Check if we have the email from Step 1
+            if (RegistrationCache.tempEmail.isEmpty()) {
+                Toast.makeText(getContext(), "Error: Email missing from Step 1. Please restart.", Toast.LENGTH_LONG).show();
+                return;
+            }
 
-            // ⭐ NAVIGATE TO OTP FRAGMENT ⭐
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container_signup, new SignUpOTP_fragment())
-                    .addToBackStack(null)
-                    .commit();
+            // B. Disable Button & Show Loading
+            btnSubmit.setEnabled(false);
+            btnSubmit.setText("Creating Account...");
+
+            // C. ⭐ EXECUTE SUPABASE REGISTRATION ⭐
+            // We pass 'requireContext()' so the helper can read the ID image
+            SupabaseRegistrationHelper.registerCompleteUser(requireContext(), new SupabaseRegistrationHelper.RegistrationCallback() {
+                @Override
+                public void onSuccess() {
+                    Toast.makeText(getContext(), "Account Created Successfully!", Toast.LENGTH_SHORT).show();
+
+                    // Clear Cache for security
+                    RegistrationCache.clear();
+                    FamilyDataRepository.clearData();
+
+                    // Navigate to OTP or Login
+                    if (isAdded() && getParentFragmentManager() != null) {
+                        getParentFragmentManager().beginTransaction()
+                                .replace(R.id.fragment_container_signup, new SignUpOTP_fragment())
+                                .commit();
+                    }
+                }
+
+                @Override
+                public void onError(String message) {
+                    // Re-enable button on failure
+                    if (getContext() != null) {
+                        btnSubmit.setEnabled(true);
+                        btnSubmit.setText("Submit");
+                        Toast.makeText(getContext(), "Registration Failed: " + message, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
         });
 
-        btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        btnPrevious.setOnClickListener(v -> {
+            if (getParentFragmentManager() != null) {
+                getParentFragmentManager().popBackStack();
+            }
+        });
     }
 
     private void setupClickableTerms(CheckBox checkBox) {
@@ -103,15 +138,12 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             public void onClick(@NonNull View widget) {
                 widget.cancelPendingInputEvents();
 
-                // Open Terms Fragment
                 if (getActivity() != null) {
                     getActivity().getSupportFragmentManager().beginTransaction()
                             .add(R.id.fragment_container_signup, new TermsAndConditions_fragment())
                             .addToBackStack(null)
                             .commit();
                 }
-
-                // Mark terms as opened and auto-check the box
                 isTermsOpened = true;
                 checkBox.setChecked(true);
             }
@@ -120,12 +152,11 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             public void updateDrawState(@NonNull TextPaint ds) {
                 super.updateDrawState(ds);
                 ds.setUnderlineText(false);
-                ds.setColor(Color.parseColor("#F5901A")); // Orange Color
+                ds.setColor(Color.parseColor("#F5901A"));
             }
         };
 
         spannableString.setSpan(clickableSpan, startIndex, endIndex, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-
         checkBox.setText(spannableString);
         checkBox.setMovementMethod(LinkMovementMethod.getInstance());
         checkBox.setHighlightColor(Color.TRANSPARENT);

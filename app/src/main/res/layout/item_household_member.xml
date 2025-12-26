@@ -1,79 +1,137 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:layout_marginBottom="8dp">
-
-    <TextView
-        android:id="@+id/tv_row_number"
-        android:layout_width="24dp"
-        android:layout_height="wrap_content"
-        android:fontFamily="@font/dongle"
-        android:text="1."
-        android:textColor="@color/black"
-        android:textSize="24sp"
-        android:textStyle="bold" />
-
-    <Spinner
-        android:id="@+id/sp_gender"
-        android:layout_width="0dp"
-        android:layout_height="50dp"
-        android:layout_weight="1.2"
-        android:background="@drawable/bg_input_field"
-        android:layout_marginEnd="8dp"/>
+    android:orientation="vertical"
+    android:background="@drawable/bg_input_field"
+    android:padding="12dp"
+    android:layout_marginBottom="12dp">
 
     <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="50dp"
-        android:layout_weight="0.8"
-        android:background="@drawable/bg_input_field"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingEnd="4dp">
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tv_row_number"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="1."
+            android:fontFamily="@font/dongle"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#F5901A"
+            android:layout_marginEnd="8dp"/>
 
         <EditText
-            android:id="@+id/et_age"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
+            android:id="@+id/et_name"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
             android:background="@null"
+            android:hint="Full Name (First M. Last)"
             android:fontFamily="@font/dongle"
-            android:gravity="center"
-            android:hint="@string/age"
-            android:imeOptions="actionNext"
-            android:inputType="number"
-            android:maxLength="3"
-            android:textSize="20sp" />
+            android:textSize="20sp"
+            android:inputType="textPersonName"/>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEE"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:baselineAligned="false">
 
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.2"
             android:orientation="vertical"
-            android:gravity="center">
-
-            <ImageView
-                android:id="@+id/btn_age_up"
-                android:layout_width="24dp"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:src="@drawable/ic_arrow_drop_up"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:scaleType="center"/>
-
-            <ImageView
-                android:id="@+id/btn_age_down"
-                android:layout_width="24dp"
-                android:layout_height="0dp"
-                android:layout_weight="1"
-                android:src="@drawable/ic_arrow_drop_down"
-                android:clickable="true"
-                android:focusable="true"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:scaleType="center"/>
+            android:layout_marginEnd="4dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Relation"
+                android:textSize="12sp"
+                android:textColor="#888"/>
+            <Spinner
+                android:id="@+id/sp_relation"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:background="@null"/>
         </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginEnd="4dp">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Gender"
+                android:textSize="12sp"
+                android:textColor="#888"/>
+            <Spinner
+                android:id="@+id/sp_gender"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:background="@null"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="0.8"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Age"
+                android:textSize="12sp"
+                android:textColor="#888"/>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/btn_age_down"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_drop_down"
+                    app:tint="#F5901A"/>
+
+                <EditText
+                    android:id="@+id/et_age"
+                    android:layout_width="30dp"
+                    android:layout_height="wrap_content"
+                    android:background="@null"
+                    android:text="18"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:textSize="18sp"
+                    android:fontFamily="@font/dongle"/>
+
+                <ImageView
+                    android:id="@+id/btn_age_up"
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_arrow_drop_up"
+                    app:tint="#F5901A"/>
+            </LinearLayout>
+        </LinearLayout>
+
     </LinearLayout>
 </LinearLayout>

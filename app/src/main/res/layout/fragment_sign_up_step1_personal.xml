@@ -256,6 +256,36 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/lbl_contact" />
 
+                <TextView
+                    android:id="@+id/lbl_email"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="Email Address"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/et_contact" />
+
+                <EditText
+                    android:id="@+id/et_email"
+                    android:layout_width="0dp"
+                    android:layout_height="45dp"
+                    android:background="@drawable/bg_input_field"
+                    android:drawableStart="@drawable/ic_person_placeholder"
+                    android:drawablePadding="12dp"
+                    android:fontFamily="@font/dongle"
+                    android:hint="Ex. email@gmail.com"
+                    android:inputType="textEmailAddress"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="16dp"
+                    android:textSize="20sp"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_email" />
+
                 <LinearLayout
                     android:id="@+id/nav_container"
                     android:layout_width="match_parent"
@@ -267,7 +297,7 @@
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_contact">
+                    app:layout_constraintTop_toBottomOf="@id/et_email">
 
                     <Button
                         android:id="@+id/btn_previous"

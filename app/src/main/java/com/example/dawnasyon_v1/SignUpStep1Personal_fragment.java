@@ -13,11 +13,11 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
 
 public class SignUpStep1Personal_fragment extends BaseFragment {
 
-    private EditText etFirstName, etMiddleName, etLastName, etContact;
+    // ⭐ ADDED: etEmail
+    private EditText etFirstName, etMiddleName, etLastName, etContact, etEmail;
     private CheckBox cbNoMiddleName;
     private Button btnNext, btnPrevious;
     private ImageView ivIdPreview;
@@ -37,16 +37,17 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         etMiddleName = view.findViewById(R.id.et_middlename);
         etLastName = view.findViewById(R.id.et_lastname);
         etContact = view.findViewById(R.id.et_contact);
-        cbNoMiddleName = view.findViewById(R.id.cb_no_middlename);
 
+        // ⭐ BIND EMAIL VIEW (Make sure you added this ID to your XML!)
+        etEmail = view.findViewById(R.id.et_email);
+
+        cbNoMiddleName = view.findViewById(R.id.cb_no_middlename);
         btnNext = view.findViewById(R.id.btn_next);
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
 
-        // --- RECEIVE DATA FROM STEP 0 ---
+        // --- RECEIVE DATA FROM STEP 0 (If available) ---
         if (getArguments() != null) {
-
-            // 1. Text Auto-Fill
             String fName = getArguments().getString("FNAME", "");
             String lName = getArguments().getString("LNAME", "");
             String mName = getArguments().getString("MNAME", "");
@@ -59,8 +60,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 cbNoMiddleName.setChecked(false);
             }
 
-            // 2. Image Preview
-            // Since Step 0 is mandatory, we assume this is always present.
             String uriString = getArguments().getString("ID_IMAGE_URI", "");
             if (!uriString.isEmpty()) {
                 finalIdUri = Uri.parse(uriString);
@@ -81,19 +80,48 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         });
 
+        // ⭐ UPDATED NEXT BUTTON LISTENER ⭐
+        // ⭐ UPDATED NEXT BUTTON LISTENER ⭐
         btnNext.setOnClickListener(v -> {
-            if (etFirstName.getText().toString().isEmpty() || etLastName.getText().toString().isEmpty()) {
-                Toast.makeText(getContext(), "Please fill in all required fields", Toast.LENGTH_SHORT).show();
+            String fName = etFirstName.getText().toString().trim();
+            String lName = etLastName.getText().toString().trim();
+            String mName = etMiddleName.getText().toString().trim();
+            String contact = etContact.getText().toString().trim();
+            String email = etEmail.getText().toString().trim();
+
+            // 1. Validate Required Fields
+            if (fName.isEmpty() || lName.isEmpty() || contact.isEmpty() || email.isEmpty()) {
+                Toast.makeText(getContext(), "Please fill in all required fields (Name, Contact, Email)", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Proceed to Step 2
+            // 2. Construct Full Name
+            String fullName;
+            if (cbNoMiddleName.isChecked() || mName.isEmpty()) {
+                fullName = fName + " " + lName;
+            } else {
+                fullName = fName + " " + mName + " " + lName;
+            }
+
+            // 3. Save to Cache (Crucial for Step 4 and Supabase)
+            RegistrationCache.tempFullName = fullName;
+            RegistrationCache.tempContact = contact;
+            RegistrationCache.tempEmail = email;
+
+            // ⭐ FIX: SAVE THE ID IMAGE URI TO CACHE HERE
+            if (finalIdUri != null) {
+                RegistrationCache.tempIdImageUri = finalIdUri.toString();
+            } else {
+                // Optional: Warn the user if image is missing
+                // Toast.makeText(getContext(), "Valid ID image is missing!", Toast.LENGTH_SHORT).show();
+            }
+
+            // 4. Proceed to Step 2 (Household)
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container_signup, new SignUpStep2Household_fragment())
                     .addToBackStack(null)
                     .commit();
         });
-
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 }
