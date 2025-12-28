@@ -41,6 +41,7 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+        freeCompilerArgs += "-Xjvm-default=all"
     }
 }
 
@@ -74,7 +75,9 @@ dependencies {
     implementation(libs.navigation.fragment)
     implementation(libs.navigation.ui)
     implementation("androidx.security:security-crypto:1.0.0")
-
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    // If you use annotation processing, add this too:
+    annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     implementation("androidx.core:core-ktx:1.13.1")
 
     // Testing

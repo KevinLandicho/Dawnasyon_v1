@@ -2,9 +2,12 @@ package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,6 +19,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Home_fragment extends BaseFragment {
+
+    // --- User Profile Fields ---
+    private TextView welcomeText;
 
     // --- Carousel Fields ---
     private ViewPager2 imageCarouselViewPager;
@@ -34,8 +40,10 @@ public class Home_fragment extends BaseFragment {
             if (imageCarouselViewPager != null && carouselAdapter != null) {
                 int currentItem = imageCarouselViewPager.getCurrentItem();
                 int totalItems = carouselAdapter.getItemCount();
-                int nextItem = (currentItem + 1) % totalItems;
-                imageCarouselViewPager.setCurrentItem(nextItem, true);
+                if (totalItems > 0) {
+                    int nextItem = (currentItem + 1) % totalItems;
+                    imageCarouselViewPager.setCurrentItem(nextItem, true);
+                }
             }
             sliderHandler.postDelayed(this, SLIDE_INTERVAL_MS);
         }
@@ -53,16 +61,35 @@ public class Home_fragment extends BaseFragment {
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
         // 1. Initialize Views
+        welcomeText = view.findViewById(R.id.welcome_text);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
 
-        // 2. Setup Carousel
+        // 2. Fetch User Data from Supabase
+        loadUserProfile();
+
+        // 3. Setup Carousel
         setupCarousel();
 
-        // 3. Setup Announcements List
+        // 4. Setup Announcements List
         setupAnnouncementsList();
 
         return view;
+    }
+
+    /**
+     * Fetches the logged-in user's profile and updates the welcome text.
+     */
+    private void loadUserProfile() {
+        SupabaseRegistrationHelper.fetchUserProfile(profile -> {
+            // Check if fragment is still attached to avoid crashes
+            if (profile != null && isAdded()) {
+                welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
+            } else if (isAdded()) {
+                Log.e("HomeFragment", "Failed to load profile or profile is null");
+            }
+            return null;
+        });
     }
 
     // -------------------------------------------------------------------
@@ -82,18 +109,16 @@ public class Home_fragment extends BaseFragment {
     }
 
     // -------------------------------------------------------------------
-    // --- ANNOUNCEMENT LIST LOGIC (UPDATED) ---
+    // --- ANNOUNCEMENT LIST LOGIC ---
     // -------------------------------------------------------------------
 
     private void setupAnnouncementsList() {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         List<Announcement> sampleAnnouncements = createSampleAnnouncements();
 
-        // [UPDATED] Initialize Adapter with the Click Listener
         announcementAdapter = new AnnouncementAdapter(sampleAnnouncements, new AnnouncementAdapter.OnApplyClickListener() {
             @Override
             public void onApplyClick(Announcement announcement) {
-                // When the button inside the adapter is clicked, this runs:
                 showApplyDialog(announcement);
             }
         });
@@ -101,23 +126,14 @@ public class Home_fragment extends BaseFragment {
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
 
-    /**
-     * [NEW] Helper method to show the ApplyConfirmationDialogFragment
-     */
     private void showApplyDialog(Announcement announcement) {
-        // Create the dialog instance
         ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
-
-        // Show the dialog using the parent fragment manager
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
 
-    /**
-     * Helper method to generate dummy data for testing the RecyclerView.
-     */
     private List<Announcement> createSampleAnnouncements() {
         List<Announcement> announcements = new ArrayList<>();
-        int placeholderImage = R.drawable.ic_image_placeholder; // Ensure this exists
+        int placeholderImage = R.drawable.ic_image_placeholder;
 
         announcements.add(new Announcement(
                 "Urgent Food Drive in Brgy. 143",
@@ -150,9 +166,7 @@ public class Home_fragment extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (carouselAdapter != null) {
-            sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
-        }
+        sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
     }
 
     @Override

@@ -177,4 +177,29 @@ object SupabaseRegistrationHelper {
             }
         }
     }
+    @JvmStatic
+    fun fetchUserProfile(callback: (Profile?) -> Unit) {
+        val userId = SupabaseManager.client.auth.currentUserOrNull()?.id
+        if (userId == null) {
+            callback(null)
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Fetch the row where 'id' matches the logged-in User ID
+                val profile = SupabaseManager.client.from("profiles")
+                    .select {
+                        filter { eq("id", userId) }
+                    }.decodeSingle<Profile>()
+
+                withContext(Dispatchers.Main) {
+                    callback(profile)
+                }
+            } catch (e: Exception) {
+                Log.e("SupabaseFetch", "Error fetching profile", e)
+                withContext(Dispatchers.Main) { callback(null) }
+            }
+        }
+    }
 }
