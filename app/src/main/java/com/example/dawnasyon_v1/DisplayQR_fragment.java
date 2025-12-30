@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -15,34 +16,30 @@ import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.Fragment;
+
+import com.bumptech.glide.Glide;
+import com.google.zxing.BarcodeFormat;
+import com.journeyapps.barcodescanner.BarcodeEncoder;
+
 import java.io.OutputStream;
 
 public class DisplayQR_fragment extends BaseFragment {
 
-    private static final String ARG_QR_RES_ID = "qr_res_id";
-    private int qrResId;
     private ImageView imgQrCode;
 
-    public DisplayQR_fragment() {}
+    public DisplayQR_fragment() {
+        // Required empty public constructor
+    }
 
     public static DisplayQR_fragment newInstance(int qrResId) {
         DisplayQR_fragment fragment = new DisplayQR_fragment();
         Bundle args = new Bundle();
-        args.putInt(ARG_QR_RES_ID, qrResId);
+        args.putInt("qr_res_id", qrResId);
         fragment.setArguments(args);
         return fragment;
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            qrResId = getArguments().getInt(ARG_QR_RES_ID);
-        }
     }
 
     @Override
@@ -56,48 +53,88 @@ public class DisplayQR_fragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
 
         imgQrCode = view.findViewById(R.id.img_qr_code);
-        Button btnSave = view.findViewById(R.id.btn_save_gallery);
         ImageButton btnBack = view.findViewById(R.id.btn_back);
+        Button btnSave = view.findViewById(R.id.btn_save_gallery);
 
-        // Set the QR Image based on what was passed
-        if (qrResId != 0) {
-            imgQrCode.setImageResource(qrResId);
-        }
+        // 1. Back Button
+        btnBack.setOnClickListener(v -> {
+            if (getParentFragmentManager() != null) {
+                getParentFragmentManager().popBackStack();
+            }
+        });
 
-        btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        // 2. Fetch & Display QR Code
+        loadRealQrCode();
 
-        // Save to Gallery Logic
-        btnSave.setOnClickListener(v -> {
-            Bitmap bitmap = ((BitmapDrawable) imgQrCode.getDrawable()).getBitmap();
-            saveImageToGallery(bitmap);
+        // 3. Save to Gallery Button
+        btnSave.setOnClickListener(v -> saveImageToGallery());
+    }
+
+    private void loadRealQrCode() {
+        // ⭐ UPDATED: Changed SupabaseRegistrationHelper -> AuthHelper
+        AuthHelper.fetchUserProfile(profile -> {
+            if (profile != null && isAdded()) {
+                String qrUrl = profile.getQr_code_url();
+
+                if (qrUrl != null && !qrUrl.isEmpty()) {
+                    // A. If URL exists in Supabase, load it with Glide
+                    Glide.with(this)
+                            .load(qrUrl)
+                            .placeholder(R.drawable.ic_qrsample)
+                            .error(R.drawable.ic_warning)
+                            .into(imgQrCode);
+                } else {
+                    // B. Fallback: If no URL, generate one using ID
+                    generateLocalQr(profile.getId());
+                }
+            } else if (isAdded()) {
+                Toast.makeText(getContext(), "Failed to load profile", Toast.LENGTH_SHORT).show();
+            }
+            return null;
         });
     }
 
-    private void saveImageToGallery(Bitmap bitmap) {
-        String fileName = "QR_CODE_" + System.currentTimeMillis() + ".jpg";
+    private void generateLocalQr(String userId) {
+        try {
+            BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
+            Bitmap bitmap = barcodeEncoder.encodeBitmap(userId, BarcodeFormat.QR_CODE, 400, 400);
+            imgQrCode.setImageBitmap(bitmap);
+        } catch (Exception e) {
+            Log.e("DisplayQR", "Error generating local QR: " + e.getMessage());
+        }
+    }
 
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(MediaStore.Images.Media.DISPLAY_NAME, fileName);
-        contentValues.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+    private void saveImageToGallery() {
+        imgQrCode.setDrawingCacheEnabled(true);
+        Bitmap bitmap = ((BitmapDrawable) imgQrCode.getDrawable()).getBitmap();
 
-        // Save to "Pictures/Dawnasyon" folder
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            contentValues.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Dawnasyon");
+        if (bitmap == null) {
+            Toast.makeText(getContext(), "QR Code not ready yet", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        Uri uri = requireContext().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues);
-
+        OutputStream fos;
         try {
-            if (uri != null) {
-                OutputStream outputStream = requireContext().getContentResolver().openOutputStream(uri);
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
-                if (outputStream != null) outputStream.close();
-
-                Toast.makeText(getContext(), "QR Code saved to Gallery!", Toast.LENGTH_SHORT).show();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ContentValues resolver = new ContentValues();
+                resolver.put(MediaStore.Images.Media.DISPLAY_NAME, "Dawnasyon_QR_" + System.currentTimeMillis() + ".jpg");
+                resolver.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
+                resolver.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES);
+                Uri imageUri = requireContext().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, resolver);
+                fos = requireContext().getContentResolver().openOutputStream(imageUri);
+            } else {
+                Toast.makeText(getContext(), "Saving not supported on this Android version", Toast.LENGTH_SHORT).show();
+                return;
             }
+
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+            if (fos != null) fos.close();
+
+            Toast.makeText(getContext(), "QR Code saved to Gallery!", Toast.LENGTH_SHORT).show();
+
         } catch (Exception e) {
+            Toast.makeText(getContext(), "Error saving image", Toast.LENGTH_SHORT).show();
             e.printStackTrace();
-            Toast.makeText(getContext(), "Failed to save image.", Toast.LENGTH_SHORT).show();
         }
     }
 }

@@ -12,6 +12,8 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -52,14 +54,67 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
         // Navigation
         btnNext.setOnClickListener(v -> {
-            // TODO: Here you would loop through membersContainer to save the Names/Relations
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container_signup, new SignUpStep3Location_fragment())
-                    .addToBackStack(null)
-                    .commit();
+            if (saveMembersToCache()) { // Save data before moving
+                getParentFragmentManager().beginTransaction()
+                        .replace(R.id.fragment_container_signup, new SignUpStep3Location_fragment())
+                        .addToBackStack(null)
+                        .commit();
+            }
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+    }
+
+    /**
+     * Loops through the dynamic views and saves them to RegistrationCache
+     */
+    private boolean saveMembersToCache() {
+        RegistrationCache.tempHouseholdList.clear(); // Start fresh
+        int childCount = membersContainer.getChildCount();
+
+        if (childCount == 0) {
+            Toast.makeText(getContext(), "Please add at least one household member.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        for (int i = 0; i < childCount; i++) {
+            View row = membersContainer.getChildAt(i);
+
+            // Find inputs inside the row
+            EditText etName = row.findViewById(R.id.et_name);
+            EditText etAge = row.findViewById(R.id.et_age);
+            Spinner spGender = row.findViewById(R.id.sp_gender);
+            Spinner spRelation = row.findViewById(R.id.sp_relation);
+
+            // Safety check: if views are missing (e.g. wrong ID), skip or handle error
+            if (etName == null || etAge == null) continue;
+
+            String name = etName.getText().toString().trim();
+            String ageStr = etAge.getText().toString().trim();
+            String gender = spGender.getSelectedItem().toString();
+            String relation = spRelation.getSelectedItem().toString();
+
+            if (name.isEmpty() || ageStr.isEmpty()) {
+                Toast.makeText(getContext(), "Please fill in Name and Age for member #" + (i + 1), Toast.LENGTH_SHORT).show();
+                return false;
+            }
+
+            int age = Integer.parseInt(ageStr);
+
+            // ⭐ CRITICAL FIX: Set is_registered_census to TRUE
+            HouseholdMember member = new HouseholdMember(
+                    null, // head_id (set later)
+                    name,
+                    relation,
+                    age,
+                    gender,
+                    true,  // <--- CHANGED THIS FROM false TO true
+                    false  // is_authorized_proxy (default false)
+            );
+
+            RegistrationCache.tempHouseholdList.add(member);
+        }
+        return true;
     }
 
     private void updateMemberRows(String input) {
@@ -72,7 +127,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             count = 0;
         }
 
-        if (count > 15) count = 15; // Cap at 15 for performance
+        if (count > 15) count = 15;
 
         int currentChildCount = membersContainer.getChildCount();
 
@@ -90,31 +145,27 @@ public class SignUpStep2Household_fragment extends BaseFragment {
     private void addMemberRow(int index) {
         View row = LayoutInflater.from(getContext()).inflate(R.layout.item_household_member, membersContainer, false);
 
-        // 1. Set Row Number
         TextView tvNumber = row.findViewById(R.id.tv_row_number);
-        tvNumber.setText(index + ".");
+        if (tvNumber != null) tvNumber.setText(index + ".");
 
-        // 2. Setup GENDER Spinner
         Spinner spGender = row.findViewById(R.id.sp_gender);
         String[] genders = {"Male", "Female", "Other"};
         ArrayAdapter<String> genderAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, genders);
         spGender.setAdapter(genderAdapter);
 
-        // 3. Setup RELATION Spinner (New Feature for Family Tree)
         Spinner spRelation = row.findViewById(R.id.sp_relation);
         String[] relations = {"Head", "Spouse", "Son", "Daughter", "Parent", "Relative"};
         ArrayAdapter<String> relationAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, relations);
         spRelation.setAdapter(relationAdapter);
 
-        // Smart Defaulting: If it's Row 1, default to "Head". Else default to "Son" (or index 2)
+        // Auto-select "Head" for the first row
         if (index == 1) {
-            spRelation.setSelection(0); // Head
-            spRelation.setEnabled(false); // Lock the head role? Optional.
+            spRelation.setSelection(0);
+            spRelation.setEnabled(false);
         } else {
-            spRelation.setSelection(2); // Default to Son/Daughter
+            spRelation.setSelection(2);
         }
 
-        // 4. Setup Age Buttons
         EditText etAge = row.findViewById(R.id.et_age);
         View btnUp = row.findViewById(R.id.btn_age_up);
         View btnDown = row.findViewById(R.id.btn_age_down);

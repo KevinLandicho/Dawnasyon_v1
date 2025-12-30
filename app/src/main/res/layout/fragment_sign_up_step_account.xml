@@ -151,19 +151,39 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/lbl_confirm" />
 
-                <CheckBox
-                    android:id="@+id/cb_terms"
+                <LinearLayout
+                    android:id="@+id/terms_container"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:buttonTint="#F5901A"
-                    android:fontFamily="@font/dongle"
-                    android:text="@string/i_have_read_and_agree_to_the_terms_and_conditions"
-                    android:textColor="#999999"
-                    android:textSize="18sp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_confirm" />
+                    app:layout_constraintTop_toBottomOf="@id/et_confirm">
+
+                    <CheckBox
+                        android:id="@+id/cb_terms"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:buttonTint="#F5901A"
+                        android:fontFamily="@font/dongle"
+                        android:text="I have read and agree to the "
+                        android:textColor="#999999"
+                        android:textSize="18sp" />
+
+                    <TextView
+                        android:id="@+id/tv_terms_link"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/dongle"
+                        android:text="Terms and Conditions"
+                        android:textColor="#F5901A"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:clickable="true"
+                        android:focusable="true"/>
+                </LinearLayout>
 
                 <ImageView
                     android:id="@+id/progress_dots"
@@ -176,7 +196,7 @@
                     app:layout_constraintBottom_toTopOf="@+id/nav_container"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/cb_terms" />
+                    app:layout_constraintTop_toBottomOf="@+id/terms_container" />
 
                 <LinearLayout
                     android:id="@+id/nav_container"
@@ -207,7 +227,6 @@
                         android:backgroundTint="#27869B"
                         android:text="@string/next1"
                         android:textColor="@color/white"
-
                         app:cornerRadius="6dp" />
                 </LinearLayout>
 

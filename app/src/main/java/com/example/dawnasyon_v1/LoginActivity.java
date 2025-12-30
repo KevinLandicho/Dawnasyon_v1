@@ -112,7 +112,7 @@ public class LoginActivity extends AppCompatActivity { // Changed to AppCompatAc
         btnSignin.setText("Verifying...");
 
         // ⭐ CALL THE KOTLIN HELPER ⭐
-        SupabaseRegistrationHelper.loginUser(email, password, new SupabaseRegistrationHelper.RegistrationCallback() {
+        AuthHelper.loginUser(email, password, new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
                 // SUCCESS LOGIC

@@ -81,7 +81,7 @@ public class Home_fragment extends BaseFragment {
      * Fetches the logged-in user's profile and updates the welcome text.
      */
     private void loadUserProfile() {
-        SupabaseRegistrationHelper.fetchUserProfile(profile -> {
+        AuthHelper.fetchUserProfile(profile -> {
             // Check if fragment is still attached to avoid crashes
             if (profile != null && isAdded()) {
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");

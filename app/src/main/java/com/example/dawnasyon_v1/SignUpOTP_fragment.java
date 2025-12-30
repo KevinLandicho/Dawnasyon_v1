@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -14,12 +15,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class SignUpOTP_fragment extends BaseFragment {
 
     private EditText[] otpInputs;
     private TextView tvTimer;
+    private TextView tvSubtitle;
     private CountDownTimer countDownTimer;
 
     public SignUpOTP_fragment() {}
@@ -34,105 +35,148 @@ public class SignUpOTP_fragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
 
         tvTimer = view.findViewById(R.id.tv_timer);
+        tvSubtitle = view.findViewById(R.id.tv_subtitle);
         Button btnPrevious = view.findViewById(R.id.btn_previous);
         TextView tvResend = view.findViewById(R.id.tv_resend);
 
-        // --- Setup OTP Inputs (Auto-focus logic) ---
+        // Display the actual email from cache
+        if (tvSubtitle != null) {
+            tvSubtitle.setText("We've sent a code to " + RegistrationCache.tempEmail);
+        }
+
+        // Setup 6 OTP inputs to match your Supabase config
         otpInputs = new EditText[]{
-                view.findViewById(R.id.otp_1),
-                view.findViewById(R.id.otp_2),
-                view.findViewById(R.id.otp_3),
-                view.findViewById(R.id.otp_4),
-                view.findViewById(R.id.otp_5),
-                view.findViewById(R.id.otp_6)
+                view.findViewById(R.id.otp_1), view.findViewById(R.id.otp_2),
+                view.findViewById(R.id.otp_3), view.findViewById(R.id.otp_4),
+                view.findViewById(R.id.otp_5), view.findViewById(R.id.otp_6)
         };
         setupOTPInputs();
 
-        // --- Start Timer (5 Minutes) ---
+        // Start 5 min timer to match Supabase '300 seconds' config
         startTimer(5 * 60 * 1000);
 
-        // --- Logic ---
-        tvResend.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Code Resent!", Toast.LENGTH_SHORT).show();
-            startTimer(5 * 60 * 1000); // Restart timer
-        });
-
+       // tvResend.setOnClickListener(v -> resendCode());
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 
     private void setupOTPInputs() {
         for (int i = 0; i < otpInputs.length; i++) {
             final int index = i;
+
+            // Handle typing and auto-forward
             otpInputs[i].addTextChangedListener(new TextWatcher() {
                 @Override
                 public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
                 @Override
                 public void onTextChanged(CharSequence s, int start, int before, int count) {
-                    // Move to next box if length is 1
                     if (s.length() == 1 && index < otpInputs.length - 1) {
                         otpInputs[index + 1].requestFocus();
                     }
-
-                    // If all filled, verify automatically
-                    if (index == otpInputs.length - 1 && s.length() == 1) {
-                        verifyOTP();
+                    if (isAllFilled()) {
+                        verifyRealOTP();
                     }
                 }
-
                 @Override
-                public void afterTextChanged(Editable s) {
-                    // Optional: Move back if empty
-                    if (s.length() == 0 && index > 0) {
+                public void afterTextChanged(Editable s) {}
+            });
+
+            // Handle backspace to move focus backward
+            otpInputs[i].setOnKeyListener((v, keyCode, event) -> {
+                if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_DEL) {
+                    if (otpInputs[index].getText().length() == 0 && index > 0) {
                         otpInputs[index - 1].requestFocus();
+                        otpInputs[index - 1].setText(""); // Optional: clear previous box on backspace
                     }
                 }
+                return false;
             });
         }
     }
 
-    // ⭐ UPDATED VERIFICATION LOGIC ⭐
-    private void verifyOTP() {
-        // Collect code
-        StringBuilder code = new StringBuilder();
+    private boolean isAllFilled() {
         for (EditText et : otpInputs) {
-            code.append(et.getText().toString());
+            if (et.getText().length() == 0) return false;
         }
-
-        if (code.length() == 6) {
-            // Check if code matches "000000"
-            if (code.toString().equals("000000")) {
-                Toast.makeText(getContext(), "Verification Successful!", Toast.LENGTH_SHORT).show();
-
-                // NAVIGATE TO VALID ID SCREEN
-                getParentFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container_signup, new SignUpVerificationPending_fragment())
-                        .addToBackStack(null)
-                        .commit();
-            } else {
-                // Invalid Code
-                Toast.makeText(getContext(), "Invalid Code. Please try again.", Toast.LENGTH_SHORT).show();
-
-                // Optional: Clear inputs for retry
-                // for (EditText et : otpInputs) et.setText("");
-                // otpInputs[0].requestFocus();
-            }
-        }
+        return true;
     }
+
+    private void verifyRealOTP() {
+        StringBuilder code = new StringBuilder();
+        for (EditText et : otpInputs) code.append(et.getText().toString());
+
+        Toast.makeText(getContext(), "Verifying code...", Toast.LENGTH_SHORT).show();
+
+        AuthHelper.verifyOtp(code.toString(), new AuthHelper.RegistrationCallback() {
+            @Override
+            public void onSuccess() {
+                if (!isAdded()) return; // Safety check
+                Toast.makeText(getContext(), "Verified! Saving Profile...", Toast.LENGTH_SHORT).show();
+                createProfile();
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                Toast.makeText(getContext(), "Invalid Code: " + message, Toast.LENGTH_LONG).show();
+                // Clear inputs for retry
+                for (EditText et : otpInputs) et.setText("");
+                otpInputs[0].requestFocus();
+            }
+        });
+    }
+
+    private void createProfile() {
+        AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
+            @Override
+            public void onSuccess() {
+                if (!isAdded()) return;
+                Toast.makeText(getContext(), "Registration Complete!", Toast.LENGTH_LONG).show();
+                Intent intent = new Intent(getActivity(), LoginActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                Toast.makeText(getContext(), "Profile Save Error: " + message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+//    private void resendCode() {
+//        // UPDATED: Call resendOtp instead of initiateSignUp
+//        AuthHelper.resendOtp(new AuthHelper.RegistrationCallback() {
+//            @Override
+//            public void onSuccess() {
+//                if (!isAdded()) return;
+//                Toast.makeText(getContext(), "A new code has been sent!", Toast.LENGTH_SHORT).show();
+//                startTimer(5 * 60 * 1000); // Reset the visual timer
+//            }
+//            @Override
+//            public void onError(String message) {
+//                if (!isAdded()) return;
+//                Toast.makeText(getContext(), "Resend Failed: " + message, Toast.LENGTH_SHORT).show();
+//            }
+//        });
+//    }
 
     private void startTimer(long duration) {
         if (countDownTimer != null) countDownTimer.cancel();
-
         countDownTimer = new CountDownTimer(duration, 1000) {
-            public void onTick(long millisUntilFinished) {
-                long minutes = (millisUntilFinished / 1000) / 60;
-                long seconds = (millisUntilFinished / 1000) % 60;
-                tvTimer.setText(String.format("The code will expire in %02d:%02d", minutes, seconds));
+            public void onTick(long millis) {
+                if (tvTimer != null)
+                    tvTimer.setText(String.format("The code will expire in %02d:%02d", (millis/1000)/60, (millis/1000)%60));
             }
-
             public void onFinish() {
-                tvTimer.setText("Code expired. Please resend.");
+                if (tvTimer != null) tvTimer.setText("Code expired. Please resend.");
             }
         }.start();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (countDownTimer != null) countDownTimer.cancel();
     }
 }
