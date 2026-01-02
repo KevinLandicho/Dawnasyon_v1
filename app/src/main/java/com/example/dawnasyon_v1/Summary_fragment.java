@@ -1,9 +1,7 @@
 package com.example.dawnasyon_v1;
 
+import android.graphics.Typeface;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -13,8 +11,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.core.content.res.ResourcesCompat;
-import android.graphics.Typeface;
+import androidx.fragment.app.Fragment;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
@@ -27,7 +27,8 @@ public class Summary_fragment extends BaseFragment {
 
     private static final String ARG_DONATION_ITEMS = "donation_items";
     private static final String TAG = "SummaryFragment";
-    // --- ItemForSummary class (Define this class here) ---
+
+    // --- Data Class for Passing Items ---
     public static class ItemForSummary implements Serializable {
         public String name;
         public String quantityUnit;
@@ -37,7 +38,8 @@ public class Summary_fragment extends BaseFragment {
             this.quantityUnit = quantityUnit;
         }
     }
-    // ---------------------------------------------------
+
+    private ArrayList<ItemForSummary> itemsToDonate;
 
     public static Summary_fragment newInstance(ArrayList<ItemForSummary> items) {
         Summary_fragment fragment = new Summary_fragment();
@@ -48,9 +50,7 @@ public class Summary_fragment extends BaseFragment {
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        // Assume R.layout.summary_details is your layout file for this fragment
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_summary, container, false);
     }
 
@@ -61,26 +61,61 @@ public class Summary_fragment extends BaseFragment {
         LinearLayout summaryContainer = view.findViewById(R.id.summaryItemsContainer);
         Button btnApplyToDonate = view.findViewById(R.id.btnApplyToDonate);
 
-        // 1. Get the collected data from the arguments
+        // 1. Load Items passed from Previous Screen
         if (getArguments() != null) {
-            ArrayList<ItemForSummary> items = (ArrayList<ItemForSummary>) getArguments().getSerializable(ARG_DONATION_ITEMS);
-
-            if (items != null) {
-                for (ItemForSummary item : items) {
-                    // 2. Display the items
+            itemsToDonate = (ArrayList<ItemForSummary>) getArguments().getSerializable(ARG_DONATION_ITEMS);
+            if (itemsToDonate != null) {
+                for (ItemForSummary item : itemsToDonate) {
                     addItemRowToSummary(summaryContainer, item.name, item.quantityUnit);
                 }
             }
         }
 
-        // 🟢 FIX: Implement click listener to generate reference and navigate
+        // 2. Submit Logic
         btnApplyToDonate.setOnClickListener(v -> {
+            if (itemsToDonate == null || itemsToDonate.isEmpty()) {
+                Toast.makeText(getContext(), "No items to donate.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Prevent double clicks
+            btnApplyToDonate.setEnabled(false);
+            btnApplyToDonate.setText("Processing...");
+
             String refNumber = generateReferenceNumber();
-            launchReferenceFragment(refNumber);
+
+            // ⭐ CALL THE HELPER
+            // Passing "In-Kind" and 0.0 because this is a goods donation
+            DonationHelper.INSTANCE.submitDonation(
+                    refNumber,
+                    itemsToDonate,
+                    "In-Kind",
+                    0.0,
+                    new DonationHelper.DonationCallback() {
+                        @Override
+                        public void onSuccess() {
+                            if (getActivity() == null) return;
+                            btnApplyToDonate.setEnabled(true);
+                            btnApplyToDonate.setText("Confirm Donation");
+
+                            Toast.makeText(getContext(), "Donation Submitted Successfully!", Toast.LENGTH_SHORT).show();
+                            launchReferenceFragment(refNumber);
+                        }
+
+                        @Override
+                        public void onError(@NonNull String message) {
+                            if (getActivity() == null) return;
+                            btnApplyToDonate.setEnabled(true);
+                            btnApplyToDonate.setText("Confirm Donation");
+
+                            Toast.makeText(getContext(), "Submission Failed: " + message, Toast.LENGTH_LONG).show();
+                        }
+                    }
+            );
         });
     }
 
-    // --- HELPER METHOD TO SET FONT (Using Dongle as requested) ---
+    // --- Helper UI Methods ---
 
     private void addItemRowToSummary(LinearLayout container, String name, String quantityUnit) {
         TextView textView = new TextView(getContext());
@@ -88,63 +123,39 @@ public class Summary_fragment extends BaseFragment {
         textView.setTextSize(16);
 
         try {
-            // Load the custom Dongle font
-            Typeface dongleTypeface = ResourcesCompat.getFont(getContext(), R.font.dongle); // Assuming you used this name
+            // Attempt to use custom font (Dongle)
+            Typeface dongleTypeface = ResourcesCompat.getFont(getContext(), R.font.dongle);
             textView.setTypeface(dongleTypeface);
-
-            // Optionally set text color
-            textView.setTextColor(container.getContext().getResources().getColor(android.R.color.black));
-
+            textView.setTextColor(getResources().getColor(android.R.color.black));
         } catch (Exception e) {
-            Log.e("SummaryFragment", "Dongle font not found, using default.", e);
-            textView.setTypeface(Typeface.MONOSPACE);
+            // Fallback if font is missing
+            textView.setTypeface(Typeface.DEFAULT);
         }
 
         textView.setPadding(0, 10, 0, 10);
         container.addView(textView);
     }
 
-
-    // --- NEW METHOD 1: REFERENCE NUMBER GENERATION ---
-
-    /**
-     * Generates a unique reference number based on the current date and a random 5-digit ID.
-     * Format: DYYYYMMDD-XXXXX (e.g., D20251117-09876)
-     * @return The generated reference number string.
-     */
     private String generateReferenceNumber() {
-        // Get current date in YYYYMMDD format
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.getDefault());
         String datePart = sdf.format(new Date());
-
-        // Generate a random 5-digit number
         Random random = new Random();
-        // Generates a number between 10000 and 99999 (inclusive)
-        int randomId = random.nextInt(90000) + 10000;
-
-        // Combine parts
+        int randomId = random.nextInt(90000) + 10000; // 10000 to 99999
         return "D" + datePart + "-" + randomId;
     }
 
-    // --- NEW METHOD 2: NAVIGATION TO REFERENCE FRAGMENT ---
-
-    /**
-     * Navigates to the Reference_fragment, passing the generated reference number.
-     * @param referenceNumber The transaction ID to display.
-     */
     private void launchReferenceFragment(String referenceNumber) {
         if (getActivity() != null) {
-            // NOTE: You need to create Reference_fragment.java and its newInstance method!
             try {
+                // Ensure Reference_fragment.newInstance() exists in your project
                 Fragment referenceFragment = Reference_fragment.newInstance(referenceNumber);
-
                 getActivity().getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, referenceFragment) // Replace R.id.fragment_container with your actual host ID
-                        .addToBackStack(null) // Prevent going back to Summary on pressing Back
+                        .replace(R.id.fragment_container, referenceFragment)
+                        .addToBackStack(null)
                         .commit();
-            } catch (NoClassDefFoundError | NoSuchMethodError e) {
-                Log.e(TAG, "Reference_fragment is missing or its newInstance method is incorrect.", e);
-                Toast.makeText(getContext(), "Error: Reference screen missing.", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Log.e(TAG, "Navigation Error", e);
+                Toast.makeText(getContext(), "Error opening reference screen: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }
     }
