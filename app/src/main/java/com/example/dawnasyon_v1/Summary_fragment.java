@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.CheckBox; // <--- Import CheckBox
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,7 +29,6 @@ public class Summary_fragment extends BaseFragment {
     private static final String ARG_DONATION_ITEMS = "donation_items";
     private static final String TAG = "SummaryFragment";
 
-    // --- Data Class for Passing Items ---
     public static class ItemForSummary implements Serializable {
         public String name;
         public String quantityUnit;
@@ -61,7 +61,10 @@ public class Summary_fragment extends BaseFragment {
         LinearLayout summaryContainer = view.findViewById(R.id.summaryItemsContainer);
         Button btnApplyToDonate = view.findViewById(R.id.btnApplyToDonate);
 
-        // 1. Load Items passed from Previous Screen
+        // 1. FIND THE CHECKBOX
+        // Ensure your XML has a CheckBox with this ID
+        CheckBox cbAnonymous = view.findViewById(R.id.checkAnonymous);
+
         if (getArguments() != null) {
             itemsToDonate = (ArrayList<ItemForSummary>) getArguments().getSerializable(ARG_DONATION_ITEMS);
             if (itemsToDonate != null) {
@@ -71,26 +74,27 @@ public class Summary_fragment extends BaseFragment {
             }
         }
 
-        // 2. Submit Logic
         btnApplyToDonate.setOnClickListener(v -> {
             if (itemsToDonate == null || itemsToDonate.isEmpty()) {
                 Toast.makeText(getContext(), "No items to donate.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Prevent double clicks
             btnApplyToDonate.setEnabled(false);
             btnApplyToDonate.setText("Processing...");
 
+            // 2. GET THE VALUE (True/False)
+            boolean isAnon = cbAnonymous != null && cbAnonymous.isChecked();
+
             String refNumber = generateReferenceNumber();
 
-            // ⭐ CALL THE HELPER
-            // Passing "In-Kind" and 0.0 because this is a goods donation
+            // 3. PASS IT TO THE HELPER
             DonationHelper.INSTANCE.submitDonation(
                     refNumber,
                     itemsToDonate,
                     "In-Kind",
                     0.0,
+                    isAnon, // <--- Passed here
                     new DonationHelper.DonationCallback() {
                         @Override
                         public void onSuccess() {
@@ -98,7 +102,7 @@ public class Summary_fragment extends BaseFragment {
                             btnApplyToDonate.setEnabled(true);
                             btnApplyToDonate.setText("Confirm Donation");
 
-                            Toast.makeText(getContext(), "Donation Submitted Successfully!", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(getContext(), "Donation Submitted!", Toast.LENGTH_SHORT).show();
                             launchReferenceFragment(refNumber);
                         }
 
@@ -107,31 +111,24 @@ public class Summary_fragment extends BaseFragment {
                             if (getActivity() == null) return;
                             btnApplyToDonate.setEnabled(true);
                             btnApplyToDonate.setText("Confirm Donation");
-
-                            Toast.makeText(getContext(), "Submission Failed: " + message, Toast.LENGTH_LONG).show();
+                            Toast.makeText(getContext(), "Failed: " + message, Toast.LENGTH_LONG).show();
                         }
                     }
             );
         });
     }
 
-    // --- Helper UI Methods ---
-
     private void addItemRowToSummary(LinearLayout container, String name, String quantityUnit) {
         TextView textView = new TextView(getContext());
         textView.setText(name + " (" + quantityUnit + ")");
         textView.setTextSize(16);
-
         try {
-            // Attempt to use custom font (Dongle)
             Typeface dongleTypeface = ResourcesCompat.getFont(getContext(), R.font.dongle);
             textView.setTypeface(dongleTypeface);
             textView.setTextColor(getResources().getColor(android.R.color.black));
         } catch (Exception e) {
-            // Fallback if font is missing
             textView.setTypeface(Typeface.DEFAULT);
         }
-
         textView.setPadding(0, 10, 0, 10);
         container.addView(textView);
     }
@@ -140,14 +137,13 @@ public class Summary_fragment extends BaseFragment {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMdd", Locale.getDefault());
         String datePart = sdf.format(new Date());
         Random random = new Random();
-        int randomId = random.nextInt(90000) + 10000; // 10000 to 99999
+        int randomId = random.nextInt(90000) + 10000;
         return "D" + datePart + "-" + randomId;
     }
 
     private void launchReferenceFragment(String referenceNumber) {
         if (getActivity() != null) {
             try {
-                // Ensure Reference_fragment.newInstance() exists in your project
                 Fragment referenceFragment = Reference_fragment.newInstance(referenceNumber);
                 getActivity().getSupportFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, referenceFragment)
@@ -155,7 +151,6 @@ public class Summary_fragment extends BaseFragment {
                         .commit();
             } catch (Exception e) {
                 Log.e(TAG, "Navigation Error", e);
-                Toast.makeText(getContext(), "Error opening reference screen: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }
     }

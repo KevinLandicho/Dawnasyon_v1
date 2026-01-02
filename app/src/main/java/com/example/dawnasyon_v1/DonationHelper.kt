@@ -8,18 +8,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
-// --- SUPABASE IMPORTS (v3.0 / Kotlin 2.0) ---
+// --- SUPABASE IMPORTS ---
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 
-// --- DATA CLASSES (Matches your Database Schema) ---
+// --- DTOs ---
 @Serializable
 data class DonationRequest(
-    val status: String,     // "Pending"
-    val donor_id: String,   // User ID
-    val type: String,       // "In-Kind" or "Cash"
-    val amount: Double,     // 0.00 for goods
-    val admin_notes: String // Stores Reference Number
+    val status: String,
+    val donor_id: String,
+    val type: String,
+    val amount: Double,
+    val admin_notes: String,
+    val is_anonymous: Boolean // <--- NEW FIELD
 )
 
 @Serializable
@@ -40,12 +41,12 @@ object DonationHelper {
         fun onError(message: String)
     }
 
-    // --- MAIN SUBMIT FUNCTION ---
     fun submitDonation(
         referenceNumber: String,
         items: ArrayList<ItemForSummary>,
-        donationType: String, // Pass "In-Kind" or "Cash"
-        amountValue: Double,  // Pass 0.0 or actual amount
+        donationType: String,
+        amountValue: Double,
+        isAnonymous: Boolean, // <--- NEW PARAMETER
         callback: DonationCallback
     ) {
         val client = SupabaseManager.client
@@ -58,26 +59,25 @@ object DonationHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // STEP 1: Insert the Main Donation Record
+                // 1. Create Donation Record with Anonymous Flag
                 val donation = DonationRequest(
                     status = "Pending",
                     donor_id = user.id,
                     type = donationType,
                     amount = amountValue,
-                    admin_notes = "Ref: $referenceNumber"
+                    admin_notes = "Ref: $referenceNumber",
+                    is_anonymous = isAnonymous // <--- SAVE IT HERE
                 )
 
-                // Insert into 'donations' and retrieve the new ID
                 val response = client.from("donations")
                     .insert(donation) { select() }
                     .decodeSingle<DonationResponse>()
 
                 val newDonationId = response.donation_id
 
-                // STEP 2: Insert the Items (if any)
+                // 2. Save Items
                 if (items.isNotEmpty()) {
                     val dbItems = items.map { item ->
-                        // Logic: Splits "2 Kilos" into "2" and "Kilos"
                         val parts = item.quantityUnit.split(" ", limit = 2)
                         val qty = parts.getOrNull(0)?.toIntOrNull() ?: 1
                         val unitStr = parts.getOrNull(1) ?: "PCS"
@@ -89,7 +89,6 @@ object DonationHelper {
                             unit = unitStr
                         )
                     }
-                    // Batch Insert into 'donation_items'
                     client.from("donation_items").insert(dbItems)
                 }
 
@@ -98,9 +97,9 @@ object DonationHelper {
                 }
 
             } catch (e: Exception) {
-                Log.e("DonationHelper", "Submission Error: ${e.message}", e)
+                Log.e("DonationHelper", "Error: ${e.message}", e)
                 withContext(Dispatchers.Main) {
-                    callback.onError(e.message ?: "An unknown error occurred.")
+                    callback.onError(e.message ?: "Unknown error occurred.")
                 }
             }
         }
