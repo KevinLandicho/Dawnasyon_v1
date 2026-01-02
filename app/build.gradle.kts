@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -91,7 +92,7 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt") // ✅ Uses 'auth-kt'
     implementation("io.github.jan-tennert.supabase:realtime-kt")
-
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
     // ... Ktor ...
     implementation("io.ktor:ktor-client-okhttp:3.0.0-rc-1")
     // --- Testing ---

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "436551183044",
+    "project_id": "dawnasyon",
+    "storage_bucket": "dawnasyon.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:436551183044:android:45413f154a45fd10a27791",
+        "android_client_info": {
+          "package_name": "com.example.dawnasyon_v1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDu9AyCjgtmGB_YpaUqTP-yFOP8KTwBR4A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

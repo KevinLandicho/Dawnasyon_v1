@@ -7,7 +7,7 @@ public class BaseActivity extends AppCompatActivity {
 
     @Override
     protected void attachBaseContext(Context newBase) {
-        // This line grabs the saved language (Tagalog/English) and applies it
+        // Just keeps your language settings working
         super.attachBaseContext(LocaleHelper.onAttach(newBase));
     }
 }

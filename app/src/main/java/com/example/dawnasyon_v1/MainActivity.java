@@ -1,24 +1,28 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
-import android.view.View;
+import android.util.Log;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
+import com.google.firebase.messaging.FirebaseMessaging;
+
+// You do NOT need any Supabase imports here anymore!
+// The SupabaseManager handles all of that.
+
 public class MainActivity extends BaseActivity {
 
     LinearLayout homeTab, dashboardTab, notificationTab, profileTab;
-    FrameLayout centerButton; // center button is a FrameLayout
+    FrameLayout centerButton;
     LinearLayout[] tabs;
 
     @Override
@@ -33,19 +37,37 @@ public class MainActivity extends BaseActivity {
             return insets;
         });
 
-        // Initialize tabs
+        // -----------------------------------------------------------
+        // 1. GET FIREBASE TOKEN (Run this when app starts)
+        // -----------------------------------------------------------
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                Log.w("FCM", "Fetching FCM registration token failed", task.getException());
+                return;
+            }
+
+            // Get new FCM registration token
+            String token = task.getResult();
+            Log.d("FCM", "Token retrieved: " + token);
+
+            // Save it using your Kotlin Manager (Clean & Error-Free)
+            saveTokenToSupabase(token);
+        });
+
+        // -----------------------------------------------------------
+        // 2. SETUP UI & TABS
+        // -----------------------------------------------------------
         homeTab = findViewById(R.id.bottom_bar).findViewWithTag("homeTab");
         dashboardTab = findViewById(R.id.bottom_bar).findViewWithTag("dashboardTab");
         notificationTab = findViewById(R.id.bottom_bar).findViewWithTag("notificationTab");
         profileTab = findViewById(R.id.bottom_bar).findViewWithTag("profileTab");
         centerButton = findViewById(R.id.center_button);
 
-        // Store all tabs for easy reset
         tabs = new LinearLayout[]{homeTab, dashboardTab, notificationTab, profileTab};
 
         // Load default fragment
         if (savedInstanceState == null) {
-            selectTab(homeTab); // home selected by default
+            selectTab(homeTab);
             loadFragment(new Home_fragment());
         }
 
@@ -55,27 +77,34 @@ public class MainActivity extends BaseActivity {
         notificationTab.setOnClickListener(v -> { selectTab(notificationTab); loadFragment(new Notification_fragment()); });
         profileTab.setOnClickListener(v -> { selectTab(profileTab); loadFragment(new Profile_fragment()); });
 
-        // Center diamond button
         centerButton.setOnClickListener(v -> {
-            selectCenterButton(); // highlight the center button
+            selectCenterButton();
             loadFragment(new AddDonation_Fragment());
         });
     }
 
-    // Fragment loader
+    // -----------------------------------------------------------
+    // 3. HELPER FUNCTION: Save Token
+    // -----------------------------------------------------------
+    private void saveTokenToSupabase(String token) {
+        // We just hand this off to the Kotlin file.
+        // No more "PostgrestBuilder" or "Suspend" errors here!
+        SupabaseManager.saveFcmToken(token);
+    }
+
+    // -----------------------------------------------------------
+    // 4. UI HELPERS (Fragment & Tabs)
+    // -----------------------------------------------------------
     private void loadFragment(Fragment fragment) {
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.fragment_container, fragment);
         transaction.commit();
     }
 
-    // Highlight bottom tab
     private void selectTab(LinearLayout selectedTab) {
-        // Reset all tabs and center button
         resetTabs();
         resetCenterButton();
 
-        // Highlight selected tab
         ImageView icon = (ImageView) selectedTab.getChildAt(0);
         TextView text = (TextView) selectedTab.getChildAt(1);
         text.setTextColor(getResources().getColor(android.R.color.white));
@@ -86,16 +115,13 @@ public class MainActivity extends BaseActivity {
         else if (selectedTab == profileTab) icon.setImageResource(R.drawable.ic_profile);
     }
 
-    // Highlight center button
     private void selectCenterButton() {
         resetTabs();
         resetCenterButton();
-
-        ImageView icon = centerButton.findViewById(R.id.ic_add_icon); // give your ImageView in XML an id
+        ImageView icon = centerButton.findViewById(R.id.ic_add_icon);
         icon.setImageResource(R.drawable.ic_add);
     }
 
-    // Reset bottom tabs
     private void resetTabs() {
         resetTab(homeTab, R.drawable.ic_home_notselected);
         resetTab(dashboardTab, R.drawable.ic_dashboard_notselected);
@@ -103,13 +129,11 @@ public class MainActivity extends BaseActivity {
         resetTab(profileTab, R.drawable.ic_profile_notselected);
     }
 
-    // Reset center button
     private void resetCenterButton() {
-        ImageView icon = centerButton.findViewById(R.id.ic_add_icon); // same id as above
+        ImageView icon = centerButton.findViewById(R.id.ic_add_icon);
         icon.setImageResource(R.drawable.ic_add_notselected);
     }
 
-    // Reset individual tab
     private void resetTab(LinearLayout tab, int iconRes) {
         ImageView icon = (ImageView) tab.getChildAt(0);
         TextView text = (TextView) tab.getChildAt(1);
