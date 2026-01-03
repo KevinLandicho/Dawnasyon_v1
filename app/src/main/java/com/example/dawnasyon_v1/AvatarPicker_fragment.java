@@ -43,7 +43,7 @@ public class AvatarPicker_fragment extends BaseFragment {
             R.drawable.avatar6,
             R.drawable.avatar7,
             R.drawable.avatar8,
-            R.drawable.avatar10
+            R.drawable.avatar11
     };
 
     private int selectedAvatarResId = -1; // Stores the resource ID of the currently selected avatar
