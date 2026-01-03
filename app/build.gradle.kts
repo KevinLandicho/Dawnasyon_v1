@@ -84,7 +84,7 @@ dependencies {
     implementation("androidx.navigation:navigation-fragment-ktx:2.7.7")
     implementation("androidx.navigation:navigation-ui-ktx:2.7.7")
     implementation("androidx.core:core-ktx:1.13.1")
-
+    implementation ("com.google.firebase:firebase-messaging:23.4.0")
     // --- ⭐ SUPABASE (Strictly v2.6.1 for Kotlin 1.9) ---
     // We use the BOM (Bill of Materials) to ensure all versions match automatically
     implementation(platform("io.github.jan-tennert.supabase:bom:3.0.1"))

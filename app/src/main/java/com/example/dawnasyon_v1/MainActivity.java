@@ -16,9 +16,6 @@ import androidx.fragment.app.FragmentTransaction;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 
-// You do NOT need any Supabase imports here anymore!
-// The SupabaseManager handles all of that.
-
 public class MainActivity extends BaseActivity {
 
     LinearLayout homeTab, dashboardTab, notificationTab, profileTab;
@@ -38,21 +35,30 @@ public class MainActivity extends BaseActivity {
         });
 
         // -----------------------------------------------------------
-        // 1. GET FIREBASE TOKEN (Run this when app starts)
+        // 1. FIREBASE NOTIFICATIONS SETUP
         // -----------------------------------------------------------
+
+        // A. Get Individual Device Token (For specific user notifications)
         FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
             if (!task.isSuccessful()) {
                 Log.w("FCM", "Fetching FCM registration token failed", task.getException());
                 return;
             }
-
-            // Get new FCM registration token
             String token = task.getResult();
             Log.d("FCM", "Token retrieved: " + token);
-
-            // Save it using your Kotlin Manager (Clean & Error-Free)
             saveTokenToSupabase(token);
         });
+
+        // B. [NEW] Subscribe to "all_users" Topic (For "Notify All" feature)
+        // This makes sure this user receives broadcasts sent to "all_users"
+        FirebaseMessaging.getInstance().subscribeToTopic("all_users")
+                .addOnCompleteListener(task -> {
+                    String msg = "Subscribed to global notifications";
+                    if (!task.isSuccessful()) {
+                        msg = "Subscribe failed";
+                    }
+                    Log.d("FCM", msg);
+                });
 
         // -----------------------------------------------------------
         // 2. SETUP UI & TABS
@@ -87,8 +93,6 @@ public class MainActivity extends BaseActivity {
     // 3. HELPER FUNCTION: Save Token
     // -----------------------------------------------------------
     private void saveTokenToSupabase(String token) {
-        // We just hand this off to the Kotlin file.
-        // No more "PostgrestBuilder" or "Suspend" errors here!
         SupabaseManager.saveFcmToken(token);
     }
 
