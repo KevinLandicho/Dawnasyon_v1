@@ -29,9 +29,11 @@
     <androidx.cardview.widget.CardView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="6dp"
+        app:cardBackgroundColor="@android:color/white"
         app:contentPadding="12dp"
         app:layout_constraintTop_toBottomOf="@id/mapTitle"
         app:layout_constraintStart_toStartOf="parent">
@@ -46,6 +48,7 @@
                 android:layout_height="wrap_content"
                 android:text="LEGEND"
                 android:textStyle="bold"
+                android:textColor="#333333"
                 android:textSize="14sp"
                 android:layout_marginBottom="8dp"/>
 
@@ -54,15 +57,18 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="4dp">
+                android:layout_marginBottom="6dp">
                 <View
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:background="#FF0000"
-                    android:layout_marginEnd="8dp"/> <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Fire Alert"/>
+                    android:layout_marginEnd="10dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#000000"
+                    android:text="Fire Alert"/>
             </LinearLayout>
 
             <LinearLayout
@@ -70,15 +76,37 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:layout_marginBottom="4dp">
+                android:layout_marginBottom="6dp">
                 <View
                     android:layout_width="16dp"
                     android:layout_height="16dp"
                     android:background="#0000FF"
-                    android:layout_marginEnd="8dp"/> <TextView
+                    android:layout_marginEnd="10dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#000000"
+                    android:text="Flood Risk"/>
+            </LinearLayout>
+
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Flood Risk"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="6dp">
+                <View
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:background="#2E7D32"
+                    android:layout_marginEnd="10dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#000000"
+                    android:text="Quake (Minor)"/>
             </LinearLayout>
 
             <LinearLayout
@@ -89,11 +117,14 @@
                 <View
                     android:layout_width="16dp"
                     android:layout_height="16dp"
-                    android:background="#FFA500"
-                    android:layout_marginEnd="8dp"/> <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Earthquake"/>
+                    android:background="#FF00FF"
+                    android:layout_marginEnd="10dp"/>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="#000000"
+                    android:text="Quake (Strong)"/>
             </LinearLayout>
 
         </LinearLayout>

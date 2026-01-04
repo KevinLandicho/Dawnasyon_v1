@@ -60,6 +60,7 @@ dependencies {
     // ✅ Keep 1.6.3 to match Kotlin 1.9.24
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("org.slf4j:slf4j-simple:2.0.9")
+    implementation ("org.jsoup:jsoup:1.17.2")
 
     // --- Camera & Maps ---
     implementation("androidx.camera:camera-core:1.2.3")
@@ -67,6 +68,9 @@ dependencies {
     implementation("androidx.camera:camera-view:1.2.3")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("org.osmdroid:osmdroid-android:6.1.16")
+
+    implementation ("com.squareup.okhttp3:okhttp:4.9.3")
+    implementation ("org.json:json:20210307")
 
     // --- Networking & Images ---
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
