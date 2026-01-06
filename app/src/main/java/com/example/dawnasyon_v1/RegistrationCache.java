@@ -8,7 +8,7 @@ public class RegistrationCache {
     public static String tempPassword = "";
     public static String tempFullName = "";
     public static String tempContact = "";
-
+    public static String faceEmbedding = "";
     // Address
     public static String tempHouseNo = "";
     public static String tempStreet = "";

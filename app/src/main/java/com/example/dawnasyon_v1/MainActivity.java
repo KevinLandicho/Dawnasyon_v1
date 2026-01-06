@@ -1,5 +1,7 @@
 package com.example.dawnasyon_v1;
 
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.FrameLayout;
@@ -37,8 +39,6 @@ public class MainActivity extends BaseActivity {
         // -----------------------------------------------------------
         // 1. FIREBASE NOTIFICATIONS SETUP
         // -----------------------------------------------------------
-
-        // A. Get Individual Device Token (For specific user notifications)
         FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
             if (!task.isSuccessful()) {
                 Log.w("FCM", "Fetching FCM registration token failed", task.getException());
@@ -49,8 +49,6 @@ public class MainActivity extends BaseActivity {
             saveTokenToSupabase(token);
         });
 
-        // B. [NEW] Subscribe to "all_users" Topic (For "Notify All" feature)
-        // This makes sure this user receives broadcasts sent to "all_users"
         FirebaseMessaging.getInstance().subscribeToTopic("all_users")
                 .addOnCompleteListener(task -> {
                     String msg = "Subscribed to global notifications";
@@ -71,13 +69,11 @@ public class MainActivity extends BaseActivity {
 
         tabs = new LinearLayout[]{homeTab, dashboardTab, notificationTab, profileTab};
 
-        // Load default fragment
         if (savedInstanceState == null) {
             selectTab(homeTab);
             loadFragment(new Home_fragment());
         }
 
-        // Set click listeners
         homeTab.setOnClickListener(v -> { selectTab(homeTab); loadFragment(new Home_fragment()); });
         dashboardTab.setOnClickListener(v -> { selectTab(dashboardTab); loadFragment(new Dashboard_fragment()); });
         notificationTab.setOnClickListener(v -> { selectTab(notificationTab); loadFragment(new Notification_fragment()); });
@@ -90,15 +86,49 @@ public class MainActivity extends BaseActivity {
     }
 
     // -----------------------------------------------------------
-    // 3. HELPER FUNCTION: Save Token
+    // ⭐ NEW: SECURITY CHECK (Runs every time app opens)
+    // -----------------------------------------------------------
+    @Override
+    protected void onResume() {
+        super.onResume();
+        checkSecurityTimer();
+    }
+
+    private void checkSecurityTimer() {
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+
+        // 1. Check if user has a face registered
+        String faceData = prefs.getString("face_embedding", "");
+        if (faceData.isEmpty()) {
+            // If you see this toast, it means you need to Logout & Login again!
+            android.widget.Toast.makeText(this, "DEBUG: No Face Data found in phone memory.", android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        // 2. Get Timestamps
+        long lastTime = prefs.getLong("last_verified_timestamp", 0);
+        long currentTime = System.currentTimeMillis();
+
+        // 3. Set Limit (24 Hours = 86400000 ms)
+        // 💡 TIP: Change this to 60000 (1 min) to test it quickly!
+        long timeLimit = 86400000;
+        long timelim = 10000;
+
+        // 4. Check if expired
+        if (currentTime - lastTime > timelim) {
+            Intent intent = new Intent(this, FaceVerifyActivity.class);
+            // Clear back stack so they can't press "Back" to return here
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+        }
+    }
+
+    // -----------------------------------------------------------
+    // 3. HELPERS
     // -----------------------------------------------------------
     private void saveTokenToSupabase(String token) {
         SupabaseManager.saveFcmToken(token);
     }
 
-    // -----------------------------------------------------------
-    // 4. UI HELPERS (Fragment & Tabs)
-    // -----------------------------------------------------------
     private void loadFragment(Fragment fragment) {
         FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
         transaction.replace(R.id.fragment_container, fragment);

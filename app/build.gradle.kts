@@ -71,6 +71,18 @@ dependencies {
 
     implementation ("com.squareup.okhttp3:okhttp:4.9.3")
     implementation ("org.json:json:20210307")
+    implementation("androidx.camera:camera-core:1.3.0")
+    implementation("androidx.camera:camera-camera2:1.3.0")
+    implementation("androidx.camera:camera-lifecycle:1.3.0")
+    implementation("androidx.camera:camera-view:1.3.0")
+
+    // ML Kit (To find faces in the image)
+    implementation ("com.google.mlkit:face-detection:16.1.6")
+
+    // TensorFlow Lite (To recognize who the face is)
+    implementation ("org.tensorflow:tensorflow-lite:2.14.0")
+    implementation ("org.tensorflow:tensorflow-lite-support:0.4.4")
+    implementation ("org.tensorflow:tensorflow-lite-gpu:2.14.0")
 
     // --- Networking & Images ---
     implementation("com.squareup.okhttp3:okhttp:4.9.3")

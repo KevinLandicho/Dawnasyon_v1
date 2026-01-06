@@ -87,7 +87,6 @@ object AuthHelper {
             }
         }
     }
-    // In AuthHelper.kt
 
     // --- 4. FETCH USER PROFILE ---
     @JvmStatic
@@ -113,7 +112,7 @@ object AuthHelper {
         }
     }
 
-    // --- 5. FETCH HOUSEHOLD MEMBERS (Missing Part 1) ---
+    // --- 5. FETCH HOUSEHOLD MEMBERS ---
     @JvmStatic
     fun fetchHouseholdMembers(callback: (List<HouseholdMember>?) -> Unit) {
         val client = SupabaseManager.client
@@ -139,7 +138,7 @@ object AuthHelper {
         }
     }
 
-    // --- 6. LOGOUT (Missing Part 2) ---
+    // --- 6. LOGOUT ---
     @JvmStatic
     fun logoutUser() {
         val client = SupabaseManager.client
@@ -152,7 +151,7 @@ object AuthHelper {
         }
     }
 
-    // --- 7. CREATE PROFILE ---
+    // --- 7. CREATE PROFILE (UPDATED WITH FACE DATA) ---
     @JvmStatic
     fun createProfileAfterVerification(context: Context, callback: RegistrationCallback) {
         val client = SupabaseManager.client
@@ -165,6 +164,7 @@ object AuthHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // A. Generate QR Code
                 var qrCodeUrl: String? = null
                 try {
                     qrCodeUrl = QrCodeHelper.generateAndUploadQrCode(userId)
@@ -172,6 +172,7 @@ object AuthHelper {
                     Log.e("AuthHelper", "QR Error: ${e.message}")
                 }
 
+                // B. Upload ID Image
                 var uploadedIdUrl = ""
                 if (RegistrationCache.tempIdImageUri.isNotEmpty()) {
                     try {
@@ -195,6 +196,11 @@ object AuthHelper {
                     }
                 }
 
+                // C. ⭐ NEW: Get Face Embedding from Cache
+                // We grab the string we saved in FaceRegisterActivity
+                val faceData = RegistrationCache.faceEmbedding
+
+                // D. Create Profile Object
                 val profile = Profile(
                     id = userId,
                     full_name = RegistrationCache.tempFullName,
@@ -207,10 +213,17 @@ object AuthHelper {
                     province = RegistrationCache.tempProvince,
                     zip_code = RegistrationCache.tempZip,
                     id_image_url = uploadedIdUrl,
-                    qr_code_url = qrCodeUrl
+                    qr_code_url = qrCodeUrl,
+
+                    // ⭐ PASS IT TO THE PROFILE HERE
+                    // Make sure your Profile.kt data class has this field!
+                    face_embedding = if (faceData.isNotEmpty()) faceData else null
                 )
+
+                // E. Insert into Supabase
                 client.from("profiles").insert(profile)
 
+                // F. Insert Household Members
                 val members = RegistrationCache.tempHouseholdList
                 if (members.isNotEmpty()) {
                     val linkedMembers = members.map { it.copy(head_id = userId) }
@@ -219,7 +232,7 @@ object AuthHelper {
 
                 withContext(Dispatchers.Main) {
                     callback.onSuccess()
-                    RegistrationCache.clear()
+                    RegistrationCache.clear() // Clear all temporary data
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { callback.onError(e.message ?: "Save Failed") }
