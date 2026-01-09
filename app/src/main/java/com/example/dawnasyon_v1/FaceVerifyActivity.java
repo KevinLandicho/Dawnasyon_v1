@@ -31,6 +31,7 @@ import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.face.Face;
+import com.google.mlkit.vision.face.FaceContour;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
@@ -47,16 +48,12 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private ImageCapture imageCapture;
     private FaceHelper faceHelper;
     private ExecutorService cameraExecutor;
-    private boolean isCapturing = false;
 
-    // ⭐ GESTURE CHALLENGE VARIABLES
-    private enum SecurityStep {
-        ALIGN,
-        LOOK_LEFT,
-        LOOK_RIGHT,
-        LOOK_UP,
-        VERIFYING
-    }
+    private boolean isCapturing = false;
+    private boolean isAnalyzing = false;
+    private FaceDetector detector;
+
+    private enum SecurityStep { ALIGN, LOOK_LEFT, LOOK_RIGHT, LOOK_UP, VERIFYING }
     private SecurityStep currentStep = SecurityStep.ALIGN;
     private int stabilityCounter = 0;
 
@@ -71,6 +68,14 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
         faceHelper = new FaceHelper(this);
         cameraExecutor = Executors.newSingleThreadExecutor();
+
+        // FAST MODE for Zero Lag
+        FaceDetectorOptions options = new FaceDetectorOptions.Builder()
+                .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                .setContourMode(FaceDetectorOptions.CONTOUR_MODE_ALL)
+                .build();
+        detector = FaceDetection.getClient(options);
 
         if (allPermissionsGranted()) {
             startCamera();
@@ -88,7 +93,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 imageCapture = new ImageCapture.Builder().build();
 
-                // Low latency analysis for smooth gesture tracking
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .setTargetResolution(new Size(640, 480))
@@ -105,113 +109,155 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void analyzeFrame(ImageProxy imageProxy) {
-        if (isCapturing) {
+        if (isAnalyzing || isCapturing) {
             imageProxy.close();
             return;
         }
 
         android.media.Image mediaImage = imageProxy.getImage();
         if (mediaImage != null) {
+            isAnalyzing = true;
             InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-
-            // We don't need classification (eyes) anymore, just landmarks/contours
-            FaceDetectorOptions options = new FaceDetectorOptions.Builder()
-                    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
-                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
-                    .build();
-            FaceDetector detector = FaceDetection.getClient(options);
 
             detector.process(image)
                     .addOnSuccessListener(faces -> {
                         if (faces.size() == 1) {
-                            processGestures(faces.get(0), imageProxy.getWidth(), imageProxy.getHeight());
+                            Face face = faces.get(0);
+                            runOnUiThread(() -> faceOverlay.updateFace(face, imageProxy.getWidth(), imageProxy.getHeight()));
+                            processGestures(face, imageProxy.getWidth(), imageProxy.getHeight());
                         } else {
-                            resetToStart("No Face / Too Many Faces");
+                            runOnUiThread(() -> {
+                                faceOverlay.updateFace(null, 0, 0);
+                                resetToStart("No Face Detected");
+                            });
                         }
                     })
-                    .addOnFailureListener(e -> resetToStart("Error"))
-                    .addOnCompleteListener(task -> imageProxy.close());
+                    .addOnFailureListener(e -> { })
+                    .addOnCompleteListener(task -> {
+                        imageProxy.close();
+                        isAnalyzing = false;
+                    });
         } else {
             imageProxy.close();
+            isAnalyzing = false;
         }
     }
 
-    // ⭐ NEW GESTURE LOGIC LOOP
-    private void processGestures(Face face, int w, int h) {
-        // 1. Get Head Angles
-        float rotY = face.getHeadEulerAngleY(); // Left/Right (Yaw)
-        float rotX = face.getHeadEulerAngleX(); // Up/Down (Pitch)
+    // ==============================================================
+    // ⭐ NEW MANUAL CALCULATIONS (For Fast Mode)
+    // ==============================================================
 
-        // 2. Check Alignment (Is face in box?)
+    /** * Calculates Head Turn (Yaw).
+     * Returns: Negative for Right, Positive for Left (Approx -50 to +50)
+     */
+    private float calculateYaw(Face face) {
         Rect box = face.getBoundingBox();
-        float centerX = box.centerX() / (float) w;
-        float centerY = box.centerY() / (float) h;
-        boolean aligned = centerX > 0.35 && centerX < 0.65 && centerY > 0.35 && centerY < 0.65;
+        FaceContour nose = face.getContour(FaceContour.NOSE_BRIDGE);
+        if (nose == null || nose.getPoints().isEmpty()) return 0;
 
-        // 3. State Machine
+        float noseX = nose.getPoints().get(0).x;
+        float ratio = (noseX - box.left) / (float)box.width();
+
+        // Center is 0.5. Left > 0.5. Right < 0.5.
+        return (ratio - 0.5f) * 100;
+    }
+
+    /** * Calculates Looking Up/Down (Pitch).
+     * Returns: Positive for Looking Up, Negative for Down.
+     */
+    private float calculatePitch(Face face) {
+        Rect box = face.getBoundingBox();
+        FaceContour noseBottom = face.getContour(FaceContour.NOSE_BOTTOM);
+        if (noseBottom == null || noseBottom.getPoints().isEmpty()) return 0;
+
+        float noseY = noseBottom.getPoints().get(0).y;
+
+        // Calculate where the nose tip is vertically in the box (0.0 top, 1.0 bottom)
+        float ratio = (noseY - box.top) / (float)box.height();
+
+        // Normal face: Nose tip is usually at ~0.60
+        // Looking UP: Nose moves HIGHER (ratio decreases, e.g. 0.50)
+        // Looking DOWN: Nose moves LOWER (ratio increases, e.g. 0.70)
+
+        // We invert it so "Up" is positive
+        float diff = 0.60f - ratio;
+        return diff * 100; // Returns roughly +10 for Up, -10 for Down
+    }
+
+    private void processGestures(Face face, int w, int h) {
+        // Use manual math instead of AI angles
+        float rotY = calculateYaw(face);
+        float rotX = calculatePitch(face);
+
+        // Debug text on screen to help you see what's happening
+        String debug = String.format("\nY: %.1f | X: %.1f", rotY, rotX);
+
         switch (currentStep) {
             case ALIGN:
-                if (aligned && Math.abs(rotY) < 10 && Math.abs(rotX) < 10) {
-                    // Face is center and looking straight
+                if (Math.abs(rotY) < 10 && Math.abs(rotX) < 10) {
                     stabilityCounter++;
-                    if (stabilityCounter > 10) {
+                    if (stabilityCounter > 5) {
                         currentStep = SecurityStep.LOOK_LEFT;
-                        updateStatus("Slowly Turn Head LEFT ⬅️", Color.CYAN);
                         stabilityCounter = 0;
-                    } else {
-                        updateStatus("Hold Still...", Color.WHITE);
                     }
+                    updateStatus("Hold Still..." + debug, Color.GREEN);
                 } else {
-                    updateStatus("Center Your Face", Color.WHITE);
+                    updateStatus("Center Your Face" + debug, Color.WHITE);
                     stabilityCounter = 0;
                 }
                 break;
 
             case LOOK_LEFT:
-                // ML Kit: Positive Y is usually Left (depends on camera mirror, check < -20 or > 20)
-                // Let's assume Turn Left means Angle Y becomes > 20 degrees
-                if (rotY > 20) {
+                if (rotY > 12) { // Threshold for Left
+                    updateStatus("Good! Hold Left..." + stabilityCounter, Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
                         currentStep = SecurityStep.LOOK_RIGHT;
-                        updateStatus("Now Turn Head RIGHT ➡️", Color.CYAN);
                         stabilityCounter = 0;
                     }
+                } else if (rotY < -10) {
+                    updateStatus("Wrong Way! Turn LEFT ⬅️" + debug, Color.RED);
+                } else {
+                    updateStatus("Turn Head LEFT ⬅️" + debug, Color.CYAN);
                 }
                 break;
 
             case LOOK_RIGHT:
-                // Turn Right means Angle Y becomes < -20 degrees
-                if (rotY < -20) {
+                if (rotY < -12) { // Threshold for Right
+                    updateStatus("Good! Hold Right..." + stabilityCounter, Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
                         currentStep = SecurityStep.LOOK_UP;
-                        updateStatus("Now Look UP ⬆️", Color.CYAN);
                         stabilityCounter = 0;
                     }
+                } else if (rotY > 10) {
+                    updateStatus("Wrong Way! Turn RIGHT ➡️" + debug, Color.RED);
+                } else {
+                    updateStatus("Turn Head RIGHT ➡️" + debug, Color.CYAN);
                 }
                 break;
 
             case LOOK_UP:
-                // Look Up means Angle X becomes > 15 degrees
-                if (rotX > 15) {
+                // ⭐ FIX: Using new manual Pitch calculation
+                // If rotX is positive (> 5), the nose has moved up significantly
+                if (rotX > 4) {
+                    updateStatus("Good! Hold Up...", Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
                         currentStep = SecurityStep.VERIFYING;
-                        updateStatus("Look Straight to Finish!", Color.GREEN);
-                        faceOverlay.setBorderColor(Color.GREEN);
+                        runOnUiThread(() -> faceOverlay.setBorderColor(Color.GREEN));
                         stabilityCounter = 0;
                     }
+                } else {
+                    updateStatus("Look UP ⬆️" + debug, Color.CYAN);
                 }
                 break;
 
             case VERIFYING:
-                // User must look straight again to take the photo
-                if (Math.abs(rotY) < 10 && Math.abs(rotX) < 10) {
+                updateStatus("Look Straight!", Color.GREEN);
+                if (Math.abs(rotY) < 10) {
                     stabilityCounter++;
-                    if (stabilityCounter > 5) {
-                        triggerCapture();
-                    }
+                    if (stabilityCounter > 3) triggerCapture();
                 }
                 break;
         }
@@ -236,13 +282,8 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private void triggerCapture() {
         if (isCapturing) return;
         isCapturing = true;
-        runOnUiThread(() -> {
-            tvStatus.setText("Verifying Identity...");
-            captureAndVerify();
-        });
-    }
+        runOnUiThread(() -> tvStatus.setText("Verifying Identity..."));
 
-    private void captureAndVerify() {
         if (imageCapture == null) return;
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
             @Override
@@ -257,13 +298,14 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     @Override
                     public void onError(String error) {
                         isCapturing = false;
-                        resetToStart("Retry: " + error);
+                        resetToStart("Error: " + error);
                     }
                 });
             }
             @Override
             public void onError(@NonNull ImageCaptureException exception) {
                 isCapturing = false;
+                resetToStart("Capture Failed");
             }
         });
     }
@@ -274,6 +316,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
         if (savedData.isEmpty()) {
             Toast.makeText(this, "No registered face found.", Toast.LENGTH_LONG).show();
+            isCapturing = false;
             return;
         }
 
@@ -283,15 +326,18 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
         float score = FaceHelper.compareFaces(newEmbedding, savedEmbedding);
 
-        if (score > 0.8f) {
-            Toast.makeText(this, "✅ Identity Verified!", Toast.LENGTH_SHORT).show();
+        // Debug Score
+        String resultMsg = "Score: " + String.format("%.2f", score);
+        Toast.makeText(this, resultMsg, Toast.LENGTH_SHORT).show();
+
+        if (score > 0.60f) {
+            Toast.makeText(this, "✅ Verified!", Toast.LENGTH_SHORT).show();
             prefs.edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
             startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
             finish();
         } else {
             isCapturing = false;
-            Toast.makeText(this, "❌ Mismatch. Try again.", Toast.LENGTH_SHORT).show();
-            resetToStart("Identity Mismatch");
+            resetToStart("Mismatch");
         }
     }
 
@@ -300,11 +346,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
-    }
-
-    @Override
-    public void onBackPressed() {
-        Toast.makeText(this, "Verification Required", Toast.LENGTH_SHORT).show();
     }
 
     private boolean allPermissionsGranted() {

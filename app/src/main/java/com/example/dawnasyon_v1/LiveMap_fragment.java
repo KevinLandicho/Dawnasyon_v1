@@ -1,6 +1,8 @@
 package com.example.dawnasyon_v1;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -10,7 +12,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,6 +20,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 
@@ -40,6 +42,8 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
+import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
 import java.io.IOException;
 import java.text.SimpleDateFormat;
@@ -47,7 +51,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-// Security
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -62,6 +65,7 @@ public class LiveMap_fragment extends BaseFragment {
     private final OkHttpClient client = new OkHttpClient();
 
     private Marker homeMarker;
+    private MyLocationNewOverlay locationOverlay; // <--- ADDED: To show Blue Dot
 
     // YOUR API KEY
     private static final String OPENWEATHER_API_KEY = "00572d4c95d6813ee92167727a796fab";
@@ -105,6 +109,12 @@ public class LiveMap_fragment extends BaseFragment {
         GeoPoint startPoint = new GeoPoint(14.7036, 121.0543);
         map.getController().setZoom(16.0);
 
+        // =========================================================
+        // 1. SETUP CURRENT LOCATION (BLUE DOT)
+        // =========================================================
+        setupCurrentLocation();
+
+        // 2. LOAD REGISTERED HOME ADDRESS
         if (targetAddress != null && !targetAddress.isEmpty()) {
             locateAddressOnMap(targetAddress, startPoint);
         } else {
@@ -116,13 +126,43 @@ public class LiveMap_fragment extends BaseFragment {
         addQuakeMarker(14.7025, 121.0535, "Flood Risk", "Creek Side", Color.BLUE);
         addQuakeMarker(14.7040, 121.0550, "Fire Alert", "Sitio 1", Color.RED);
 
-        // Scanners (Now with 24hr Filter)
+        // Scanners
         fetchUSGSData();
         fetchPhivolcsData();
 
         Button btnBack = view.findViewById(R.id.btnBack);
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        }
+    }
+
+    // =========================================================
+    // NEW: CURRENT LOCATION SETUP
+    // =========================================================
+    private void setupCurrentLocation() {
+        // Check permissions first
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+
+            locationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(requireContext()), map);
+            locationOverlay.enableMyLocation();
+
+            // This runs once the GPS finds the user's location
+            locationOverlay.runOnFirstFix(() -> {
+                GeoPoint myLoc = locationOverlay.getMyLocation();
+                if (myLoc != null) {
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        // Center map on user if they haven't searched for a house yet
+                        if(targetAddress == null) {
+                            map.getController().animateTo(myLoc);
+                        }
+                        // FETCH WEATHER FOR CURRENT LOCATION
+                        fetchWeatherForCurrentLocation(myLoc.getLatitude(), myLoc.getLongitude());
+                    });
+                }
+            });
+
+            map.getOverlays().add(locationOverlay);
         }
     }
 
@@ -142,17 +182,16 @@ public class LiveMap_fragment extends BaseFragment {
                 String finalAddress = registeredAddress.trim();
                 new Handler(Looper.getMainLooper()).post(() -> {
                     if (!finalAddress.isEmpty()) {
-                        Toast.makeText(getContext(), "Locating: " + finalAddress, Toast.LENGTH_SHORT).show();
                         locateAddressOnMap(finalAddress, defaultPoint);
                     } else {
                         addHomeMarker(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Location", "Sta. Lucia (Default)");
-                        fetchWeatherForLocation(defaultPoint.getLatitude(), defaultPoint.getLongitude());
+                        fetchWeatherForHome(defaultPoint.getLatitude(), defaultPoint.getLongitude());
                     }
                 });
             } else {
                 new Handler(Looper.getMainLooper()).post(() -> {
                     addHomeMarker(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Location", "Sta. Lucia (Default)");
-                    fetchWeatherForLocation(defaultPoint.getLatitude(), defaultPoint.getLongitude());
+                    fetchWeatherForHome(defaultPoint.getLatitude(), defaultPoint.getLongitude());
                 });
             }
             return null;
@@ -160,9 +199,41 @@ public class LiveMap_fragment extends BaseFragment {
     }
 
     // =========================================================
-    // WEATHER CHECKER
+    // WEATHER: FOR HOME MARKER
     // =========================================================
-    private void fetchWeatherForLocation(double lat, double lon) {
+    private void fetchWeatherForHome(double lat, double lon) {
+        fetchWeatherGeneric(lat, lon, (condition, temp, desc) -> {
+            if (homeMarker != null) {
+                String emoji = getEmoji(condition);
+                String weatherInfo = emoji + " " + condition + ": " + desc + " (" + temp + "°C)";
+
+                // If raining, add explicit warning
+                if(condition.contains("Rain")) {
+                    weatherInfo += "\n⚠️ Chance of Rain detected!";
+                }
+
+                homeMarker.setSnippet(homeMarker.getSnippet() + "\n" + weatherInfo);
+                if (homeMarker.isInfoWindowShown()) {
+                    homeMarker.closeInfoWindow();
+                    homeMarker.showInfoWindow();
+                }
+            }
+        });
+    }
+
+    // =========================================================
+    // NEW: WEATHER FOR CURRENT LOCATION (TOAST)
+    // =========================================================
+    private void fetchWeatherForCurrentLocation(double lat, double lon) {
+        fetchWeatherGeneric(lat, lon, (condition, temp, desc) -> {
+            String emoji = getEmoji(condition);
+            String msg = "Current Location: " + emoji + " " + temp + "°C (" + condition + ")";
+            Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show();
+        });
+    }
+
+    // Shared Weather Fetcher
+    private void fetchWeatherGeneric(double lat, double lon, WeatherCallback callback) {
         String url = "https://api.openweathermap.org/data/2.5/weather?lat=" + lat + "&lon=" + lon + "&appid=" + OPENWEATHER_API_KEY + "&units=metric";
         Request request = new Request.Builder().url(url).build();
 
@@ -180,29 +251,24 @@ public class LiveMap_fragment extends BaseFragment {
                                 String condition = weatherArray.getJSONObject(0).getString("main");
                                 String desc = weatherArray.getJSONObject(0).getString("description");
                                 double temp = mainObj.getDouble("temp");
-
-                                String emoji = "☁️";
-                                if (condition.equalsIgnoreCase("Rain") || condition.equalsIgnoreCase("Thunderstorm")) emoji = "🌧️";
-                                else if (condition.equalsIgnoreCase("Clear")) emoji = "☀️";
-
-                                if (homeMarker != null) {
-                                    String currentSnippet = homeMarker.getSnippet();
-                                    // Avoid duplicating weather info if called multiple times
-                                    if (currentSnippet != null && !currentSnippet.contains("°C")) {
-                                        String weatherInfo = emoji + " " + condition + ": " + desc + " (" + temp + "°C)";
-                                        homeMarker.setSnippet(currentSnippet + "\n" + weatherInfo);
-                                        if (homeMarker.isInfoWindowShown()) {
-                                            homeMarker.closeInfoWindow();
-                                            homeMarker.showInfoWindow();
-                                        }
-                                    }
-                                }
+                                callback.onWeatherReceived(condition, temp, desc);
                             }
                         } catch (Exception e) { e.printStackTrace(); }
                     });
                 }
             } catch (IOException e) { e.printStackTrace(); }
         }).start();
+    }
+
+    private String getEmoji(String condition) {
+        if (condition.equalsIgnoreCase("Rain") || condition.equalsIgnoreCase("Thunderstorm") || condition.equalsIgnoreCase("Drizzle")) return "🌧️";
+        else if (condition.equalsIgnoreCase("Clouds")) return "☁️";
+        else if (condition.equalsIgnoreCase("Clear")) return "☀️";
+        return "🌥️";
+    }
+
+    interface WeatherCallback {
+        void onWeatherReceived(String condition, double temp, String desc);
     }
 
     // =========================================================
@@ -217,11 +283,11 @@ public class LiveMap_fragment extends BaseFragment {
                 GeoPoint foundPoint = new GeoPoint(location.getLatitude(), location.getLongitude());
                 map.getController().setCenter(foundPoint);
                 addHomeMarker(foundPoint.getLatitude(), foundPoint.getLongitude(), "My Household", addressStr);
-                fetchWeatherForLocation(foundPoint.getLatitude(), foundPoint.getLongitude());
+                fetchWeatherForHome(foundPoint.getLatitude(), foundPoint.getLongitude());
             } else {
                 map.getController().setCenter(defaultPoint);
                 addHomeMarker(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Location", "Sta. Lucia (Default)");
-                fetchWeatherForLocation(defaultPoint.getLatitude(), defaultPoint.getLongitude());
+                fetchWeatherForHome(defaultPoint.getLatitude(), defaultPoint.getLongitude());
             }
         } catch (IOException e) {
             map.getController().setCenter(defaultPoint);
@@ -236,12 +302,21 @@ public class LiveMap_fragment extends BaseFragment {
         homeMarker.setTitle(title);
         homeMarker.setSnippet(snippet);
 
-        Drawable icon = ContextCompat.getDrawable(requireContext(), org.osmdroid.library.R.drawable.marker_default);
-        if (icon != null) {
-            Drawable tintedIcon = icon.getConstantState().newDrawable().mutate();
-            DrawableCompat.setTint(tintedIcon, Color.WHITE);
-            homeMarker.setIcon(tintedIcon);
+        // =========================================================
+        // UPDATED: USE HOUSE ICON
+        // =========================================================
+        try {
+            // Ensure you have ic_house in res/drawable!
+            Drawable icon = ContextCompat.getDrawable(requireContext(), R.drawable.ic_house);
+            if (icon != null) {
+                homeMarker.setIcon(icon);
+            }
+        } catch (Exception e) {
+            // Fallback if image is missing
+            Drawable icon = ContextCompat.getDrawable(requireContext(), org.osmdroid.library.R.drawable.marker_default);
+            homeMarker.setIcon(icon);
         }
+
         map.getOverlays().add(homeMarker);
         map.invalidate();
     }
@@ -267,7 +342,7 @@ public class LiveMap_fragment extends BaseFragment {
     }
 
     // =========================================================
-    // 1. PHIVOLCS (Local) - FILTERED < 24 HOURS
+    // PHIVOLCS & USGS (Kept as provided)
     // =========================================================
     private void fetchPhivolcsData() {
         new Thread(() -> {
@@ -275,16 +350,10 @@ public class LiveMap_fragment extends BaseFragment {
                 String url = "https://earthquake.phivolcs.dost.gov.ph/";
                 Document doc = Jsoup.connect(url)
                         .sslSocketFactory(socketFactory())
-                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36")
-                        .ignoreHttpErrors(true)
-                        .timeout(60000)
-                        .get();
+                        .userAgent("Mozilla/5.0")
+                        .ignoreHttpErrors(true).timeout(60000).get();
                 Elements rows = doc.select("table tr");
-
-                // Prepare Date Parser (e.g. "06 Jan 2026 - 10:00 AM")
                 SimpleDateFormat sdf = new SimpleDateFormat("dd MMM yyyy - hh:mm a", Locale.ENGLISH);
-
-                // Calculate 24 hours ago
                 long twentyFourHoursAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000);
 
                 new Handler(Looper.getMainLooper()).post(() -> {
@@ -292,20 +361,11 @@ public class LiveMap_fragment extends BaseFragment {
                         try {
                             Elements cols = row.select("td");
                             if (cols.size() < 6) continue;
-
                             String dateStr = cols.get(0).text().replace("\u00A0", " ").trim();
-
-                            // ⭐ 24-HOUR FILTER LOGIC ⭐
                             try {
                                 Date quakeDate = sdf.parse(dateStr);
-                                if (quakeDate != null && quakeDate.getTime() < twentyFourHoursAgo) {
-                                    continue; // Skip if older than 24 hours
-                                }
-                            } catch (Exception e) {
-                                // If date parse fails, decide whether to skip or show.
-                                // Let's skip to be safe.
-                                continue;
-                            }
+                                if (quakeDate != null && quakeDate.getTime() < twentyFourHoursAgo) continue;
+                            } catch (Exception e) { continue; }
 
                             String latStr = cols.get(1).text().replace("\u00A0", "").trim();
                             if (latStr.matches(".*[a-zA-Z]+.*")) continue;
@@ -314,9 +374,7 @@ public class LiveMap_fragment extends BaseFragment {
                             double lon = Double.parseDouble(cols.get(2).text().replace("\u00A0", "").trim());
                             double mag = Double.parseDouble(cols.get(4).text().replace("\u00A0", "").trim());
                             String location = cols.get(5).text().replace("\u00A0", " ").trim();
-
-                            int color = getMarkerColor(mag);
-                            addQuakeMarker(lat, lon, "PHIVOLCS: Mag " + mag, dateStr + " - " + location, color);
+                            addQuakeMarker(lat, lon, "PHIVOLCS: Mag " + mag, dateStr + " - " + location, getMarkerColor(mag));
                         } catch (Exception e) { continue; }
                     }
                 });
@@ -324,14 +382,9 @@ public class LiveMap_fragment extends BaseFragment {
         }).start();
     }
 
-    // =========================================================
-    // 2. USGS (Global) - FILTERED < 24 HOURS
-    // =========================================================
     private void fetchUSGSData() {
         String url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_week.geojson";
         Request request = new Request.Builder().url(url).build();
-
-        // Calculate 24 hours ago
         long twentyFourHoursAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000);
 
         new Thread(() -> {
@@ -347,23 +400,17 @@ public class LiveMap_fragment extends BaseFragment {
                             for (int i = 0; i < features.length(); i++) {
                                 JSONObject feature = features.getJSONObject(i);
                                 JSONObject properties = feature.getJSONObject("properties");
-
-                                // ⭐ 24-HOUR FILTER LOGIC ⭐
                                 long time = properties.getLong("time");
-                                if (time < twentyFourHoursAgo) {
-                                    continue; // Skip if older than 24 hours
-                                }
+                                if (time < twentyFourHoursAgo) continue;
 
                                 JSONArray coordinates = feature.getJSONObject("geometry").getJSONArray("coordinates");
                                 double lon = coordinates.getDouble(0);
                                 double lat = coordinates.getDouble(1);
                                 double mag = properties.getDouble("mag");
                                 String place = properties.getString("place");
-                                String dateStr = sdf.format(new Date(time));
 
                                 if (lat > 4 && lat < 22 && lon > 116 && lon < 127) {
-                                    int color = getMarkerColor(mag);
-                                    addQuakeMarker(lat, lon, "USGS: Mag " + mag, dateStr + " - " + place, color);
+                                    addQuakeMarker(lat, lon, "USGS: Mag " + mag, sdf.format(new Date(time)) + " - " + place, getMarkerColor(mag));
                                 }
                             }
                         } catch (Exception e) { e.printStackTrace(); }
@@ -374,8 +421,8 @@ public class LiveMap_fragment extends BaseFragment {
     }
 
     private int getMarkerColor(double mag) {
-        if (mag >= 4.0) return 0xFFFF00FF; // Magenta
-        else return 0xFF2E7D32; // Green
+        if (mag >= 4.0) return 0xFFFF00FF;
+        else return 0xFF2E7D32;
     }
 
     private SSLSocketFactory socketFactory() {
