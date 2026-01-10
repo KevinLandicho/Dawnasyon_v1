@@ -7,10 +7,11 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.ImageView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SearchView; // Import for search
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -20,20 +21,25 @@ import java.util.List;
 
 public class Home_fragment extends BaseFragment {
 
-    // --- User Profile Fields ---
     private TextView welcomeText;
+    private SearchView searchView;
 
-    // --- Carousel Fields ---
+    // Carousel
     private ViewPager2 imageCarouselViewPager;
     private ImageCarouselAdapter carouselAdapter;
     private Handler sliderHandler = new Handler();
-    private final int SLIDE_INTERVAL_MS = 3000; // 3 seconds
+    private final int SLIDE_INTERVAL_MS = 3000;
 
-    // --- Announcement Fields ---
+    // Announcement Lists
     private RecyclerView announcementRecyclerView;
     private AnnouncementAdapter announcementAdapter;
 
-    // Runnable for the auto-sliding mechanism
+    // LIST 1: Displayed on screen (filtered)
+    private List<Announcement> announcementList = new ArrayList<>();
+    // LIST 2: Backup list (contains everything)
+    private List<Announcement> fullAnnouncementList = new ArrayList<>();
+
+    // Carousel Auto-scroll Runnable
     private final Runnable sliderRunnable = new Runnable() {
         @Override
         public void run() {
@@ -60,41 +66,32 @@ public class Home_fragment extends BaseFragment {
 
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        // 1. Initialize Views
+        // Bind Views
         welcomeText = view.findViewById(R.id.welcome_text);
+        searchView = view.findViewById(R.id.search_view);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
 
-        // 2. Fetch User Data from Supabase
+        // Setup Logic
         loadUserProfile();
-
-        // 3. Setup Carousel
         setupCarousel();
-
-        // 4. Setup Announcements List
         setupAnnouncementsList();
+        setupSearch(); // Initialize Search Listener
+
+        // Fetch Data
+        fetchAnnouncementsFromSupabase();
 
         return view;
     }
 
-    /**
-     * Fetches the logged-in user's profile and updates the welcome text.
-     */
     private void loadUserProfile() {
         AuthHelper.fetchUserProfile(profile -> {
-            // Check if fragment is still attached to avoid crashes
             if (profile != null && isAdded()) {
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
-            } else if (isAdded()) {
-                Log.e("HomeFragment", "Failed to load profile or profile is null");
             }
             return null;
         });
     }
-
-    // -------------------------------------------------------------------
-    // --- CAROUSEL LOGIC ---
-    // -------------------------------------------------------------------
 
     private void setupCarousel() {
         List<Integer> imageList = new ArrayList<>();
@@ -108,61 +105,118 @@ public class Home_fragment extends BaseFragment {
         imageCarouselViewPager.setAdapter(carouselAdapter);
     }
 
-    // -------------------------------------------------------------------
-    // --- ANNOUNCEMENT LIST LOGIC ---
-    // -------------------------------------------------------------------
-
     private void setupAnnouncementsList() {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        List<Announcement> sampleAnnouncements = createSampleAnnouncements();
-
-        announcementAdapter = new AnnouncementAdapter(sampleAnnouncements, new AnnouncementAdapter.OnApplyClickListener() {
-            @Override
-            public void onApplyClick(Announcement announcement) {
-                showApplyDialog(announcement);
-            }
-        });
-
+        announcementAdapter = new AnnouncementAdapter(announcementList, this::showApplyDialog);
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
 
+    // ⭐ SEARCH LOGIC ⭐
+    private void setupSearch() {
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                filterAnnouncements(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterAnnouncements(newText);
+                return true;
+            }
+        });
+    }
+
+    private void filterAnnouncements(String query) {
+        // If search is empty, restore the full list
+        if (query == null || query.isEmpty()) {
+            announcementAdapter.updateData(new ArrayList<>(fullAnnouncementList));
+            return;
+        }
+
+        List<Announcement> filteredList = new ArrayList<>();
+        String lowerCaseQuery = query.toLowerCase().trim();
+
+        for (Announcement item : fullAnnouncementList) {
+            boolean matchesTitle = item.getTitle() != null && item.getTitle().toLowerCase().contains(lowerCaseQuery);
+            boolean matchesBody = item.getDescription() != null && item.getDescription().toLowerCase().contains(lowerCaseQuery);
+
+            if (matchesTitle || matchesBody) {
+                filteredList.add(item);
+            }
+        }
+        announcementAdapter.updateData(filteredList);
+    }
+
+    private void fetchAnnouncementsFromSupabase() {
+        SupabaseJavaHelper.fetchAnnouncements(new AnnouncementCallback() {
+            @Override
+            public void onSuccess(List<? extends Announcement> data) {
+                if (isAdded()) {
+                    // Update both lists
+                    announcementList.clear();
+                    announcementList.addAll(data);
+
+                    fullAnnouncementList.clear();
+                    fullAnnouncementList.addAll(data);
+
+                    announcementAdapter.notifyDataSetChanged();
+                }
+            }
+
+            @Override
+            public void onError(@NonNull String message) {
+                if (isAdded()) {
+                    Log.e("HomeFragment", "Fetch Error: " + message);
+                    Toast.makeText(getContext(), "Failed to load announcements", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+// ... inside Home_fragment.java ...
+
     private void showApplyDialog(Announcement announcement) {
+        // 1. Create the dialog
         ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
+
+        // 2. Define what happens when user clicks "Confirm"
+        dialog.setOnConfirmListener(() -> {
+
+            // Validation: Is this actually a drive?
+            if (announcement.getLinkedDriveId() == null) {
+                Toast.makeText(getContext(), "Error: This drive is not linked properly.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 3. Call the Helper to save to Database
+            // ❌ REMOVE "SupabaseJavaHelper." before ApplicationCallback
+            // ✅ USE "new ApplicationCallback()" directly
+            SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), new ApplicationCallback() {
+                @Override
+                public void onSuccess() {
+                    if (isAdded()) {
+                        dialog.dismiss(); // Close confirmation dialog
+
+                        // Show your Success Dialog now that DB is updated
+                        ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
+                        successDialog.show(getParentFragmentManager(), "SuccessDialog");
+                    }
+                }
+
+                @Override
+                public void onError(@NonNull String message) {
+                    if (isAdded()) {
+                        Toast.makeText(getContext(), "Failed: " + message, Toast.LENGTH_SHORT).show();
+                        dialog.dismiss();
+                    }
+                }
+            });
+        });
+
+        // 4. Show the dialog
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
-
-    private List<Announcement> createSampleAnnouncements() {
-        List<Announcement> announcements = new ArrayList<>();
-        int placeholderImage = R.drawable.ic_image_placeholder;
-
-        announcements.add(new Announcement(
-                "Urgent Food Drive in Brgy. 143",
-                "Thursday, 11:30AM",
-                "We are calling for volunteers to help sort and pack relief goods...",
-                placeholderImage
-        ));
-
-        announcements.add(new Announcement(
-                "Medicine Donations Needed",
-                "Friday, 2:00PM",
-                "The health center requires immediate donations of pain relievers...",
-                placeholderImage
-        ));
-
-        announcements.add(new Announcement(
-                "Call for Hygiene Kit Volunteers",
-                "Saturday, 9:00AM",
-                "Assist in distributing hygiene kits door-to-door in vulnerable areas...",
-                placeholderImage
-        ));
-
-        return announcements;
-    }
-
-    // -------------------------------------------------------------------
-    // --- LIFECYCLE MANAGEMENT ---
-    // -------------------------------------------------------------------
-
     @Override
     public void onResume() {
         super.onResume();

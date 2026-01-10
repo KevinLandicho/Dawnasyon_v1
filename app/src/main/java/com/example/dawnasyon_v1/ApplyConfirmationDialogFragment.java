@@ -8,13 +8,20 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-// import android.widget.Toast; // Toast is no longer needed here
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
 public class ApplyConfirmationDialogFragment extends DialogFragment {
+
+    // 1. Add a variable to hold the action
+    private Runnable confirmListener;
+
+    // 2. Method to allow Home_fragment to set what happens on confirm
+    public void setOnConfirmListener(Runnable listener) {
+        this.confirmListener = listener;
+    }
 
     @Nullable
     @Override
@@ -31,17 +38,15 @@ public class ApplyConfirmationDialogFragment extends DialogFragment {
 
         btnCancel.setOnClickListener(v -> dismiss());
 
-        // --- UPDATED PART HERE ---
+        // 3. Update the Confirm Button Logic
         btnConfirm.setOnClickListener(v -> {
-            // 1. Close the current confirmation dialog
-            dismiss();
-
-            // 2. Create and show the new success dialog
-            // We use getParentFragmentManager() because we are inside a fragment
-            ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
-            successDialog.show(getParentFragmentManager(), "SuccessDialog");
+            if (confirmListener != null) {
+                // Run the logic passed from Home_fragment (Database call)
+                confirmListener.run();
+            }
+            // Note: We DO NOT dismiss() here. We wait for Home_fragment
+            // to tell us if the application was successful.
         });
-        // -------------------------
 
         return view;
     }

@@ -1,5 +1,6 @@
 package com.example.dawnasyon_v1;
 
+import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -9,21 +10,20 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
+
 import java.util.List;
 
 public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapter.AnnouncementViewHolder> {
 
     private List<Announcement> announcementList;
+    private OnApplyClickListener listener;
+    private Context context;
 
-    // [NEW] 1. Define an interface for the click event
     public interface OnApplyClickListener {
         void onApplyClick(Announcement announcement);
     }
 
-    // [NEW] 2. Add a variable to hold the listener
-    private OnApplyClickListener listener;
-
-    // [UPDATED] 3. Update constructor to accept the listener
     public AnnouncementAdapter(List<Announcement> announcementList, OnApplyClickListener listener) {
         this.announcementList = announcementList;
         this.listener = listener;
@@ -32,7 +32,8 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     @NonNull
     @Override
     public AnnouncementViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View view = LayoutInflater.from(parent.getContext())
+        this.context = parent.getContext();
+        View view = LayoutInflater.from(context)
                 .inflate(R.layout.item_announcement_card, parent, false);
         return new AnnouncementViewHolder(view);
     }
@@ -41,30 +42,51 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position) {
         Announcement currentAnnouncement = announcementList.get(position);
 
-        // Bind data to views
         holder.title.setText(currentAnnouncement.getTitle());
         holder.timestamp.setText(currentAnnouncement.getTimestamp());
         holder.description.setText(currentAnnouncement.getDescription());
-        holder.image.setImageResource(currentAnnouncement.getImageResId());
 
-        // [NEW] 4. Set the click listener on the "Apply" button
-        holder.btnApply.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Check if listener is not null before calling it
-                if (listener != null) {
-                    listener.onApplyClick(currentAnnouncement);
-                }
+        // LOAD IMAGE FROM URL USING GLIDE
+        if (currentAnnouncement.getImageUrl() != null && !currentAnnouncement.getImageUrl().isEmpty()) {
+            Glide.with(context)
+                    .load(currentAnnouncement.getImageUrl())
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_placeholder)
+                    .into(holder.image);
+        } else {
+            holder.image.setImageResource(R.drawable.ic_image_placeholder);
+        }
+
+        // ⭐ LOGIC TO HIDE APPLY BUTTON ⭐
+        // Check if type is "General". Use equalsIgnoreCase to be safe.
+        // We also check for null just in case the database field is empty.
+        String type = currentAnnouncement.getType();
+
+        if (type != null && type.equalsIgnoreCase("General")) {
+            // If General, remove the button
+            holder.btnApply.setVisibility(View.GONE);
+        } else {
+            // If Donation Drive (or anything else), show the button
+            holder.btnApply.setVisibility(View.VISIBLE);
+        }
+
+        holder.btnApply.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onApplyClick(currentAnnouncement);
             }
         });
     }
 
     @Override
     public int getItemCount() {
-        return announcementList.size();
+        return announcementList != null ? announcementList.size() : 0;
     }
 
-    // ViewHolder: References the elements in item_announcement_card.xml
+    public void updateData(List<Announcement> newAnnouncements) {
+        this.announcementList = newAnnouncements;
+        notifyDataSetChanged();
+    }
+
     public static class AnnouncementViewHolder extends RecyclerView.ViewHolder {
         ImageView image;
         TextView title;
