@@ -9,7 +9,10 @@ import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable // ✅ Added Import
+import kotlinx.serialization.Serializable
+
+// ✅ INTERFACES ARE DEFINED HERE (Top Level)
+// This makes them visible to Java as "NotificationCallback", not "SupabaseJavaHelper.NotificationCallback"
 
 interface AnnouncementCallback {
     fun onSuccess(data: List<Announcement>)
@@ -21,8 +24,14 @@ interface ApplicationCallback {
     fun onError(message: String)
 }
 
+interface NotificationCallback {
+    fun onSuccess(data: List<NotificationItem>)
+    fun onError(message: String)
+}
+
 object SupabaseJavaHelper {
 
+    // 1. FETCH ANNOUNCEMENTS
     @JvmStatic
     fun fetchAnnouncements(callback: AnnouncementCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -49,6 +58,7 @@ object SupabaseJavaHelper {
         }
     }
 
+    // 2. APPLY TO DRIVE
     @JvmStatic
     fun applyToDrive(driveId: Long, callback: ApplicationCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -63,14 +73,12 @@ object SupabaseJavaHelper {
                     return@launch
                 }
 
-                // ✅ FIX: Use a specific class instead of a generic Map
                 val applicationData = ApplicationDTO(
                     drive_id = driveId,
                     user_id = currentUser.id,
                     status = "Pending"
                 )
 
-                // Insert the specific object
                 SupabaseManager.client.from("relief_applications").insert(applicationData)
 
                 Handler(Looper.getMainLooper()).post {
@@ -89,9 +97,48 @@ object SupabaseJavaHelper {
             }
         }
     }
+
+    // 3. FETCH NOTIFICATIONS
+    @JvmStatic
+    fun fetchNotifications(callback: NotificationCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post {
+                        callback.onError("User not logged in.")
+                    }
+                    return@launch
+                }
+
+                val jsonResponse = SupabaseManager.client
+                    .from("notifications")
+                    .select {
+                        filter {
+                            eq("user_id", currentUser.id)
+                        }
+                        order("created_at", order = Order.DESCENDING)
+                    }
+                    .data
+
+                val type = object : TypeToken<List<NotificationItem>>() {}.type
+                val dataList = Gson().fromJson<List<NotificationItem>>(jsonResponse, type)
+
+                Handler(Looper.getMainLooper()).post {
+                    callback.onSuccess(dataList)
+                }
+
+            } catch (e: Exception) {
+                Handler(Looper.getMainLooper()).post {
+                    callback.onError(e.message ?: "Fetch failed")
+                }
+            }
+        }
+    }
 }
 
-// ✅ INTERNAL CLASS: This tells Supabase exactly what types to send
 @Serializable
 data class ApplicationDTO(
     val drive_id: Long,

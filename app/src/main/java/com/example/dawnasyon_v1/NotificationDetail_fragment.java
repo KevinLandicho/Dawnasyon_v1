@@ -9,7 +9,11 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class NotificationDetail_fragment extends BaseFragment {
 
@@ -18,6 +22,9 @@ public class NotificationDetail_fragment extends BaseFragment {
     private static final String ARG_BODY = "body";
     private static final String ARG_TIME = "time";
     private static final String ARG_TYPE = "type";
+    // ✅ New Arguments
+    private static final String ARG_SENDER = "sender";
+    private static final String ARG_RAW_DATE = "raw_date";
 
     public NotificationDetail_fragment() {}
 
@@ -27,8 +34,13 @@ public class NotificationDetail_fragment extends BaseFragment {
         Bundle args = new Bundle();
         args.putString(ARG_TITLE, item.getTitle());
         args.putString(ARG_BODY, item.getDescription());
-        args.putString(ARG_TIME, item.getTime());
+        args.putString(ARG_TIME, item.getTime()); // Formatted time from list
         args.putInt(ARG_TYPE, item.getType());
+
+        // Pass new data
+        args.putString(ARG_SENDER, item.getSenderName());
+        args.putString(ARG_RAW_DATE, item.getCreatedAt()); // Raw timestamp for date formatting
+
         fragment.setArguments(args);
         return fragment;
     }
@@ -43,10 +55,13 @@ public class NotificationDetail_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Bind Views
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         TextView tvSubject = view.findViewById(R.id.tv_subject);
         TextView tvBody = view.findViewById(R.id.tv_body);
         TextView tvTime = view.findViewById(R.id.tv_time);
+        TextView tvDate = view.findViewById(R.id.tv_date);
+        TextView tvSenderName = view.findViewById(R.id.tv_sender_name); // ✅ Bind Sender Name
         ImageView imgAttachment = view.findViewById(R.id.img_attachment);
 
         // Load data from arguments
@@ -55,8 +70,22 @@ public class NotificationDetail_fragment extends BaseFragment {
             tvBody.setText(getArguments().getString(ARG_BODY));
             tvTime.setText(getArguments().getString(ARG_TIME));
 
+            // ✅ 1. Set Sender Name (Default to "Barangay Staff" if missing)
+            String sender = getArguments().getString(ARG_SENDER);
+            if (sender != null && !sender.isEmpty()) {
+                tvSenderName.setText(sender);
+            } else {
+                tvSenderName.setText("Barangay Staff");
+            }
+
+            // ✅ 2. Format and Set Date (e.g., "August 23, 2025")
+            String rawDate = getArguments().getString(ARG_RAW_DATE);
+            if (rawDate != null) {
+                tvDate.setText(formatDate(rawDate));
+            }
+
+            // Handle Attachment Visibility
             int type = getArguments().getInt(ARG_TYPE);
-            // Show attachment only if type is 1 (Decline/Alert)
             if (type == 1) {
                 imgAttachment.setVisibility(View.VISIBLE);
             } else {
@@ -65,5 +94,22 @@ public class NotificationDetail_fragment extends BaseFragment {
         }
 
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+    }
+
+    // Helper to format raw DB timestamp into readable Date
+    private String formatDate(String rawDate) {
+        try {
+            // Parse UTC string from Supabase
+            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+            inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+            Date date = inputFormat.parse(rawDate);
+
+            // Format to "MMMM dd, yyyy" (e.g., August 23, 2025)
+            SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+            return outputFormat.format(date);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ""; // Return empty if error
+        }
     }
 }

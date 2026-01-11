@@ -1,21 +1,32 @@
 package com.example.dawnasyon_v1;
 
-public class NotificationItem {
-    private String title;
-    private String description;
-    private String time;
-    private String dateCategory; // e.g., "Earlier", "Yesterday", "Today"
-    private int type; // 0 for Relief Operation, 1 for Decline (affects icon)
-    private boolean isExpanded; // To track if the item is open or closed
+import com.google.gson.annotations.SerializedName;
 
-    public NotificationItem(String title, String description, String time, String dateCategory, int type) {
-        this.title = title;
-        this.description = description;
-        this.time = time;
-        this.dateCategory = dateCategory;
-        this.type = type;
-        this.isExpanded = false;
-    }
+public class NotificationItem {
+
+    @SerializedName("title")
+    private String title;
+
+    @SerializedName("message")
+    private String description;
+
+    @SerializedName("created_at")
+    private String createdAt;
+
+    @SerializedName("type")
+    private String dbType;
+
+    // ✅ NEW FIELD: Maps to the new database column
+    @SerializedName("sender_name")
+    private String senderName;
+
+    // Transient fields (UI only)
+    private transient String time;
+    private transient String dateCategory;
+    private transient int type;
+    private transient boolean isExpanded;
+
+    public NotificationItem() {}
 
     // Getters
     public String getTitle() { return title; }
@@ -23,8 +34,15 @@ public class NotificationItem {
     public String getTime() { return time; }
     public String getDateCategory() { return dateCategory; }
     public int getType() { return type; }
-    public boolean isExpanded() { return isExpanded; }
+    public String getCreatedAt() { return createdAt; }
+    public String getDbType() { return dbType; }
 
-    // Setter for expansion
+    // ✅ NEW GETTER
+    public String getSenderName() { return senderName; }
+
+    // Setters
+    public void setTime(String time) { this.time = time; }
+    public void setDateCategory(String category) { this.dateCategory = category; }
+    public void setType(int type) { this.type = type; }
     public void setExpanded(boolean expanded) { isExpanded = expanded; }
 }
