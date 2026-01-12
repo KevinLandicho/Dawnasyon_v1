@@ -6,8 +6,11 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,7 +28,9 @@ import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Dashboard_fragment extends BaseFragment {
 
@@ -34,11 +39,34 @@ public class Dashboard_fragment extends BaseFragment {
     private LineChart chartFamilies;
     private LineChart chartDonations;
 
-    // Define your Brand Colors
-    private final int COLOR_DARK_ORANGE = Color.parseColor("#F5901A");
-    private final int COLOR_MED_ORANGE = Color.parseColor("#FFCC80");
+    private LinearLayout llReliefList;
+    private LinearLayout llAffectedList;
+
+    // --- EXPANDED COLOR PALETTE ---
+    // 1. Deep/Dark Orange (Primary/Warning)
+    private final int COLOR_DEEP_ORANGE = Color.parseColor("#E65100");
+    // 2. Vibrant Orange (Brand)
+    private final int COLOR_VIBRANT_ORANGE = Color.parseColor("#F5901A");
+    // 3. Medium Orange
+    private final int COLOR_MED_ORANGE = Color.parseColor("#FFB74D");
+    // 4. Soft Orange
+    private final int COLOR_SOFT_ORANGE = Color.parseColor("#FFCC80");
+    // 5. Light Orange
     private final int COLOR_LIGHT_ORANGE = Color.parseColor("#FFE0B2");
+    // 6. Pale Orange (Backgrounds)
+    private final int COLOR_PALE_ORANGE = Color.parseColor("#FFF3E0");
+
+    // Teal for contrast
     private final int COLOR_TEAL = Color.parseColor("#27869B");
+
+    // Array for cycling colors in charts/lists
+    private final int[] ORANGE_SCALE_COLORS = {
+            COLOR_DEEP_ORANGE,
+            COLOR_VIBRANT_ORANGE,
+            COLOR_MED_ORANGE,
+            COLOR_SOFT_ORANGE,
+            COLOR_LIGHT_ORANGE
+    };
 
     public Dashboard_fragment() {
         // Required empty public constructor
@@ -54,48 +82,131 @@ public class Dashboard_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Bind Views
         chartRelief = view.findViewById(R.id.chart_relief_status);
         chartAffected = view.findViewById(R.id.chart_affected_areas);
         chartFamilies = view.findViewById(R.id.chart_registered_families);
         chartDonations = view.findViewById(R.id.chart_donation_trends);
+        Button btnLiveMap = view.findViewById(R.id.btn_live_map);
 
-        // 1. Setup Charts
+        llReliefList = view.findViewById(R.id.ll_relief_list);
+        llAffectedList = view.findViewById(R.id.ll_affected_list);
+
+        // Initial Setup
         setupReliefPieChart();
         setupAffectedPieChart();
         setupFamiliesLineChart();
         setupDonationTrendsChart();
 
-        // 2. Setup AI Analytics (The New Feature: Predictions + Risk Index)
-        setupAnalyticsInsights(view);
-
-        // 3. Connect Map Click Listener
-        // Note: chartAffected.setTouchEnabled(false) is set in setupAffectedPieChart
-        // This ensures the click passes through to this listener
-        chartAffected.setOnClickListener(v -> {
+        // Listeners
+        View.OnClickListener mapClickListener = v -> {
             getParentFragmentManager()
                     .beginTransaction()
                     .replace(R.id.fragment_container, new LiveMap_fragment())
                     .addToBackStack(null)
                     .commit();
+        };
+
+        if (btnLiveMap != null) btnLiveMap.setOnClickListener(mapClickListener);
+        if (chartAffected != null) chartAffected.setOnClickListener(mapClickListener);
+
+        loadRealData(view);
+    }
+
+    private void loadRealData(View view) {
+        SupabaseJavaHelper.fetchDashboardData(new DashboardCallback() {
+            @Override
+            public void onDataLoaded(Map<String, Integer> inventory,
+                                     Map<String, Integer> areas,
+                                     Map<String, Float> donations,
+                                     Map<String, Integer> families,
+                                     DashboardMetrics metrics) {
+                if (!isAdded()) return;
+
+                // A. Update Charts
+                updatePieChart(chartRelief, inventory);
+                updatePieChart(chartAffected, areas);
+                updateLineChart(chartDonations, donations);
+
+                // Update Families Chart
+                Map<String, Float> familiesFloat = new HashMap<>();
+                if (families != null) {
+                    for (Map.Entry<String, Integer> entry : families.entrySet()) {
+                        familiesFloat.put(entry.getKey(), entry.getValue().floatValue());
+                    }
+                }
+                updateLineChart(chartFamilies, familiesFloat);
+
+                // B. Update Lists
+                updateListUI(llReliefList, inventory, "Item");
+                updateListUI(llAffectedList, areas, "Street");
+
+                // C. Update Analytics (Top Card & Registered Families Text)
+                updateAnalyticsUI(view, metrics);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (isAdded()) {
+                    Toast.makeText(getContext(), "Error loading dashboard: " + message, Toast.LENGTH_SHORT).show();
+                }
+            }
         });
     }
 
-    // ⭐ NEW METHOD: AI ANALYTICS LOGIC ⭐
-    private void setupAnalyticsInsights(View view) {
-        // --- 1. DATA INPUTS (Simulation) ---
-        // In the future, these numbers will come from your SQL Database
-        int totalFamilies = 500;
-        int reliefPacksAvailable = 130;
-        int avgDistributionPerDay = 25;
+    private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {
+        if (container == null) return;
+        container.removeAllViews();
 
-        // Data for Risk Index (Matches your Affected Areas Chart)
-        int familiesInFloodZone = 150;
-        int familiesInFireZone = 100;
-        int totalAffected = familiesInFloodZone + familiesInFireZone;
+        TextView header = new TextView(getContext());
+        header.setText(labelTitle + "          Count");
+        header.setTextSize(12);
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setTextColor(Color.BLACK);
+        header.setPadding(0, 0, 0, 8);
+        container.addView(header);
 
-        // --- 2. LOGIC: Supply Coverage Analysis ---
-        int coveragePercent = (reliefPacksAvailable * 100) / totalFamilies;
-        int deficit = totalFamilies - reliefPacksAvailable;
+        if (data == null || data.isEmpty()) {
+            TextView empty = new TextView(getContext());
+            empty.setText("No data available");
+            empty.setTextSize(12);
+            container.addView(empty);
+            return;
+        }
+
+        // Cycle through the expanded orange palette
+        int colorIndex = 0;
+
+        for (Map.Entry<String, Integer> entry : data.entrySet()) {
+            TextView itemRow = new TextView(getContext());
+            itemRow.setText("● " + entry.getKey() + "   " + entry.getValue());
+            itemRow.setTextSize(12);
+
+            // Use the new ORANGE_SCALE_COLORS array to cycle bullet colors
+            itemRow.setTextColor(ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length]);
+
+            itemRow.setPadding(0, 4, 0, 4);
+            container.addView(itemRow);
+            colorIndex++;
+        }
+    }
+
+    private void updateAnalyticsUI(View view, DashboardMetrics metrics) {
+        int totalFamilies = metrics.getTotal_families();
+        int reliefPacks = metrics.getTotal_packs();
+        int totalAffected = metrics.getTotal_affected();
+
+        // Update the "Registered Families" Text View
+        TextView tvPercentage = view.findViewById(R.id.tv_percentage);
+        if (tvPercentage != null) {
+            tvPercentage.setText(String.valueOf(totalFamilies));
+        }
+
+        if (totalFamilies == 0) totalFamilies = 1;
+
+        int coveragePercent = (reliefPacks * 100) / totalFamilies;
+        int deficit = totalFamilies - reliefPacks;
+        if (deficit < 0) deficit = 0;
 
         ProgressBar progCoverage = view.findViewById(R.id.progress_coverage);
         TextView txtPercent = view.findViewById(R.id.txt_coverage_percent);
@@ -106,169 +217,180 @@ public class Dashboard_fragment extends BaseFragment {
             txtPercent.setText(coveragePercent + "%");
 
             if (coveragePercent < 50) {
-                // Critical (Red)
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.RED));
                 txtInsight.setText("CRITICAL: " + deficit + " families have no allocated packs.");
                 txtInsight.setTextColor(Color.RED);
             } else if (coveragePercent < 100) {
-                // Warning (Orange)
-                progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DARK_ORANGE));
-                txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed for 100% coverage.");
-                txtInsight.setTextColor(Color.parseColor("#E65100"));
+                // Use Deep Orange for warning
+                progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DEEP_ORANGE));
+                txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed.");
+                txtInsight.setTextColor(COLOR_DEEP_ORANGE);
             } else {
-                // Good (Green)
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
                 txtInsight.setText("✅ Sufficient Stock. All families covered.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
             }
         }
 
-        // --- 3. LOGIC: Predictive Modeling (Days Remaining) ---
+        int avgDistributionPerDay = 25;
         TextView txtPrediction = view.findViewById(R.id.txt_prediction);
         if (txtPrediction != null) {
-            int daysLeft = reliefPacksAvailable / avgDistributionPerDay;
-            if (daysLeft < 3) {
-                txtPrediction.setText("URGENT: Stock will run out in " + daysLeft + " days at current rate.");
+            if (reliefPacks == 0) {
+                txtPrediction.setText("URGENT: No stock available.");
             } else {
-                txtPrediction.setText("Stable: Supplies good for " + daysLeft + " days.");
+                int daysLeft = reliefPacks / avgDistributionPerDay;
+                txtPrediction.setText("Based on avg usage, stocks last " + daysLeft + " days.");
             }
         }
 
-        // --- 4. LOGIC: Real-Time Risk Index ---
         TextView badge = view.findViewById(R.id.txt_risk_badge);
-        TextView txtAffected = view.findViewById(R.id.txt_affected_families);
+        TextView txtAffectedView = view.findViewById(R.id.txt_affected_families);
         TextView txtDesc = view.findViewById(R.id.txt_risk_desc);
 
         if (badge != null) {
-            int percentAffected = (totalAffected * 100) / totalFamilies;
-            txtAffected.setText(totalAffected + " / " + totalFamilies + " Families Affected");
+            txtAffectedView.setText(totalAffected + " / " + totalFamilies + " Families Applied");
 
-            if (percentAffected >= 50) {
-                // HIGH RISK
-                badge.setText("CRITICAL LEVEL");
-                badge.setBackgroundColor(Color.parseColor("#FFEBEE")); // Light Red BG
+            int riskPercent = (totalAffected * 100) / totalFamilies;
+
+            if (riskPercent >= 50) {
+                badge.setText("HIGH RISK");
+                badge.setBackgroundColor(Color.parseColor("#FFEBEE"));
                 badge.setTextColor(Color.RED);
-                txtDesc.setText("⚠️ " + percentAffected + "% of population requires immediate evacuation.");
-            } else if (percentAffected >= 20) {
-                // MODERATE
-                badge.setText("MODERATE RISK");
-                badge.setBackgroundColor(Color.parseColor("#FFF3E0")); // Light Orange BG
-                badge.setTextColor(Color.parseColor("#E65100"));
-                txtDesc.setText("⚠️ " + percentAffected + "% of population affected. Monitor closely.");
+                txtDesc.setText("⚠️ Major crisis. Immediate action required.");
+            } else if (riskPercent >= 20) {
+                badge.setText("MODERATE");
+                badge.setBackgroundColor(COLOR_PALE_ORANGE); // Use pale orange bg
+                badge.setTextColor(COLOR_DEEP_ORANGE);       // Use deep orange text
+                txtDesc.setText("⚠️ Significant impact. Monitor closely.");
             } else {
-                // LOW
                 badge.setText("LOW RISK");
-                badge.setBackgroundColor(Color.parseColor("#E8F5E9")); // Light Green BG
+                badge.setBackgroundColor(Color.parseColor("#E8F5E9"));
                 badge.setTextColor(Color.parseColor("#2E7D32"));
                 txtDesc.setText("Situation stable. Minimal impact.");
             }
         }
     }
 
-    // --- CHART SETUP METHODS ---
+    private void updatePieChart(PieChart chart, Map<String, Integer> data) {
+        if (data == null || data.isEmpty()) return;
+        List<PieEntry> entries = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : data.entrySet()) {
+            entries.add(new PieEntry(entry.getValue(), entry.getKey()));
+        }
+        if (chart.getData() != null && chart.getData().getDataSet() != null) {
+            PieDataSet set = (PieDataSet) chart.getData().getDataSet();
+            set.setValues(entries);
+
+            // Apply the new expanded colors to the Pie Chart
+            set.setColors(ORANGE_SCALE_COLORS);
+
+            chart.getData().notifyDataChanged();
+            chart.notifyDataSetChanged();
+            chart.invalidate();
+        }
+    }
+
+    private void updateLineChart(LineChart chart, Map<String, Float> data) {
+        if (data == null || data.isEmpty()) return;
+        List<Entry> entries = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        int index = 0;
+        for (Map.Entry<String, Float> entry : data.entrySet()) {
+            entries.add(new Entry(index, entry.getValue()));
+            labels.add(entry.getKey());
+            index++;
+        }
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
+        xAxis.setLabelCount(labels.size());
+        if (chart.getData() != null && chart.getData().getDataSetCount() > 0) {
+            LineDataSet set = (LineDataSet) chart.getData().getDataSetByIndex(0);
+            set.setValues(entries);
+            chart.getData().notifyDataChanged();
+            chart.notifyDataSetChanged();
+            chart.invalidate();
+        }
+    }
 
     private void setupReliefPieChart() {
         List<PieEntry> entries = new ArrayList<>();
-        entries.add(new PieEntry(170f, ""));
-        entries.add(new PieEntry(58f, ""));
-        entries.add(new PieEntry(11f, ""));
+        // Empty string label to hide text
+        entries.add(new PieEntry(1f, ""));
 
         PieDataSet dataSet = new PieDataSet(entries, "");
-        dataSet.setColors(new int[]{COLOR_DARK_ORANGE, COLOR_MED_ORANGE, COLOR_LIGHT_ORANGE});
-        dataSet.setSliceSpace(3f);
+        dataSet.setColors(ORANGE_SCALE_COLORS);
+
+        // ⭐ HIDE TEXT ON CHART (Clean Look)
         dataSet.setDrawValues(false);
 
         PieData data = new PieData(dataSet);
         chartRelief.setData(data);
 
-        chartRelief.setHoleRadius(65f);
-        chartRelief.setTransparentCircleRadius(0f);
-        chartRelief.setHoleColor(Color.TRANSPARENT);
+        // ⭐ HIDE LABELS
+        chartRelief.setDrawEntryLabels(false);
+
         chartRelief.getDescription().setEnabled(false);
         chartRelief.getLegend().setEnabled(false);
         chartRelief.setTouchEnabled(false);
-        chartRelief.animateY(1000);
-        chartRelief.invalidate();
+
+        // Donut Style
+        chartRelief.setDrawHoleEnabled(true);
+        chartRelief.setHoleColor(Color.TRANSPARENT);
+        chartRelief.setHoleRadius(50f);
+        chartRelief.setTransparentCircleRadius(0f);
     }
 
     private void setupAffectedPieChart() {
         List<PieEntry> entries = new ArrayList<>();
-        entries.add(new PieEntry(150f, ""));
-        entries.add(new PieEntry(100f, ""));
-        entries.add(new PieEntry(25f, ""));
+        entries.add(new PieEntry(1f, ""));
 
         PieDataSet dataSet = new PieDataSet(entries, "");
-        dataSet.setColors(new int[]{COLOR_DARK_ORANGE, COLOR_MED_ORANGE, COLOR_LIGHT_ORANGE});
-        dataSet.setSliceSpace(3f);
+        dataSet.setColors(ORANGE_SCALE_COLORS);
+
+        // ⭐ HIDE TEXT ON CHART
         dataSet.setDrawValues(false);
 
         PieData data = new PieData(dataSet);
         chartAffected.setData(data);
 
-        chartAffected.setHoleRadius(65f);
-        chartAffected.setHoleColor(Color.TRANSPARENT);
+        // ⭐ HIDE LABELS
+        chartAffected.setDrawEntryLabels(false);
+
         chartAffected.getDescription().setEnabled(false);
         chartAffected.getLegend().setEnabled(false);
-
-        // ⭐ IMPORTANT: Disable touch so click passes to the Listener
         chartAffected.setTouchEnabled(false);
 
-        chartAffected.animateY(1000);
-        chartAffected.invalidate();
+        // Donut Style
+        chartAffected.setDrawHoleEnabled(true);
+        chartAffected.setHoleColor(Color.TRANSPARENT);
+        chartAffected.setHoleRadius(50f);
+        chartAffected.setTransparentCircleRadius(0f);
     }
 
     private void setupFamiliesLineChart() {
-        List<Entry> entries = new ArrayList<>();
-        entries.add(new Entry(0f, 20f));
-        entries.add(new Entry(1f, 32f));
-        entries.add(new Entry(2f, 45f));
-        entries.add(new Entry(3f, 88f));
-
-        LineDataSet dataSet = new LineDataSet(entries, "Families");
-        dataSet.setColor(COLOR_DARK_ORANGE);
+        LineDataSet dataSet = new LineDataSet(new ArrayList<>(), "Families");
+        dataSet.setColor(COLOR_VIBRANT_ORANGE);
         dataSet.setLineWidth(3f);
-        dataSet.setCircleColor(COLOR_DARK_ORANGE);
-        dataSet.setCircleRadius(5f);
-        dataSet.setDrawCircleHole(true);
-        dataSet.setCircleHoleColor(Color.WHITE);
+        dataSet.setCircleColor(COLOR_DEEP_ORANGE);
         dataSet.setDrawValues(false);
         dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
-        dataSet.setDrawFilled(false);
 
         LineData data = new LineData(dataSet);
         chartFamilies.setData(data);
 
-        XAxis xAxis = chartFamilies.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setDrawGridLines(false);
-        xAxis.setDrawLabels(false);
-
+        chartFamilies.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
+        chartFamilies.getXAxis().setDrawGridLines(false);
         chartFamilies.getAxisRight().setEnabled(false);
-        chartFamilies.getAxisLeft().setEnabled(true);
-        chartFamilies.getAxisLeft().setDrawGridLines(true);
-        chartFamilies.getAxisLeft().setGridColor(Color.parseColor("#EEEEEE"));
         chartFamilies.getDescription().setEnabled(false);
         chartFamilies.getLegend().setEnabled(false);
         chartFamilies.setTouchEnabled(false);
-        chartFamilies.animateX(1500);
-        chartFamilies.invalidate();
     }
 
     private void setupDonationTrendsChart() {
-        List<Entry> entries = new ArrayList<>();
-        entries.add(new Entry(0f, 95f)); // Jan
-        entries.add(new Entry(1f, 65f)); // Feb
-        entries.add(new Entry(2f, 80f)); // Mar
-        entries.add(new Entry(3f, 35f)); // Apr
-        entries.add(new Entry(4f, 55f)); // Jun
-
-        LineDataSet dataSet = new LineDataSet(entries, "Donations");
+        LineDataSet dataSet = new LineDataSet(new ArrayList<>(), "Donations");
         dataSet.setColor(COLOR_TEAL);
         dataSet.setLineWidth(2f);
         dataSet.setCircleColor(COLOR_TEAL);
-        dataSet.setCircleRadius(4f);
-        dataSet.setDrawCircleHole(true);
-        dataSet.setCircleHoleColor(Color.WHITE);
         dataSet.setDrawValues(false);
         dataSet.setDrawFilled(true);
         dataSet.setFillColor(COLOR_TEAL);
@@ -278,22 +400,12 @@ public class Dashboard_fragment extends BaseFragment {
         LineData data = new LineData(dataSet);
         chartDonations.setData(data);
 
-        XAxis xAxis = chartDonations.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setDrawGridLines(true);
-        xAxis.setGridColor(Color.parseColor("#EEEEEE"));
-
-        final String[] months = new String[]{"Jan", "Feb", "Mar", "Apr", "Jun"};
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(months));
-        xAxis.setGranularity(1f);
-
+        chartDonations.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
+        chartDonations.getXAxis().setDrawGridLines(true);
+        chartDonations.getXAxis().setGridColor(Color.parseColor("#EEEEEE"));
         chartDonations.getAxisRight().setEnabled(false);
-        chartDonations.getAxisLeft().setDrawGridLines(true);
-        chartDonations.getAxisLeft().setGridColor(Color.parseColor("#EEEEEE"));
         chartDonations.getDescription().setEnabled(false);
         chartDonations.getLegend().setEnabled(false);
         chartDonations.setTouchEnabled(false);
-        chartDonations.animateX(1500);
-        chartDonations.invalidate();
     }
 }
