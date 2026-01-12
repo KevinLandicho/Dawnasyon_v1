@@ -7,16 +7,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
-import android.widget.CheckBox; // <--- Import CheckBox
+import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
-
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -31,7 +29,7 @@ public class Summary_fragment extends BaseFragment {
 
     public static class ItemForSummary implements Serializable {
         public String name;
-        public String quantityUnit;
+        public String quantityUnit; // e.g., "5 kg"
 
         public ItemForSummary(String name, String quantityUnit) {
             this.name = name;
@@ -60,11 +58,9 @@ public class Summary_fragment extends BaseFragment {
 
         LinearLayout summaryContainer = view.findViewById(R.id.summaryItemsContainer);
         Button btnApplyToDonate = view.findViewById(R.id.btnApplyToDonate);
-
-        // 1. FIND THE CHECKBOX
-        // Ensure your XML has a CheckBox with this ID
         CheckBox cbAnonymous = view.findViewById(R.id.checkAnonymous);
 
+        // Load Items
         if (getArguments() != null) {
             itemsToDonate = (ArrayList<ItemForSummary>) getArguments().getSerializable(ARG_DONATION_ITEMS);
             if (itemsToDonate != null) {
@@ -74,6 +70,7 @@ public class Summary_fragment extends BaseFragment {
             }
         }
 
+        // Donate Button Click
         btnApplyToDonate.setOnClickListener(v -> {
             if (itemsToDonate == null || itemsToDonate.isEmpty()) {
                 Toast.makeText(getContext(), "No items to donate.", Toast.LENGTH_SHORT).show();
@@ -83,26 +80,25 @@ public class Summary_fragment extends BaseFragment {
             btnApplyToDonate.setEnabled(false);
             btnApplyToDonate.setText("Processing...");
 
-            // 2. GET THE VALUE (True/False)
             boolean isAnon = cbAnonymous != null && cbAnonymous.isChecked();
+            String refNumber = generateReferenceNumber(); // e.g. "D20250101-5921"
 
-            String refNumber = generateReferenceNumber();
-
-            // 3. PASS IT TO THE HELPER
-            DonationHelper.INSTANCE.submitDonation(
-                    refNumber,
+            // Call the Helper
+            DonationHelper.submitDonation(
+                    refNumber,      // Maps to reference_number column
                     itemsToDonate,
                     "In-Kind",
                     0.0,
-                    isAnon, // <--- Passed here
+                    isAnon,
                     new DonationHelper.DonationCallback() {
                         @Override
                         public void onSuccess() {
                             if (getActivity() == null) return;
                             btnApplyToDonate.setEnabled(true);
                             btnApplyToDonate.setText("Confirm Donation");
-
                             Toast.makeText(getContext(), "Donation Submitted!", Toast.LENGTH_SHORT).show();
+
+                            // Go to Reference/Thank You screen
                             launchReferenceFragment(refNumber);
                         }
 
@@ -144,6 +140,7 @@ public class Summary_fragment extends BaseFragment {
     private void launchReferenceFragment(String referenceNumber) {
         if (getActivity() != null) {
             try {
+                // Ensure Reference_fragment accepts the ID in its newInstance method
                 Fragment referenceFragment = Reference_fragment.newInstance(referenceNumber);
                 getActivity().getSupportFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, referenceFragment)

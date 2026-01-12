@@ -11,8 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
-// ✅ INTERFACES ARE DEFINED HERE (Top Level)
-// This makes them visible to Java as "NotificationCallback", not "SupabaseJavaHelper.NotificationCallback"
+// ✅ INTERFACES ARE NOW OUTSIDE THE OBJECT (Top Level)
+// This fixes "Cannot resolve symbol NotificationCallback"
 
 interface AnnouncementCallback {
     fun onSuccess(data: List<Announcement>)
@@ -26,6 +26,11 @@ interface ApplicationCallback {
 
 interface NotificationCallback {
     fun onSuccess(data: List<NotificationItem>)
+    fun onError(message: String)
+}
+
+interface DonationHistoryCallback {
+    fun onSuccess(data: List<DonationHistoryItem>)
     fun onError(message: String)
 }
 
@@ -58,7 +63,7 @@ object SupabaseJavaHelper {
         }
     }
 
-    // 2. APPLY TO DRIVE
+    // 2. APPLY TO DONATION DRIVE
     @JvmStatic
     fun applyToDrive(driveId: Long, callback: ApplicationCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -137,11 +142,94 @@ object SupabaseJavaHelper {
             }
         }
     }
+
+    // 4. SUBMIT SUGGESTION
+    @JvmStatic
+    fun submitSuggestion(message: String, callback: ApplicationCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post {
+                        callback.onError("You must be logged in.")
+                    }
+                    return@launch
+                }
+
+                val suggestionData = SuggestionDTO(
+                    user_id = currentUser.id,
+                    message = message
+                )
+
+                SupabaseManager.client.from("suggestions").insert(suggestionData)
+
+                Handler(Looper.getMainLooper()).post {
+                    callback.onSuccess()
+                }
+
+            } catch (e: Exception) {
+                Handler(Looper.getMainLooper()).post {
+                    callback.onError(e.message ?: "Failed to send suggestion")
+                }
+            }
+        }
+    }
+
+    // 5. FETCH DONATION HISTORY
+    @JvmStatic
+    fun fetchDonationHistory(callback: DonationHistoryCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post {
+                        callback.onError("User not logged in.")
+                    }
+                    return@launch
+                }
+
+                // Query donations AND fetch embedded donation_items
+                val jsonResponse = SupabaseManager.client
+                    .from("donations")
+                    .select(columns = io.github.jan.supabase.postgrest.query.Columns.raw("*, donation_items(*)")) {
+                        filter {
+                            eq("donor_id", currentUser.id)
+                        }
+                        order("created_at", order = Order.DESCENDING)
+                    }
+                    .data
+
+                val type = object : TypeToken<List<DonationHistoryItem>>() {}.type
+                val dataList = Gson().fromJson<List<DonationHistoryItem>>(jsonResponse, type)
+
+                Handler(Looper.getMainLooper()).post {
+                    callback.onSuccess(dataList)
+                }
+
+            } catch (e: Exception) {
+                Handler(Looper.getMainLooper()).post {
+                    callback.onError(e.message ?: "Failed to load history")
+                }
+            }
+        }
+    }
 }
+
+// --- DTO CLASSES ---
 
 @Serializable
 data class ApplicationDTO(
     val drive_id: Long,
     val user_id: String,
     val status: String
+)
+
+@Serializable
+data class SuggestionDTO(
+    val user_id: String,
+    val message: String
 )

@@ -1,5 +1,6 @@
 package com.example.dawnasyon_v1;
 
+import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,14 +14,12 @@ import java.util.List;
 public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistoryAdapter.ViewHolder> {
 
     private List<DonationHistoryItem> historyList;
-    private OnReceiptClickListener listener; // ⭐ NEW: Listener Field
+    private OnReceiptClickListener listener;
 
-    // ⭐ NEW: Interface definition
     public interface OnReceiptClickListener {
         void onReceiptClick(DonationHistoryItem item);
     }
 
-    // ⭐ UPDATED: Constructor accepts the listener
     public DonationHistoryAdapter(List<DonationHistoryItem> historyList, OnReceiptClickListener listener) {
         this.historyList = historyList;
         this.listener = listener;
@@ -37,13 +36,29 @@ public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistory
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         DonationHistoryItem item = historyList.get(position);
 
-        holder.tvName.setText(item.getDonorName());
-        holder.tvDate.setText(item.getDate());
-        String fullText = "Lorem ipsum dolor sit amet, consectetur adipiscing elit... (Placeholder for receipt details)";
-        holder.tvDesc.setText(fullText);
+        // 1. Set Name (Static for "My History", or you can fetch profile name)
+        holder.tvName.setText("My Donation");
+
+        // 2. Set Date
+        holder.tvDate.setText(item.getFormattedDate());
+
+        // 3. Set Description (Calculated in Fragment)
+        holder.tvDesc.setText(item.getDisplayDescription());
+
+        // 4. Set Avatar
         holder.imgAvatar.setImageResource(item.getImageResId());
 
-        // ⭐ UPDATED: Click listener calls the interface, not the FragmentManager directly
+        // 5. Handle Status Color (Optional visual improvement)
+        String status = item.getStatus();
+        if (status != null && status.equalsIgnoreCase("Verified")) {
+            holder.tvDesc.setTextColor(Color.parseColor("#388E3C")); // Green
+        } else if (status != null && status.equalsIgnoreCase("Pending")) {
+            holder.tvDesc.setTextColor(Color.parseColor("#F57C00")); // Orange
+        } else {
+            holder.tvDesc.setTextColor(Color.DKGRAY);
+        }
+
+        // 6. Click Listener
         holder.btnReceipt.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onReceiptClick(item);

@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    >
+    android:background="#F8F9FA">
 
     <ImageButton
         android:id="@+id/btn_back"
@@ -73,11 +74,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:cardBackgroundColor="#FFFFFF"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="#F5F5F5"
                 android:layout_marginBottom="24dp">
 
                 <LinearLayout
+                    android:id="@+id/ll_items_container"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -91,79 +93,13 @@
                         android:textStyle="bold"
                         android:textColor="#444444"
                         android:textSize="14sp"
-                        android:layout_marginBottom="8dp"/>
+                        android:layout_marginBottom="12dp"/>
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
                         android:background="#DDDDDD"
-                        android:layout_marginBottom="8dp"/>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginBottom="4dp">
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/rice"
-                            android:textColor="@color/black"
-                            android:textSize="14sp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="50Kg"
-                            android:textStyle="bold"
-                            android:textColor="@color/black"
-                            android:textSize="14sp"/>
-                    </LinearLayout>
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EEEEEE" android:layout_marginBottom="8dp"/>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginBottom="4dp">
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/instant_noodles"
-                            android:textColor="@color/black"
-                            android:textSize="14sp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="24Pcs"
-                            android:textStyle="bold"
-                            android:textColor="@color/black"
-                            android:textSize="14sp"/>
-                    </LinearLayout>
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EEEEEE" android:layout_marginBottom="8dp"/>
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:layout_marginBottom="4dp">
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="@string/canned_goods"
-                            android:textColor="@color/black"
-                            android:textSize="14sp"/>
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="56Pcs"
-                            android:textStyle="bold"
-                            android:textColor="@color/black"
-                            android:textSize="14sp"/>
-                    </LinearLayout>
-                    <View android:layout_width="match_parent" android:layout_height="1dp" android:background="#EEEEEE" android:layout_marginBottom="8dp"/>
+                        android:layout_marginBottom="12dp"/>
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -178,13 +114,13 @@
                     android:text="@string/receipt_no"
                     android:textStyle="bold"
                     android:textSize="12sp"
-                    android:textColor="#444444"
+                    android:textColor="#666666"
                     android:layout_gravity="start"
                     android:layout_rowWeight="1"
                     android:layout_columnWeight="1"/>
                 <TextView
                     android:id="@+id/tv_receipt_no"
-                    android:text="0001"
+                    android:text="#000000"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="@color/black"
@@ -194,45 +130,45 @@
                     android:text="@string/date"
                     android:textStyle="bold"
                     android:textSize="12sp"
-                    android:textColor="#444444"
-                    android:layout_marginTop="4dp"/>
+                    android:textColor="#666666"
+                    android:layout_marginTop="8dp"/>
                 <TextView
                     android:id="@+id/tv_receipt_date"
-                    android:text="09/1/2025"
+                    android:text="--"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="@color/black"
                     android:layout_gravity="end"
-                    android:layout_marginTop="4dp"/>
+                    android:layout_marginTop="8dp"/>
 
                 <TextView
                     android:text="@string/donor_name"
                     android:textStyle="bold"
                     android:textSize="12sp"
-                    android:textColor="#444444"
-                    android:layout_marginTop="4dp"/>
+                    android:textColor="#666666"
+                    android:layout_marginTop="8dp"/>
                 <TextView
                     android:id="@+id/tv_donor_name"
-                    android:text="Juan M. Dela Cruz"
+                    android:text="Loading..."
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="@color/black"
                     android:layout_gravity="end"
-                    android:layout_marginTop="4dp"/>
+                    android:layout_marginTop="8dp"/>
 
                 <TextView
                     android:text="@string/received_by"
                     android:textStyle="bold"
                     android:textSize="12sp"
-                    android:textColor="#444444"
-                    android:layout_marginTop="4dp"/>
+                    android:textColor="#666666"
+                    android:layout_marginTop="8dp"/>
                 <TextView
-                    android:text="Lorem Ipsum"
+                    android:text="Dawnasyon System"
                     android:textStyle="bold"
                     android:textSize="12sp"
                     android:textColor="@color/black"
                     android:layout_gravity="end"
-                    android:layout_marginTop="4dp"/>
+                    android:layout_marginTop="8dp"/>
 
             </GridLayout>
 

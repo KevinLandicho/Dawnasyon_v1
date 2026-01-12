@@ -11,7 +11,6 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class SuggestionForm_fragment extends BaseFragment {
 
@@ -38,24 +37,41 @@ public class SuggestionForm_fragment extends BaseFragment {
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
         // Send Button Logic
+        btnSendSuggestion.setOnClickListener(v -> {
+            String suggestionText = etSuggestion.getText().toString().trim();
 
-            btnSendSuggestion.setOnClickListener(v -> {
-                String suggestionText = etSuggestion.getText().toString().trim();
+            if (suggestionText.isEmpty()) {
+                Toast.makeText(getContext(), "Please enter a suggestion.", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-                if (suggestionText.isEmpty()) {
-                    Toast.makeText(getContext(), "Please enter a suggestion.", Toast.LENGTH_SHORT).show();
-                } else {
-                    // Here you would typically send this data to your database
+            // Disable button to prevent double clicks
+            btnSendSuggestion.setEnabled(false);
+            btnSendSuggestion.setText("Sending...");
 
-                    // Navigate to the Thank You Fragment
-                    if (getActivity() != null) {
+            // ⭐ Call Supabase Helper ⭐
+            // We reuse 'ApplicationCallback' since it has the same onSuccess/onError structure we need
+            SupabaseJavaHelper.submitSuggestion(suggestionText, new ApplicationCallback() {
+                @Override
+                public void onSuccess() {
+                    if (isAdded()) {
+                        // Navigate to the Thank You Fragment
                         getParentFragmentManager().beginTransaction()
                                 .replace(R.id.fragment_container, new SuggestionTY_fragment())
-                                // ⭐ CRITICAL: NOT adding to back stack here makes the
-                                // next "Back" click skip this form and go to Profile.
                                 .commit();
                     }
                 }
+
+                @Override
+                public void onError(@NonNull String message) {
+                    if (isAdded()) {
+                        Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+                        // Re-enable button so they can try again
+                        btnSendSuggestion.setEnabled(true);
+                        btnSendSuggestion.setText("Send Suggestion");
+                    }
+                }
             });
+        });
     }
 }

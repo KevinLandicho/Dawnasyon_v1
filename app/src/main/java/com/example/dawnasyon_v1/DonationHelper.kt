@@ -1,38 +1,18 @@
 package com.example.dawnasyon_v1
 
-import android.util.Log
-import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary
+import android.os.Handler
+import android.os.Looper
+import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary // Import the item class
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
-
-// --- SUPABASE IMPORTS ---
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.postgrest.from
-
-// --- DTOs ---
-@Serializable
-data class DonationRequest(
-    val status: String,
-    val donor_id: String,
-    val type: String,
-    val amount: Double,
-    val admin_notes: String,
-    val is_anonymous: Boolean // <--- NEW FIELD
-)
-
-@Serializable
-data class DonationItemRequest(
-    val donation_id: Long,
-    val item_name: String,
-    val quantity: Int,
-    val unit: String
-)
-
-@Serializable
-data class DonationResponse(val donation_id: Long)
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 
 object DonationHelper {
 
@@ -41,67 +21,119 @@ object DonationHelper {
         fun onError(message: String)
     }
 
+    // Main function called by Summary_fragment
+    @JvmStatic
     fun submitDonation(
-        referenceNumber: String,
+        refNumber: String,
         items: ArrayList<ItemForSummary>,
-        donationType: String,
-        amountValue: Double,
-        isAnonymous: Boolean, // <--- NEW PARAMETER
+        type: String,
+        amount: Double,
+        isAnonymous: Boolean,
         callback: DonationCallback
     ) {
-        val client = SupabaseManager.client
-        val user = client.auth.currentUserOrNull()
-
-        if (user == null) {
-            callback.onError("User not logged in.")
-            return
-        }
-
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Create Donation Record with Anonymous Flag
-                val donation = DonationRequest(
-                    status = "Pending",
-                    donor_id = user.id,
-                    type = donationType,
-                    amount = amountValue,
-                    admin_notes = "Ref: $referenceNumber",
-                    is_anonymous = isAnonymous // <--- SAVE IT HERE
-                )
+                // 1. Get Current User
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
 
-                val response = client.from("donations")
-                    .insert(donation) { select() }
-                    .decodeSingle<DonationResponse>()
-
-                val newDonationId = response.donation_id
-
-                // 2. Save Items
-                if (items.isNotEmpty()) {
-                    val dbItems = items.map { item ->
-                        val parts = item.quantityUnit.split(" ", limit = 2)
-                        val qty = parts.getOrNull(0)?.toIntOrNull() ?: 1
-                        val unitStr = parts.getOrNull(1) ?: "PCS"
-
-                        DonationItemRequest(
-                            donation_id = newDonationId,
-                            item_name = item.name,
-                            quantity = qty,
-                            unit = unitStr
-                        )
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post {
+                        callback.onError("You must be logged in.")
                     }
-                    client.from("donation_items").insert(dbItems)
+                    return@launch
                 }
 
-                withContext(Dispatchers.Main) {
+                // 2. Prepare Donation Data
+                // ✅ FIX: We map 'refNumber' to 'reference_number' column here
+                val donationData = DonationInsertDTO(
+                    donor_id = currentUser.id,
+                    type = type,
+                    amount = amount,
+                    is_anonymous = isAnonymous,
+                    status = "Pending",
+                    reference_number = refNumber, // <--- Correct Column
+                    admin_notes = "" // Leave admin notes empty
+                )
+
+                // 3. Insert Donation & Get the new ID back
+                // We use "select()" after insert to retrieve the generated donation_id
+                val result = SupabaseManager.client
+                    .from("donations")
+                    .insert(donationData) {
+                        select()
+                    }
+                    .decodeSingle<JsonElement>()
+
+                // Extract the ID safely
+                val donationId = result.jsonObject["donation_id"]?.jsonPrimitive?.long
+
+                if (donationId == null) {
+                    throw Exception("Failed to retrieve Donation ID")
+                }
+
+                // 4. Insert the Items (Rice, Canned Goods, etc.)
+                val itemsToInsert = items.map { item ->
+                    // Split "5 kg" into quantity (5) and unit (kg)
+                    val (qty, unit) = parseQuantityUnit(item.quantityUnit)
+
+                    DonationItemInsertDTO(
+                        donation_id = donationId,
+                        item_name = item.name,
+                        quantity = qty,
+                        unit = unit
+                    )
+                }
+
+                SupabaseManager.client.from("donation_items").insert(itemsToInsert)
+
+                // 5. Success
+                Handler(Looper.getMainLooper()).post {
                     callback.onSuccess()
                 }
 
             } catch (e: Exception) {
-                Log.e("DonationHelper", "Error: ${e.message}", e)
-                withContext(Dispatchers.Main) {
-                    callback.onError(e.message ?: "Unknown error occurred.")
+                e.printStackTrace()
+                Handler(Looper.getMainLooper()).post {
+                    callback.onError(e.message ?: "Donation failed")
                 }
             }
         }
     }
+
+    // Helper to split "5 kg" -> 5, "kg"
+    private fun parseQuantityUnit(raw: String): Pair<Int, String> {
+        try {
+            val parts = raw.trim().split(" ")
+            if (parts.isNotEmpty()) {
+                val qty = parts[0].toIntOrNull() ?: 1
+                val unit = if (parts.size > 1) parts[1] else ""
+                return Pair(qty, unit)
+            }
+        } catch (e: Exception) {
+            // Fallback
+        }
+        return Pair(1, "")
+    }
 }
+
+// --- DTO CLASSES (For Inserting) ---
+
+@Serializable
+data class DonationInsertDTO(
+    val donor_id: String,
+    val type: String,
+    val amount: Double,
+    val is_anonymous: Boolean,
+    val status: String,
+    val reference_number: String, // ✅ Maps to your new DB column
+    val admin_notes: String?
+)
+
+@Serializable
+data class DonationItemInsertDTO(
+    val donation_id: Long,
+    val item_name: String,
+    val quantity: Int,
+    val unit: String
+)

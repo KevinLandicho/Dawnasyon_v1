@@ -1,20 +1,28 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
-import android.widget.Toast; // Added for debug
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 
 public class DonationHistory_fragment extends BaseFragment {
+
+    private RecyclerView rvHistory;
+    private DonationHistoryAdapter adapter;
+    private List<DonationHistoryItem> historyList = new ArrayList<>();
 
     public DonationHistory_fragment() {
         // Required empty public constructor
@@ -31,7 +39,7 @@ public class DonationHistory_fragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
-        RecyclerView rvHistory = view.findViewById(R.id.rv_donation_history);
+        rvHistory = view.findViewById(R.id.rv_donation_history);
 
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
@@ -40,26 +48,98 @@ public class DonationHistory_fragment extends BaseFragment {
         if (rvHistory != null) {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
 
-            // Mock Data
-            List<DonationHistoryItem> historyList = new ArrayList<>();
-            historyList.add(new DonationHistoryItem("Juan M. Dela Cruz", "09/1/2025", "Assorted Goods", "Completed", R.drawable.ic_profile_avatar));
-            historyList.add(new DonationHistoryItem("Juan M. Dela Cruz", "08/15/2025", "Cash Donation", "Verified", R.drawable.ic_profile_avatar));
-            historyList.add(new DonationHistoryItem("Juan M. Dela Cruz", "07/20/2025", "Hygiene Kits", "Completed", R.drawable.ic_profile_avatar));
-
-            // ⭐ UPDATED: Pass the click logic here using Lambda ⭐
-            DonationHistoryAdapter adapter = new DonationHistoryAdapter(historyList, item -> {
-
-                // DEBUG: Confirm click works
-                // Toast.makeText(getContext(), "Opening Receipt...", Toast.LENGTH_SHORT).show();
-
-                // NAVIGATION LOGIC
+            adapter = new DonationHistoryAdapter(historyList, item -> {
+                // Pass data to receipt
+                DonationReceipt_fragment receiptFragment = DonationReceipt_fragment.newInstance(item);
                 getParentFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, new DonationReceipt_fragment()) // Ensure ID matches your MainActivity layout
+                        .replace(R.id.fragment_container, receiptFragment)
                         .addToBackStack(null)
                         .commit();
             });
 
             rvHistory.setAdapter(adapter);
+            loadDonationHistory();
         }
+    }
+
+    private void loadDonationHistory() {
+        SupabaseJavaHelper.fetchDonationHistory(new DonationHistoryCallback() {
+            @Override
+            public void onSuccess(List<? extends DonationHistoryItem> data) {
+                if (isAdded()) {
+                    processAndDisplay((List<DonationHistoryItem>) data);
+                }
+            }
+
+            @Override
+            public void onError(@NonNull String message) {
+                if (isAdded()) {
+                    Log.e("HistoryFrag", "Error: " + message);
+                    Toast.makeText(getContext(), "Failed to load history", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    private void processAndDisplay(List<DonationHistoryItem> rawList) {
+        historyList.clear();
+
+        SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+        inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        SimpleDateFormat outputFormat = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
+
+        for (DonationHistoryItem item : rawList) {
+            // A. Format Date
+            try {
+                if (item.getCreatedAt() != null) {
+                    Date date = inputFormat.parse(item.getCreatedAt());
+                    item.setFormattedDate(outputFormat.format(date));
+                }
+            } catch (Exception e) {
+                item.setFormattedDate("Unknown Date");
+            }
+
+            // B. Format Description Logic
+            String type = item.getType();
+
+            if (type != null && type.equalsIgnoreCase("Cash")) {
+                if (item.getAmount() != null) {
+                    item.setDisplayDescription("Cash Donation: ₱" + item.getAmount());
+                } else {
+                    item.setDisplayDescription("Cash Donation");
+                }
+            } else {
+                // ✅ FIXED LOGIC: Loop through the LIST of items
+                // We do NOT use item.getQuantity() anymore because quantity is inside the list
+                List<DonationItem> items = item.getDonationItems();
+
+                if (items != null && !items.isEmpty()) {
+                    // Get the first item to show as summary
+                    DonationItem firstItem = items.get(0);
+
+                    // e.g. "5 kg Rice"
+                    String summary = firstItem.getQtyString() + " " + firstItem.getItemName();
+
+                    // If there are more items, add "+ X others"
+                    if (items.size() > 1) {
+                        summary += " + " + (items.size() - 1) + " others";
+                    }
+                    item.setDisplayDescription(summary);
+                } else {
+                    item.setDisplayDescription("In-Kind Donation");
+                }
+            }
+
+            // C. Append Status
+            String fullDesc = item.getDisplayDescription() + " (" + (item.getStatus() != null ? item.getStatus() : "Pending") + ")";
+            item.setDisplayDescription(fullDesc);
+
+            // D. Set Image
+            item.setImageResId(R.drawable.ic_profile_avatar);
+
+            historyList.add(item);
+        }
+
+        adapter.notifyDataSetChanged();
     }
 }
