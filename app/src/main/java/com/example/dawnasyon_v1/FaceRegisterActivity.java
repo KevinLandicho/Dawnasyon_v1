@@ -46,16 +46,20 @@ public class FaceRegisterActivity extends AppCompatActivity {
     private ImageCapture imageCapture;
     private FaceHelper faceHelper;
     private ExecutorService cameraExecutor;
-    private boolean isCapturing = false; // Prevent double capture
 
-    // Auto-Capture logic vars
+    // Flags
+    private boolean isCapturing = false; // Prevents double snapshots
+
+    // Auto-Capture Counters
     private int alignCounter = 0;
-    private static final int ALIGN_THRESHOLD = 15; // Require ~0.5 seconds of stable alignment
+    private static final int ALIGN_THRESHOLD = 15; // Approx 0.5 - 1.0 second of stability
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_face_scan);
+
+        // ⭐ USES YOUR NEW DEDICATED LAYOUT
+        setContentView(R.layout.activity_face_register);
 
         previewView = findViewById(R.id.cameraPreview);
         faceOverlay = findViewById(R.id.faceOverlay);
@@ -77,23 +81,23 @@ public class FaceRegisterActivity extends AppCompatActivity {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
-                // 1. Preview
+                // 1. Preview (The visual feed)
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
-                // 2. Image Capture (High Quality for saving)
+                // 2. Image Capture (High Res for the actual saving)
                 imageCapture = new ImageCapture.Builder().build();
 
-                // 3. Image Analysis (Live stream for alignment check)
+                // 3. Image Analysis (Low Res for fast detection logic)
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setTargetResolution(new Size(640, 480)) // Low res for fast detection
+                        .setTargetResolution(new Size(640, 480))
                         .build();
 
-                // Set up the Live Analyzer
                 imageAnalysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
 
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
+
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
 
@@ -103,7 +107,7 @@ public class FaceRegisterActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
-    // ⭐ LIVE FRAME ANALYZER
+    // ⭐ LIVE ANALYZER: Checks every frame to see if face is aligned
     @OptIn(markerClass = ExperimentalGetImage.class)
     private void analyzeFrame(ImageProxy imageProxy) {
         if (isCapturing) {
@@ -115,7 +119,7 @@ public class FaceRegisterActivity extends AppCompatActivity {
         if (mediaImage != null) {
             InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
 
-            // Use a separate lightweight detector just for alignment
+            // Lightweight detector for alignment check
             FaceDetector detector = FaceDetection.getClient(
                     new FaceDetectorOptions.Builder()
                             .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
@@ -129,39 +133,38 @@ public class FaceRegisterActivity extends AppCompatActivity {
                             Face face = faces.get(0);
                             checkAlignment(face.getBoundingBox(), imageProxy.getWidth(), imageProxy.getHeight());
                         } else {
-                            resetAlignment("No face / Too many faces");
+                            resetAlignment("No Face Detected");
                         }
                     })
-                    .addOnFailureListener(e -> resetAlignment("Error"))
-                    .addOnCompleteListener(task -> imageProxy.close()); // Must close!
+                    .addOnFailureListener(e -> resetAlignment("Detection Error"))
+                    .addOnCompleteListener(task -> imageProxy.close()); // Essential: Close proxy!
         } else {
             imageProxy.close();
         }
     }
 
-    // ⭐ ALIGNMENT LOGIC
+    // ⭐ ALIGNMENT LOGIC: Is the face inside the overlay hole?
     private void checkAlignment(Rect faceBox, int frameW, int frameH) {
-        // The overlay coordinates are in View pixels, faceBox is in Camera pixels.
-        // For simplicity in a vertical selfie, we check rough centering.
-
-        // Calculate center of face (0.0 to 1.0)
+        // Calculate the center point of the face (0.0 to 1.0)
         float faceCenterX = faceBox.centerX() / (float) frameW;
         float faceCenterY = faceBox.centerY() / (float) frameH;
 
-        // Tolerances (Is it roughly in the middle?)
+        // 1. Check Centering (Must be within the middle 30% of screen)
+        // Since camera logic is often rotated, X and Y might be swapped depending on orientation,
+        // but typically 0.35 - 0.65 covers the center well.
         boolean centeredX = faceCenterX > 0.35 && faceCenterX < 0.65;
         boolean centeredY = faceCenterY > 0.35 && faceCenterY < 0.65;
 
-        // Is it big enough? (Not too far away)
+        // 2. Check Size (Must not be too far away)
         float faceRatio = (float) faceBox.width() / frameW;
         boolean bigEnough = faceRatio > 0.25;
 
         if (centeredX && centeredY && bigEnough) {
             alignCounter++;
 
-            // UI Feedback
+            // VISUAL FEEDBACK: Turn Green
             runOnUiThread(() -> {
-                faceOverlay.setBorderColor(Color.GREEN); // Turn Tech lines GREEN
+                faceOverlay.setBorderColor(Color.GREEN);
                 tvStatus.setText("Hold still... " + (ALIGN_THRESHOLD - alignCounter));
                 tvStatus.setTextColor(Color.GREEN);
             });
@@ -172,29 +175,34 @@ public class FaceRegisterActivity extends AppCompatActivity {
                 runOnUiThread(() -> captureAndRegister());
             }
         } else {
-            resetAlignment("Align Face inside Box");
+            resetAlignment("Align Face in Center");
         }
     }
 
     private void resetAlignment(String msg) {
         alignCounter = 0;
         runOnUiThread(() -> {
-            faceOverlay.setBorderColor(Color.CYAN); // Reset to Cyan
+            faceOverlay.setBorderColor(Color.CYAN); // Default color
             tvStatus.setText(msg);
             tvStatus.setTextColor(Color.WHITE);
         });
     }
 
-    // ⭐ FINAL CAPTURE (Same as before, but called automatically)
+    // ⭐ FINAL CAPTURE
     private void captureAndRegister() {
-        runOnUiThread(() -> Toast.makeText(this, "Capturing...", Toast.LENGTH_SHORT).show());
+        runOnUiThread(() -> {
+            tvStatus.setText("Scanning...");
+            Toast.makeText(this, "Capturing...", Toast.LENGTH_SHORT).show();
+        });
 
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
             @Override
             public void onCaptureSuccess(@NonNull ImageProxy image) {
+                // Convert to Bitmap
                 Bitmap bitmap = imageProxyToBitmap(image);
                 image.close();
 
+                // Send to FaceHelper for Embedding extraction
                 faceHelper.scanFace(bitmap, new FaceHelper.FaceCallback() {
                     @Override
                     public void onFaceDetected(float[] embedding) {
@@ -203,20 +211,25 @@ public class FaceRegisterActivity extends AppCompatActivity {
                     @Override
                     public void onError(String error) {
                         isCapturing = false; // Allow retry
-                        Toast.makeText(FaceRegisterActivity.this, "Scan Failed: " + error, Toast.LENGTH_SHORT).show();
+                        resetAlignment("Scan Failed: " + error);
                     }
                 });
             }
+
             @Override
             public void onError(@NonNull ImageCaptureException exception) {
                 isCapturing = false;
+                resetAlignment("Camera Error");
             }
         });
     }
 
+    // Save the vector data to pass back to previous screen
     private void saveFaceData(float[] embedding) {
         StringBuilder sb = new StringBuilder();
         for (float f : embedding) sb.append(f).append(",");
+
+        // Ideally save to a Singleton or Static variable if passing large data
         RegistrationCache.faceEmbedding = sb.toString();
 
         Intent resultIntent = new Intent();

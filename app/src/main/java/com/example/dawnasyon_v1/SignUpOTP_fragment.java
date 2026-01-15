@@ -2,6 +2,7 @@ package com.example.dawnasyon_v1;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.Editable;
@@ -26,8 +27,8 @@ public class SignUpOTP_fragment extends BaseFragment {
     private TextView tvTimer;
     private TextView tvSubtitle;
     private CountDownTimer countDownTimer;
+    private boolean isResendEnabled = false;
 
-    // ⭐ NEW: Launcher to handle the Face Scan result
     private ActivityResultLauncher<Intent> faceScanLauncher;
 
     public SignUpOTP_fragment() {}
@@ -41,13 +42,11 @@ public class SignUpOTP_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ⭐ INITIALIZE THE LAUNCHER
-        // This listens for when FaceRegisterActivity finishes
+        // Face Scan Launcher
         faceScanLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
                     if (result.getResultCode() == Activity.RESULT_OK) {
-                        // Face scan was successful! NOW we create the profile.
                         Toast.makeText(getContext(), "Face Registered! Finalizing...", Toast.LENGTH_SHORT).show();
                         createProfile();
                     } else {
@@ -60,7 +59,6 @@ public class SignUpOTP_fragment extends BaseFragment {
         tvSubtitle = view.findViewById(R.id.tv_subtitle);
         Button btnPrevious = view.findViewById(R.id.btn_previous);
 
-        // Display the actual email from cache
         if (tvSubtitle != null) {
             tvSubtitle.setText("We've sent a code to " + RegistrationCache.tempEmail);
         }
@@ -71,9 +69,46 @@ public class SignUpOTP_fragment extends BaseFragment {
                 view.findViewById(R.id.otp_5), view.findViewById(R.id.otp_6)
         };
         setupOTPInputs();
-        startTimer(5 * 60 * 1000);
+
+        // Start Timer (60s)
+        startTimer(60 * 1000);
+
+        // Resend Button Logic
+        tvTimer.setOnClickListener(v -> {
+            if (isResendEnabled) {
+                performResendOtp();
+            }
+        });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+    }
+
+    private void performResendOtp() {
+        String email = RegistrationCache.tempEmail;
+        if (email == null || email.isEmpty()) {
+            Toast.makeText(getContext(), "Email missing. Restart signup.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        tvTimer.setText("Sending...");
+        tvTimer.setEnabled(false);
+
+        AuthHelper.resendOtp(email, new AuthHelper.RegistrationCallback() {
+            @Override
+            public void onSuccess() {
+                if (!isAdded()) return;
+                Toast.makeText(getContext(), "Code resent!", Toast.LENGTH_SHORT).show();
+                startTimer(60 * 1000);
+            }
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                Toast.makeText(getContext(), "Resend failed: " + message, Toast.LENGTH_SHORT).show();
+                tvTimer.setText("Resend Code");
+                tvTimer.setEnabled(true);
+            }
+        });
     }
 
     private void setupOTPInputs() {
@@ -118,15 +153,13 @@ public class SignUpOTP_fragment extends BaseFragment {
         StringBuilder code = new StringBuilder();
         for (EditText et : otpInputs) code.append(et.getText().toString());
 
-        Toast.makeText(getContext(), "Verifying code...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getContext(), "Verifying...", Toast.LENGTH_SHORT).show();
 
         AuthHelper.verifyOtp(code.toString(), new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
                 if (!isAdded()) return;
-
-                // ⭐ CHANGED: Instead of createProfile(), launch Face Scan
-                Toast.makeText(getContext(), "Code Verified! Please register your face.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Verified! Registering face...", Toast.LENGTH_SHORT).show();
 
                 Intent intent = new Intent(getActivity(), FaceRegisterActivity.class);
                 faceScanLauncher.launch(intent);
@@ -135,7 +168,7 @@ public class SignUpOTP_fragment extends BaseFragment {
             @Override
             public void onError(String message) {
                 if (!isAdded()) return;
-                Toast.makeText(getContext(), "Invalid Code: " + message, Toast.LENGTH_LONG).show();
+                Toast.makeText(getContext(), "Invalid Code.", Toast.LENGTH_SHORT).show();
                 for (EditText et : otpInputs) et.setText("");
                 otpInputs[0].requestFocus();
             }
@@ -143,12 +176,11 @@ public class SignUpOTP_fragment extends BaseFragment {
     }
 
     private void createProfile() {
-        // NOTE: Ensure your AuthHelper uses RegistrationCache.faceEmbedding when saving the user!
         AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
                 if (!isAdded()) return;
-                Toast.makeText(getContext(), "Registration Complete!", Toast.LENGTH_LONG).show();
+                Toast.makeText(getContext(), "Welcome aboard!", Toast.LENGTH_LONG).show();
                 Intent intent = new Intent(getActivity(), LoginActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
@@ -163,14 +195,26 @@ public class SignUpOTP_fragment extends BaseFragment {
     }
 
     private void startTimer(long duration) {
+        isResendEnabled = false;
+        if (tvTimer != null) {
+            tvTimer.setEnabled(false);
+            tvTimer.setTextColor(Color.GRAY);
+        }
+
         if (countDownTimer != null) countDownTimer.cancel();
+
         countDownTimer = new CountDownTimer(duration, 1000) {
             public void onTick(long millis) {
                 if (tvTimer != null)
-                    tvTimer.setText(String.format("The code will expire in %02d:%02d", (millis/1000)/60, (millis/1000)%60));
+                    tvTimer.setText(String.format("Resend code in %02d:%02d", (millis/1000)/60, (millis/1000)%60));
             }
             public void onFinish() {
-                if (tvTimer != null) tvTimer.setText("Code expired. Please resend.");
+                isResendEnabled = true;
+                if (tvTimer != null) {
+                    tvTimer.setText("Resend Code");
+                    tvTimer.setEnabled(true);
+                    tvTimer.setTextColor(Color.BLUE);
+                }
             }
         }.start();
     }

@@ -12,6 +12,9 @@ import kotlinx.coroutines.withContext
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.OtpType
+// ⭐ ADD THIS IMPORT TO FIX THE ERROR
+import io.github.jan.supabase.auth.*
+
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 
@@ -39,7 +42,7 @@ object AuthHelper {
         }
     }
 
-    // --- 2. SIGN UP ---
+    // --- 2. SIGN UP (SMART LOGIC) ---
     @JvmStatic
     fun initiateSignUp(callback: RegistrationCallback) {
         val client = SupabaseManager.client
@@ -48,21 +51,59 @@ object AuthHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // This triggers the email to be sent
-                val response = client.auth.signUpWith(Email) {
+                // A. Try standard signup first
+                client.auth.signUpWith(Email) {
                     this.email = email
                     this.password = password
                 }
+                withContext(Dispatchers.Main) { callback.onSuccess() }
 
-                // If we get here, Supabase has accepted the request and sent the OTP
-                withContext(Dispatchers.Main) {
-                    callback.onSuccess()
-                }
             } catch (e: Exception) {
-                Log.e("AuthHelper", "Init Failed: ${e.message}")
-                withContext(Dispatchers.Main) {
-                    callback.onError(e.message ?: "Failed to send OTP")
+                // B. ⭐ CATCH "USER EXISTS" ERROR
+                val msg = e.message ?: ""
+
+                if (msg.contains("already registered") || msg.contains("User already exists")) {
+                    Log.d("AuthHelper", "User exists (Unverified). Attempting to resend OTP.")
+
+                    try {
+                        // C. AUTOMATICALLY RESEND OTP
+                        // This now works because we added the import 'io.github.jan.supabase.auth.resend'
+                        client.auth.resendEmail(
+                            type = OtpType.Email.SIGNUP,
+                            email = email
+                        )
+                        // Treat as success so UI moves to OTP screen
+                        withContext(Dispatchers.Main) { callback.onSuccess() }
+
+                    } catch (resendError: Exception) {
+                        // If resend fails, the account is likely Verified already
+                        withContext(Dispatchers.Main) {
+                            callback.onError("Account exists. Please Log In.")
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        callback.onError(msg)
+                    }
                 }
+            }
+        }
+    }
+
+    // --- 2.5 RESEND OTP (MANUAL) ---
+    @JvmStatic
+    fun resendOtp(email: String, callback: RegistrationCallback) {
+        val client = SupabaseManager.client
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // This now works with the import
+                client.auth.resendEmail(
+                    type = OtpType.Email.SIGNUP,
+                    email = email
+                )
+                withContext(Dispatchers.Main) { callback.onSuccess() }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { callback.onError(e.message ?: "Resend Failed") }
             }
         }
     }
@@ -75,7 +116,6 @@ object AuthHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // This is the specific command to "answer" the OTP challenge
                 client.auth.verifyEmailOtp(
                     type = OtpType.Email.SIGNUP,
                     email = email,
@@ -125,7 +165,6 @@ object AuthHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Fetch members where head_id equals current user ID
                 val members = client.from("household_members").select {
                     filter { eq("head_id", userId) }
                 }.decodeList<HouseholdMember>()
@@ -151,7 +190,7 @@ object AuthHelper {
         }
     }
 
-    // --- 7. CREATE PROFILE (UPDATED WITH FACE DATA) ---
+    // --- 7. CREATE PROFILE ---
     @JvmStatic
     fun createProfileAfterVerification(context: Context, callback: RegistrationCallback) {
         val client = SupabaseManager.client
@@ -185,10 +224,7 @@ object AuthHelper {
                             val bytes = inputStream.readBytes()
                             inputStream.close()
                             val bucket = client.storage.from("images")
-
-                            // Kotlin 2.0 Syntax
                             bucket.upload(fileName, bytes) { upsert = true }
-
                             uploadedIdUrl = bucket.publicUrl(fileName)
                         }
                     } catch (e: Exception) {
@@ -196,8 +232,7 @@ object AuthHelper {
                     }
                 }
 
-                // C. ⭐ NEW: Get Face Embedding from Cache
-                // We grab the string we saved in FaceRegisterActivity
+                // C. Get Face Embedding from Cache
                 val faceData = RegistrationCache.faceEmbedding
 
                 // D. Create Profile Object
@@ -214,9 +249,6 @@ object AuthHelper {
                     zip_code = RegistrationCache.tempZip,
                     id_image_url = uploadedIdUrl,
                     qr_code_url = qrCodeUrl,
-
-                    // ⭐ PASS IT TO THE PROFILE HERE
-                    // Make sure your Profile.kt data class has this field!
                     face_embedding = if (faceData.isNotEmpty()) faceData else null
                 )
 
@@ -232,7 +264,7 @@ object AuthHelper {
 
                 withContext(Dispatchers.Main) {
                     callback.onSuccess()
-                    RegistrationCache.clear() // Clear all temporary data
+                    RegistrationCache.clear()
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) { callback.onError(e.message ?: "Save Failed") }
