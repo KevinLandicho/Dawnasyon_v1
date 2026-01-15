@@ -23,11 +23,10 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 
-import java.util.List; // Import List
+import java.util.List;
 
 public class Profile_fragment extends BaseFragment {
 
-    // ⭐ Container for dynamic family list
     private LinearLayout familyContainer;
 
     public Profile_fragment() {
@@ -60,18 +59,50 @@ public class Profile_fragment extends BaseFragment {
         TextView detailContact = view.findViewById(R.id.detail_contact);
         TextView userNameHeader = view.findViewById(R.id.user_name);
 
-        // ⭐ Find the new dynamic container
+        // ⭐ NEW: Bind the Badge TextView
+        TextView badgeStatus = view.findViewById(R.id.badge_status);
+
         familyContainer = view.findViewById(R.id.ll_family_container);
 
         // --- 2. LOAD DATA ---
 
-        // A. Load Profile Info (Existing)
+        // A. Load Profile Info
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
+
+                // 1. Set Name (Just the name, no emojis here)
                 if (detailName != null) detailName.setText(profile.getFull_name());
                 if (userNameHeader != null) userNameHeader.setText(profile.getFull_name());
+
+                // 2. ⭐ CHECK VERIFICATION STATUS
+                boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
+
+                if (badgeStatus != null) {
+                    badgeStatus.setVisibility(View.VISIBLE);
+
+                    if (isVerified) {
+                        // ✅ Verified Style
+                        badgeStatus.setText("✅ VERIFIED ACTIVE");
+                        badgeStatus.setTextColor(Color.parseColor("#2E7D32")); // Green Text
+                        badgeStatus.setBackgroundColor(Color.parseColor("#E8F5E9")); // Light Green BG
+                    } else {
+                        // ❌ Unverified Style
+                        badgeStatus.setText("⚠️ NOT VERIFIED");
+                        badgeStatus.setTextColor(Color.parseColor("#C62828")); // Red Text
+                        badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE")); // Light Red BG
+
+                        // ⭐ DISABLE FEATURES FOR UNVERIFIED USERS
+                        disableFeature(btnViewQR, "QR Code");
+                        disableFeature(btnPinLocation, "Map Pinning");
+                        disableFeature(menuSuggestion, "Suggestion Form");
+                        disableFeature(menuHistory, "Donation History");
+                    }
+                }
+
+                // 3. Set Contact
                 if (detailContact != null) detailContact.setText(profile.getContact_number());
 
+                // 4. Construct Address
                 String fullAddress = "";
                 if(profile.getHouse_number() != null) fullAddress += profile.getHouse_number() + " ";
                 if(profile.getStreet() != null) fullAddress += profile.getStreet() + ", ";
@@ -85,10 +116,10 @@ public class Profile_fragment extends BaseFragment {
             return null;
         });
 
-        // B. ⭐ Load Family Tree
+        // B. Load Family Tree
         loadFamilyMembers();
 
-        // --- 3. Setup Listeners (Existing) ---
+        // --- 3. Setup Listeners (Default Behavior) ---
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
@@ -117,14 +148,23 @@ public class Profile_fragment extends BaseFragment {
 
         menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
         menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
+
         menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
         menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
     }
 
-    /**
-     * ⭐ FETCHES AND DISPLAYS DYNAMIC FAMILY ROWS
-     */
+    // Helper to disable features
+    private void disableFeature(View view, String featureName) {
+        if (view == null) return;
+        view.setAlpha(0.4f);
+        view.setOnClickListener(v ->
+                Toast.makeText(getContext(),
+                        "🔒 " + featureName + " is locked. Please verify your account.",
+                        Toast.LENGTH_SHORT).show()
+        );
+    }
+
     private void loadFamilyMembers() {
         AuthHelper.fetchHouseholdMembers(members -> {
             if (isAdded() && familyContainer != null) {
@@ -140,11 +180,10 @@ public class Profile_fragment extends BaseFragment {
                         HouseholdMember member = members.get(i);
                         addMemberRow(member);
 
-                        // Add separator line unless it's the last item
                         if (i < members.size() - 1) {
                             View line = new View(getContext());
                             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT, 2); // 1dp height approx
+                                    ViewGroup.LayoutParams.MATCH_PARENT, 2);
                             params.setMargins(0, 12, 0, 12);
                             line.setLayoutParams(params);
                             line.setBackgroundColor(Color.parseColor("#F0F0F0"));
@@ -157,20 +196,12 @@ public class Profile_fragment extends BaseFragment {
         });
     }
 
-    /**
-     * Helper to create a row that looks exactly like your XML design
-     */
-    /**
-     * Helper to create a row that looks exactly like your XML design
-     */
     private void addMemberRow(HouseholdMember member) {
-        // ... (Previous Circle Indicator and Name code remains the same) ...
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, 16, 0, 16);
 
-        // 1. Circle Indicator
         ImageView indicator = new ImageView(getContext());
         indicator.setImageResource(R.drawable.ic_circle_indicator);
         indicator.setColorFilter(Color.parseColor("#F5901A"));
@@ -179,7 +210,6 @@ public class Profile_fragment extends BaseFragment {
         indicator.setLayoutParams(imgParams);
         row.addView(indicator);
 
-        // 2. Name Column
         LinearLayout textCol = new LinearLayout(getContext());
         textCol.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.0f);
@@ -199,18 +229,16 @@ public class Profile_fragment extends BaseFragment {
         textCol.addView(tvRelation);
         row.addView(textCol);
 
-        // 3. ⭐ REAL BADGE LOGIC (Updated)
         TextView badge = new TextView(getContext());
 
-        // Check the database value using the helper we added in Step 1
         if (member.getCensusStatus()) {
             badge.setText("✅ Registered");
-            badge.setTextColor(Color.parseColor("#2E7D32")); // Green
-            badge.setBackgroundColor(Color.parseColor("#E8F5E9")); // Light Green
+            badge.setTextColor(Color.parseColor("#2E7D32"));
+            badge.setBackgroundColor(Color.parseColor("#E8F5E9"));
         } else {
             badge.setText("❌ Not Registered");
-            badge.setTextColor(Color.parseColor("#757575")); // Grey
-            badge.setBackgroundColor(Color.parseColor("#F5F5F5")); // Light Grey
+            badge.setTextColor(Color.parseColor("#757575"));
+            badge.setBackgroundColor(Color.parseColor("#F5F5F5"));
         }
 
         badge.setTextSize(10f);
@@ -221,7 +249,6 @@ public class Profile_fragment extends BaseFragment {
         familyContainer.addView(row);
     }
 
-    // ... (Existing Logout and Navigation methods remain unchanged) ...
     private void showLogoutConfirmationDialog() {
         if (getContext() == null) return;
         try {
