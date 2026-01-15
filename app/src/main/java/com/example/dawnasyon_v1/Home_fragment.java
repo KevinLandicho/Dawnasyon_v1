@@ -11,7 +11,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.SearchView; // Import for search
+import androidx.appcompat.widget.SearchView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
@@ -34,10 +34,11 @@ public class Home_fragment extends BaseFragment {
     private RecyclerView announcementRecyclerView;
     private AnnouncementAdapter announcementAdapter;
 
-    // LIST 1: Displayed on screen (filtered)
     private List<Announcement> announcementList = new ArrayList<>();
-    // LIST 2: Backup list (contains everything)
     private List<Announcement> fullAnnouncementList = new ArrayList<>();
+
+    // ⭐ NEW: Store verification status
+    private boolean isUserVerified = false;
 
     // Carousel Auto-scroll Runnable
     private final Runnable sliderRunnable = new Runnable() {
@@ -76,7 +77,7 @@ public class Home_fragment extends BaseFragment {
         loadUserProfile();
         setupCarousel();
         setupAnnouncementsList();
-        setupSearch(); // Initialize Search Listener
+        setupSearch();
 
         // Fetch Data
         fetchAnnouncementsFromSupabase();
@@ -87,7 +88,12 @@ public class Home_fragment extends BaseFragment {
     private void loadUserProfile() {
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
+                // 1. Update Welcome Text
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
+
+                // 2. ⭐ CAPTURE VERIFICATION STATUS
+                // Boolean.TRUE.equals handles null safety (if verified is null, it returns false)
+                isUserVerified = Boolean.TRUE.equals(profile.getVerified());
             }
             return null;
         });
@@ -111,7 +117,6 @@ public class Home_fragment extends BaseFragment {
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
 
-    // ⭐ SEARCH LOGIC ⭐
     private void setupSearch() {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -129,7 +134,6 @@ public class Home_fragment extends BaseFragment {
     }
 
     private void filterAnnouncements(String query) {
-        // If search is empty, restore the full list
         if (query == null || query.isEmpty()) {
             announcementAdapter.updateData(new ArrayList<>(fullAnnouncementList));
             return;
@@ -154,7 +158,6 @@ public class Home_fragment extends BaseFragment {
             @Override
             public void onSuccess(List<? extends Announcement> data) {
                 if (isAdded()) {
-                    // Update both lists
                     announcementList.clear();
                     announcementList.addAll(data);
 
@@ -174,31 +177,32 @@ public class Home_fragment extends BaseFragment {
             }
         });
     }
-// ... inside Home_fragment.java ...
 
     private void showApplyDialog(Announcement announcement) {
+        // ⭐ FIX: BLOCK ACTION IF NOT VERIFIED
+        if (!isUserVerified) {
+            Toast.makeText(getContext(), "🔒 You must verify your account to apply.", Toast.LENGTH_LONG).show();
+            return; // Stop here, do not show dialog
+        }
+
         // 1. Create the dialog
         ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
 
         // 2. Define what happens when user clicks "Confirm"
         dialog.setOnConfirmListener(() -> {
 
-            // Validation: Is this actually a drive?
             if (announcement.getLinkedDriveId() == null) {
                 Toast.makeText(getContext(), "Error: This drive is not linked properly.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             // 3. Call the Helper to save to Database
-            // ❌ REMOVE "SupabaseJavaHelper." before ApplicationCallback
-            // ✅ USE "new ApplicationCallback()" directly
             SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), new ApplicationCallback() {
                 @Override
                 public void onSuccess() {
                     if (isAdded()) {
-                        dialog.dismiss(); // Close confirmation dialog
+                        dialog.dismiss();
 
-                        // Show your Success Dialog now that DB is updated
                         ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
                         successDialog.show(getParentFragmentManager(), "SuccessDialog");
                     }
@@ -217,6 +221,7 @@ public class Home_fragment extends BaseFragment {
         // 4. Show the dialog
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
+
     @Override
     public void onResume() {
         super.onResume();

@@ -6,11 +6,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.widget.NestedScrollView;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -25,8 +27,10 @@ public class Notification_fragment extends BaseFragment {
 
     private RecyclerView rvNew;
     private RecyclerView rvOld;
-    private Button btnSeePrevious;
+    private Button btnSeePrevious, btnRefreshEmpty;
     private TextView tvHeaderNew, tvHeaderOld;
+    private NestedScrollView contentLayout;
+    private LinearLayout emptyStateLayout;
 
     public Notification_fragment() {}
 
@@ -46,8 +50,19 @@ public class Notification_fragment extends BaseFragment {
         tvHeaderNew = view.findViewById(R.id.tv_header_new);
         tvHeaderOld = view.findViewById(R.id.tv_header_old);
 
+        // New Views for Empty State
+        contentLayout = view.findViewById(R.id.content_layout);
+        emptyStateLayout = view.findViewById(R.id.empty_state_layout);
+        btnRefreshEmpty = view.findViewById(R.id.btn_refresh_empty);
+
         rvNew.setLayoutManager(new LinearLayoutManager(getContext()));
         rvOld.setLayoutManager(new LinearLayoutManager(getContext()));
+
+        // Setup Refresh Button Action
+        btnRefreshEmpty.setOnClickListener(v -> {
+            Toast.makeText(getContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
+            loadNotifications();
+        });
 
         loadNotifications();
     }
@@ -66,13 +81,27 @@ public class Notification_fragment extends BaseFragment {
             public void onError(@NonNull String message) {
                 if (isAdded()) {
                     Log.e("NotifFrag", "Error: " + message);
+                    // If error, show empty state just in case, or show toast
                     Toast.makeText(getContext(), "Failed to load notifications", Toast.LENGTH_SHORT).show();
+                    // Optional: show empty state if list is currently empty
+                    if (rvNew.getAdapter() == null || rvNew.getAdapter().getItemCount() == 0) {
+                        showEmptyState(true);
+                    }
                 }
             }
         });
     }
 
     private void processAndDisplay(List<NotificationItem> rawList) {
+        // 1. Check if the list is completely empty first
+        if (rawList == null || rawList.isEmpty()) {
+            showEmptyState(true);
+            return;
+        }
+
+        // If we have data, show content
+        showEmptyState(false);
+
         List<NotificationItem> newList = new ArrayList<>();
         List<NotificationItem> oldList = new ArrayList<>();
 
@@ -107,7 +136,7 @@ public class Notification_fragment extends BaseFragment {
                     }
                 }
 
-                // Icon Logic (0 = Default, 1 = Alert/Decline)
+                // Icon Logic
                 if (item.getDbType() != null && item.getDbType().equalsIgnoreCase("Decline")) {
                     item.setType(1);
                 } else {
@@ -132,17 +161,25 @@ public class Notification_fragment extends BaseFragment {
 
         if (oldList.isEmpty()) {
             tvHeaderOld.setVisibility(View.GONE);
-            btnSeePrevious.setVisibility(View.GONE); // Hide button if no old notifications
+            btnSeePrevious.setVisibility(View.GONE);
         } else {
             tvHeaderOld.setVisibility(View.VISIBLE);
-
-            // Logic: Show button only if there are many old notifications (e.g., > 5)
-            // Or simply show it if the Old list exists (based on your request)
             if (oldList.size() > 5) {
                 btnSeePrevious.setVisibility(View.VISIBLE);
             } else {
                 btnSeePrevious.setVisibility(View.GONE);
             }
+        }
+    }
+
+    // Helper to toggle views
+    private void showEmptyState(boolean isEmpty) {
+        if (isEmpty) {
+            emptyStateLayout.setVisibility(View.VISIBLE);
+            contentLayout.setVisibility(View.GONE);
+        } else {
+            emptyStateLayout.setVisibility(View.GONE);
+            contentLayout.setVisibility(View.VISIBLE);
         }
     }
 }
