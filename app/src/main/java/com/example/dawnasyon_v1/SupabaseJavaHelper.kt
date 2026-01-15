@@ -15,6 +15,11 @@ import kotlinx.serialization.Serializable
 
 // --- CALLBACK INTERFACES ---
 
+interface SimpleCallback {
+    fun onSuccess()
+    fun onError(message: String)
+}
+
 interface AnnouncementCallback {
     fun onSuccess(data: List<Announcement>)
     fun onError(message: String)
@@ -35,13 +40,12 @@ interface DonationHistoryCallback {
     fun onError(message: String)
 }
 
-// ⭐ UPDATED CALLBACK: Added 'families' map ⭐
 interface DashboardCallback {
     fun onDataLoaded(
         inventory: Map<String, Int>,
         areas: Map<String, Int>,
         donations: Map<String, Float>,
-        families: Map<String, Int>, // <--- ADDED THIS
+        families: Map<String, Int>,
         metrics: DashboardMetrics
     )
     fun onError(message: String)
@@ -50,23 +54,86 @@ interface DashboardCallback {
 object SupabaseJavaHelper {
 
     // 1. FETCH ANNOUNCEMENTS
+    // 1. FETCH ANNOUNCEMENTS (UPDATED TO CHECK LIKES & BOOKMARKS)
+    // 1. FETCH ANNOUNCEMENTS (UPDATED TO CHECK LIKES, BOOKMARKS & APPLICATIONS)
+    // 1. FETCH ANNOUNCEMENTS (UPDATED: SORT BOOKMARKS TO TOP)
     @JvmStatic
     fun fetchAnnouncements(callback: AnnouncementCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // A. Fetch Announcements
                 val jsonResponse = SupabaseManager.client
                     .from("announcements")
                     .select { order("created_at", order = Order.DESCENDING) }
                     .data
                 val type = object : TypeToken<List<Announcement>>() {}.type
-                val dataList = Gson().fromJson<List<Announcement>>(jsonResponse, type)
+                // Mutable list needed for sorting later
+                val dataList = Gson().fromJson<List<Announcement>>(jsonResponse, type).toMutableList()
+
+                // B. Check if User is Logged In
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+
+                if (currentUser != null) {
+                    // C. Fetch User's Likes
+                    val likesJson = SupabaseManager.client
+                        .from("post_likes")
+                        .select(columns = io.github.jan.supabase.postgrest.query.Columns.list("post_id")) {
+                            filter { eq("user_id", currentUser.id) }
+                        }
+                        .data
+                    val likedPostIds = Gson().fromJson<List<LikeDTO>>(likesJson, object : TypeToken<List<LikeDTO>>() {}.type)
+                        .map { it.post_id }
+                        .toSet()
+
+                    // D. Fetch User's Bookmarks
+                    val bookmarksJson = SupabaseManager.client
+                        .from("bookmarks")
+                        .select(columns = io.github.jan.supabase.postgrest.query.Columns.list("post_id")) {
+                            filter { eq("user_id", currentUser.id) }
+                        }
+                        .data
+                    val bookmarkedPostIds = Gson().fromJson<List<BookmarkDTO>>(bookmarksJson, object : TypeToken<List<BookmarkDTO>>() {}.type)
+                        .map { it.post_id }
+                        .toSet()
+
+                    // E. Fetch User's Applications
+                    val appsJson = SupabaseManager.client
+                        .from("relief_applications")
+                        .select(columns = io.github.jan.supabase.postgrest.query.Columns.list("drive_id")) {
+                            filter { eq("user_id", currentUser.id) }
+                        }
+                        .data
+                    val appliedDriveIds = Gson().fromJson<List<ApplicationDTO>>(appsJson, object : TypeToken<List<ApplicationDTO>>() {}.type)
+                        .map { it.drive_id }
+                        .toSet()
+
+                    // F. MATCH DATA
+                    for (item in dataList) {
+                        if (likedPostIds.contains(item.postId)) item.isLiked = true
+                        if (bookmarkedPostIds.contains(item.postId)) item.isBookmarked = true
+                        if (item.linkedDriveId != null && appliedDriveIds.contains(item.linkedDriveId)) item.isApplied = true
+                    }
+
+                    // ⭐ G. SORT: BOOKMARKS FIRST ⭐
+                    // Sort logic: True (Bookmarked) comes before False. Secondary sort is ignored here (keeps original date order).
+                    dataList.sortWith(Comparator { a, b ->
+                        when {
+                            a.isBookmarked == b.isBookmarked -> 0 // If both match, keep original order
+                            a.isBookmarked -> -1 // 'a' is bookmarked, moves up
+                            else -> 1 // 'b' is bookmarked, moves up
+                        }
+                    })
+                }
+
                 Handler(Looper.getMainLooper()).post { callback.onSuccess(dataList) }
+
             } catch (e: Exception) {
+                e.printStackTrace()
                 Handler(Looper.getMainLooper()).post { callback.onError(e.message ?: "Unknown Error") }
             }
         }
     }
-
     // 2. APPLY TO DONATION DRIVE
     @JvmStatic
     fun applyToDrive(driveId: Long, callback: ApplicationCallback) {
@@ -173,38 +240,32 @@ object SupabaseJavaHelper {
     fun fetchDashboardData(callback: DashboardCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Inventory
                 val invResult = SupabaseManager.client.postgrest.rpc("get_inventory_stats").data
                 val invJson = invResult ?: "[]"
                 val invMap = Gson().fromJson<List<ChartDataInt>>(invJson, object : TypeToken<List<ChartDataInt>>() {}.type)
                     .associate { it.label to it.value }
 
-                // 2. Affected Areas
                 val areaResult = SupabaseManager.client.postgrest.rpc("get_affected_areas_stats").data
                 val areaJson = areaResult ?: "[]"
                 val areaMap = Gson().fromJson<List<ChartDataInt>>(areaJson, object : TypeToken<List<ChartDataInt>>() {}.type)
                     .associate { it.label to it.value }
 
-                // 3. Monthly Donations
                 val donResult = SupabaseManager.client.postgrest.rpc("get_monthly_donations").data
                 val donJson = donResult ?: "[]"
                 val donMap = Gson().fromJson<List<ChartDataFloat>>(donJson, object : TypeToken<List<ChartDataFloat>>() {}.type)
                     .associate { it.label to it.value }
 
-                // 4. ⭐ NEW: Family Registrations ⭐
                 val famResult = SupabaseManager.client.postgrest.rpc("get_monthly_registrations").data
                 val famJson = famResult ?: "[]"
                 val famMap = Gson().fromJson<List<ChartDataInt>>(famJson, object : TypeToken<List<ChartDataInt>>() {}.type)
                     .associate { it.label to it.value }
 
-                // 5. Key Metrics
                 val metricsResult = SupabaseManager.client.postgrest.rpc("get_dashboard_metrics").data
                 val metricsJson = metricsResult ?: "[]"
                 val metricsList = Gson().fromJson<List<DashboardMetrics>>(metricsJson, object : TypeToken<List<DashboardMetrics>>() {}.type)
                 val metrics = if (metricsList.isNotEmpty()) metricsList[0] else DashboardMetrics(0, 0, 0)
 
                 Handler(Looper.getMainLooper()).post {
-                    // Pass the new 'famMap' to the callback
                     callback.onDataLoaded(invMap, areaMap, donMap, famMap, metrics)
                 }
 
@@ -216,6 +277,96 @@ object SupabaseJavaHelper {
             }
         }
     }
+
+    // ⭐ 7. TOGGLE LIKE (UPDATED TO FIX CRASH) ⭐
+    @JvmStatic
+    fun toggleLike(postId: Long, isLiked: Boolean, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post { callback.onError("User not logged in.") }
+                    return@launch
+                }
+
+                if (isLiked) {
+                    // INSERT (Handle Duplicate Key Error)
+                    val dto = LikeDTO(currentUser.id, postId)
+                    try {
+                        SupabaseManager.client.from("post_likes").insert(dto)
+                    } catch (e: Exception) {
+                        // Check if it's the duplicate error
+                        if (e.message?.contains("duplicate key") == true || e.message?.contains("unique constraint") == true) {
+                            // Already liked! Treat this as a success.
+                            Handler(Looper.getMainLooper()).post { callback.onSuccess() }
+                            return@launch
+                        } else {
+                            // Real error, throw it to the outer catch
+                            throw e
+                        }
+                    }
+                } else {
+                    // DELETE
+                    SupabaseManager.client.from("post_likes").delete {
+                        filter {
+                            eq("user_id", currentUser.id)
+                            eq("post_id", postId)
+                        }
+                    }
+                }
+                Handler(Looper.getMainLooper()).post { callback.onSuccess() }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Handler(Looper.getMainLooper()).post { callback.onError(e.message ?: "Like failed") }
+            }
+        }
+    }
+
+    // ⭐ 8. TOGGLE BOOKMARK (UPDATED TO FIX CRASH) ⭐
+    @JvmStatic
+    fun toggleBookmark(postId: Long, isBookmarked: Boolean, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post { callback.onError("User not logged in.") }
+                    return@launch
+                }
+
+                if (isBookmarked) {
+                    // INSERT (Handle Duplicate Key Error)
+                    val dto = BookmarkDTO(currentUser.id, postId)
+                    try {
+                        SupabaseManager.client.from("bookmarks").insert(dto)
+                    } catch (e: Exception) {
+                        if (e.message?.contains("duplicate key") == true || e.message?.contains("unique constraint") == true) {
+                            // Already bookmarked! Treat as success.
+                            Handler(Looper.getMainLooper()).post { callback.onSuccess() }
+                            return@launch
+                        } else {
+                            throw e
+                        }
+                    }
+                } else {
+                    // DELETE
+                    SupabaseManager.client.from("bookmarks").delete {
+                        filter {
+                            eq("user_id", currentUser.id)
+                            eq("post_id", postId)
+                        }
+                    }
+                }
+                Handler(Looper.getMainLooper()).post { callback.onSuccess() }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Handler(Looper.getMainLooper()).post { callback.onError(e.message ?: "Bookmark failed") }
+            }
+        }
+    }
 }
 
 // --- DTO CLASSES ---
@@ -224,3 +375,5 @@ object SupabaseJavaHelper {
 @Serializable data class ChartDataInt(val label: String, val value: Int)
 @Serializable data class ChartDataFloat(val label: String, val value: Float)
 @Serializable data class DashboardMetrics(val total_families: Int, val total_packs: Int, val total_affected: Int)
+@Serializable data class LikeDTO(val user_id: String, val post_id: Long)
+@Serializable data class BookmarkDTO(val user_id: String, val post_id: Long)

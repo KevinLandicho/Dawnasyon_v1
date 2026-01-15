@@ -23,24 +23,18 @@ public class Home_fragment extends BaseFragment {
 
     private TextView welcomeText;
     private SearchView searchView;
-
-    // Carousel
     private ViewPager2 imageCarouselViewPager;
     private ImageCarouselAdapter carouselAdapter;
     private Handler sliderHandler = new Handler();
     private final int SLIDE_INTERVAL_MS = 3000;
 
-    // Announcement Lists
     private RecyclerView announcementRecyclerView;
     private AnnouncementAdapter announcementAdapter;
 
     private List<Announcement> announcementList = new ArrayList<>();
     private List<Announcement> fullAnnouncementList = new ArrayList<>();
-
-    // ⭐ NEW: Store verification status
     private boolean isUserVerified = false;
 
-    // Carousel Auto-scroll Runnable
     private final Runnable sliderRunnable = new Runnable() {
         @Override
         public void run() {
@@ -48,38 +42,30 @@ public class Home_fragment extends BaseFragment {
                 int currentItem = imageCarouselViewPager.getCurrentItem();
                 int totalItems = carouselAdapter.getItemCount();
                 if (totalItems > 0) {
-                    int nextItem = (currentItem + 1) % totalItems;
-                    imageCarouselViewPager.setCurrentItem(nextItem, true);
+                    imageCarouselViewPager.setCurrentItem((currentItem + 1) % totalItems, true);
                 }
             }
             sliderHandler.postDelayed(this, SLIDE_INTERVAL_MS);
         }
     };
 
-    public Home_fragment() {
-        // Required empty public constructor
-    }
+    public Home_fragment() {}
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
-
         View view = inflater.inflate(R.layout.fragment_home, container, false);
 
-        // Bind Views
         welcomeText = view.findViewById(R.id.welcome_text);
         searchView = view.findViewById(R.id.search_view);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
 
-        // Setup Logic
         loadUserProfile();
         setupCarousel();
         setupAnnouncementsList();
         setupSearch();
-
-        // Fetch Data
         fetchAnnouncementsFromSupabase();
 
         return view;
@@ -88,11 +74,7 @@ public class Home_fragment extends BaseFragment {
     private void loadUserProfile() {
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
-                // 1. Update Welcome Text
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
-
-                // 2. ⭐ CAPTURE VERIFICATION STATUS
-                // Boolean.TRUE.equals handles null safety (if verified is null, it returns false)
                 isUserVerified = Boolean.TRUE.equals(profile.getVerified());
             }
             return null;
@@ -113,8 +95,95 @@ public class Home_fragment extends BaseFragment {
 
     private void setupAnnouncementsList() {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-        announcementAdapter = new AnnouncementAdapter(announcementList, this::showApplyDialog);
+
+        // ⭐ INITIALIZE ADAPTER WITH CLICK LISTENERS
+        announcementAdapter = new AnnouncementAdapter(announcementList, new AnnouncementAdapter.OnItemClickListener() {
+            @Override
+            public void onApplyClick(Announcement announcement) {
+                showApplyDialog(announcement);
+            }
+
+            @Override
+            public void onLikeClick(Announcement announcement, int position) {
+                handleLike(announcement, position);
+            }
+
+            @Override
+            public void onBookmarkClick(Announcement announcement, int position) {
+                handleBookmark(announcement, position);
+            }
+        });
+
         announcementRecyclerView.setAdapter(announcementAdapter);
+    }
+
+    // ⭐ LOGIC: Handle Like Click
+    private void handleLike(Announcement item, int position) {
+        // 1. Optimistic update: Change UI instantly
+        boolean currentState = item.isLiked();
+        boolean newState = !currentState;
+
+        item.setLiked(newState);
+
+        // Update count visually
+        int currentCount = item.getLikeCount();
+        int newCount = newState ? currentCount + 1 : Math.max(0, currentCount - 1);
+        item.setLikeCount(newCount);
+
+        // Notify adapter to redraw row immediately
+        announcementAdapter.notifyItemChanged(position);
+
+        // 2. Send to Database
+        SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                // Success - UI is already updated, nothing to do
+                Log.d("HomeFragment", "Like updated successfully");
+            }
+
+            @Override
+            public void onError(String msg) {
+                // 3. If DB fails, Revert UI
+                if (isAdded()) {
+                    item.setLiked(currentState); // Revert state
+                    item.setLikeCount(currentCount); // Revert count
+                    announcementAdapter.notifyItemChanged(position);
+                    Toast.makeText(getContext(), "Failed to like: " + msg, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+    }
+
+    // ⭐ LOGIC: Handle Bookmark Click
+    private void handleBookmark(Announcement item, int position) {
+        // 1. Optimistic update
+        boolean currentState = item.isBookmarked();
+        boolean newState = !currentState;
+
+        item.setBookmarked(newState);
+        announcementAdapter.notifyItemChanged(position);
+
+        String msg = newState ? "Saved to bookmarks" : "Removed from bookmarks";
+        Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+
+        // 2. Send to Database
+        SupabaseJavaHelper.toggleBookmark(item.getPostId(), newState, new SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                // Success - nothing to do
+                Log.d("HomeFragment", "Bookmark updated successfully");
+            }
+
+            @Override
+            public void onError(String msg) {
+                // 3. Revert if failed
+                if (isAdded()) {
+                    item.setBookmarked(currentState);
+                    announcementAdapter.notifyItemChanged(position);
+                    Toast.makeText(getContext(), "Failed to bookmark", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
     }
 
     private void setupSearch() {
@@ -138,7 +207,6 @@ public class Home_fragment extends BaseFragment {
             announcementAdapter.updateData(new ArrayList<>(fullAnnouncementList));
             return;
         }
-
         List<Announcement> filteredList = new ArrayList<>();
         String lowerCaseQuery = query.toLowerCase().trim();
 
@@ -146,9 +214,7 @@ public class Home_fragment extends BaseFragment {
             boolean matchesTitle = item.getTitle() != null && item.getTitle().toLowerCase().contains(lowerCaseQuery);
             boolean matchesBody = item.getDescription() != null && item.getDescription().toLowerCase().contains(lowerCaseQuery);
 
-            if (matchesTitle || matchesBody) {
-                filteredList.add(item);
-            }
+            if (matchesTitle || matchesBody) filteredList.add(item);
         }
         announcementAdapter.updateData(filteredList);
     }
@@ -179,29 +245,28 @@ public class Home_fragment extends BaseFragment {
     }
 
     private void showApplyDialog(Announcement announcement) {
-        // ⭐ FIX: BLOCK ACTION IF NOT VERIFIED
         if (!isUserVerified) {
             Toast.makeText(getContext(), "🔒 You must verify your account to apply.", Toast.LENGTH_LONG).show();
-            return; // Stop here, do not show dialog
+            return;
         }
 
-        // 1. Create the dialog
         ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
 
-        // 2. Define what happens when user clicks "Confirm"
         dialog.setOnConfirmListener(() -> {
-
             if (announcement.getLinkedDriveId() == null) {
                 Toast.makeText(getContext(), "Error: This drive is not linked properly.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 3. Call the Helper to save to Database
             SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), new ApplicationCallback() {
                 @Override
                 public void onSuccess() {
                     if (isAdded()) {
                         dialog.dismiss();
+
+                        // ⭐ UPDATE UI: Mark as Applied
+                        announcement.setApplied(true);
+                        announcementAdapter.notifyDataSetChanged();
 
                         ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
                         successDialog.show(getParentFragmentManager(), "SuccessDialog");
@@ -218,7 +283,6 @@ public class Home_fragment extends BaseFragment {
             });
         });
 
-        // 4. Show the dialog
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
 

@@ -18,6 +18,7 @@ import androidx.annotation.Nullable;
 // MPAndroidChart Imports
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
+import com.github.mikephil.charting.charts.RadarChart; // ⭐ NEW IMPORT
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
@@ -25,6 +26,9 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
+import com.github.mikephil.charting.data.RadarData; // ⭐ NEW IMPORT
+import com.github.mikephil.charting.data.RadarDataSet; // ⭐ NEW IMPORT
+import com.github.mikephil.charting.data.RadarEntry; // ⭐ NEW IMPORT
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 
 import java.util.ArrayList;
@@ -38,28 +42,23 @@ public class Dashboard_fragment extends BaseFragment {
     private PieChart chartAffected;
     private LineChart chartFamilies;
     private LineChart chartDonations;
+    private RadarChart chartImpact; // ⭐ NEW CHART
 
     private LinearLayout llReliefList;
     private LinearLayout llAffectedList;
 
-    // --- EXPANDED COLOR PALETTE ---
-    // 1. Deep/Dark Orange (Primary/Warning)
-    private final int COLOR_DEEP_ORANGE = Color.parseColor("#E65100");
-    // 2. Vibrant Orange (Brand)
-    private final int COLOR_VIBRANT_ORANGE = Color.parseColor("#F5901A");
-    // 3. Medium Orange
-    private final int COLOR_MED_ORANGE = Color.parseColor("#FFB74D");
-    // 4. Soft Orange
-    private final int COLOR_SOFT_ORANGE = Color.parseColor("#FFCC80");
-    // 5. Light Orange
-    private final int COLOR_LIGHT_ORANGE = Color.parseColor("#FFE0B2");
-    // 6. Pale Orange (Backgrounds)
-    private final int COLOR_PALE_ORANGE = Color.parseColor("#FFF3E0");
+    // ⭐ NEW VIEW BINDINGS
+    private TextView tvImpactCount;
 
-    // Teal for contrast
+    // --- COLOR PALETTE ---
+    private final int COLOR_DEEP_ORANGE = Color.parseColor("#E65100");
+    private final int COLOR_VIBRANT_ORANGE = Color.parseColor("#F5901A");
+    private final int COLOR_MED_ORANGE = Color.parseColor("#FFB74D");
+    private final int COLOR_SOFT_ORANGE = Color.parseColor("#FFCC80");
+    private final int COLOR_LIGHT_ORANGE = Color.parseColor("#FFE0B2");
+    private final int COLOR_PALE_ORANGE = Color.parseColor("#FFF3E0");
     private final int COLOR_TEAL = Color.parseColor("#27869B");
 
-    // Array for cycling colors in charts/lists
     private final int[] ORANGE_SCALE_COLORS = {
             COLOR_DEEP_ORANGE,
             COLOR_VIBRANT_ORANGE,
@@ -87,6 +86,10 @@ public class Dashboard_fragment extends BaseFragment {
         chartAffected = view.findViewById(R.id.chart_affected_areas);
         chartFamilies = view.findViewById(R.id.chart_registered_families);
         chartDonations = view.findViewById(R.id.chart_donation_trends);
+        chartImpact = view.findViewById(R.id.chart_donation_impact); // ⭐ NEW BINDING
+
+        tvImpactCount = view.findViewById(R.id.tv_impact_count); // ⭐ NEW BINDING
+
         Button btnLiveMap = view.findViewById(R.id.btn_live_map);
 
         llReliefList = view.findViewById(R.id.ll_relief_list);
@@ -97,6 +100,7 @@ public class Dashboard_fragment extends BaseFragment {
         setupAffectedPieChart();
         setupFamiliesLineChart();
         setupDonationTrendsChart();
+        setupImpactRadarChart(); // ⭐ NEW SETUP METHOD
 
         // Listeners
         View.OnClickListener mapClickListener = v -> {
@@ -123,7 +127,7 @@ public class Dashboard_fragment extends BaseFragment {
                                      DashboardMetrics metrics) {
                 if (!isAdded()) return;
 
-                // A. Update Charts
+                // A. Update Standard Charts
                 updatePieChart(chartRelief, inventory);
                 updatePieChart(chartAffected, areas);
                 updateLineChart(chartDonations, donations);
@@ -141,8 +145,12 @@ public class Dashboard_fragment extends BaseFragment {
                 updateListUI(llReliefList, inventory, "Item");
                 updateListUI(llAffectedList, areas, "Street");
 
-                // C. Update Analytics (Top Card & Registered Families Text)
+                // C. Update Analytics
                 updateAnalyticsUI(view, metrics);
+
+                // ⭐ D. Update Impact Radar Chart
+                // We use the 'areas' map to show how donations are impacting specific areas
+                updateRadarChart(areas);
             }
 
             @Override
@@ -152,6 +160,74 @@ public class Dashboard_fragment extends BaseFragment {
                 }
             }
         });
+    }
+
+    // ⭐ NEW METHOD: Setup Radar Chart Visuals
+    private void setupImpactRadarChart() {
+        chartImpact.getDescription().setEnabled(false);
+        chartImpact.setWebLineWidth(1f);
+        chartImpact.setWebColor(Color.LTGRAY);
+        chartImpact.setWebLineWidthInner(1f);
+        chartImpact.setWebColorInner(Color.LTGRAY);
+        chartImpact.setWebAlpha(100);
+
+        // Remove Legend/Y-Axis to keep it clean like the design
+        chartImpact.getLegend().setEnabled(false);
+        chartImpact.getYAxis().setEnabled(false);
+
+        XAxis xAxis = chartImpact.getXAxis();
+        xAxis.setTextSize(9f);
+        xAxis.setYOffset(0f);
+        xAxis.setXOffset(0f);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new String[]{})); // Default empty
+        xAxis.setTextColor(Color.DKGRAY);
+    }
+
+    // ⭐ NEW METHOD: Update Radar Chart Data
+    private void updateRadarChart(Map<String, Integer> data) {
+        if (data == null || data.isEmpty()) return;
+
+        List<RadarEntry> entries = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        int totalHelped = 0;
+
+        // Populate entries
+        for (Map.Entry<String, Integer> entry : data.entrySet()) {
+            entries.add(new RadarEntry(entry.getValue()));
+            labels.add(entry.getKey()); // Street Name
+
+            // Calculate total families helped based on area data
+            totalHelped += entry.getValue();
+        }
+
+        // Update the Big Number Text
+        if (tvImpactCount != null) {
+            tvImpactCount.setText(String.valueOf(totalHelped));
+        }
+
+        RadarDataSet set = new RadarDataSet(entries, "Impact");
+        // Style to match the image (Orange fill with outline)
+        set.setColor(COLOR_VIBRANT_ORANGE);
+        set.setFillColor(COLOR_SOFT_ORANGE);
+        set.setDrawFilled(true);
+        set.setFillAlpha(100); // Semi-transparent
+        set.setLineWidth(2f);
+        set.setDrawHighlightCircleEnabled(true);
+        set.setDrawHighlightIndicators(false);
+
+        // Value Text on the chart points
+        set.setValueTextSize(10f);
+        set.setValueTextColor(Color.BLACK);
+        set.setDrawValues(true); // Show numbers like "100%", "75.0%"
+
+        RadarData radarData = new RadarData(set);
+
+        // Set Labels on X-Axis (the corners of the radar)
+        XAxis xAxis = chartImpact.getXAxis();
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
+
+        chartImpact.setData(radarData);
+        chartImpact.invalidate(); // Refresh
     }
 
     private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {
@@ -174,17 +250,13 @@ public class Dashboard_fragment extends BaseFragment {
             return;
         }
 
-        // Cycle through the expanded orange palette
         int colorIndex = 0;
 
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             TextView itemRow = new TextView(getContext());
             itemRow.setText("● " + entry.getKey() + "   " + entry.getValue());
             itemRow.setTextSize(12);
-
-            // Use the new ORANGE_SCALE_COLORS array to cycle bullet colors
             itemRow.setTextColor(ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length]);
-
             itemRow.setPadding(0, 4, 0, 4);
             container.addView(itemRow);
             colorIndex++;
@@ -196,7 +268,6 @@ public class Dashboard_fragment extends BaseFragment {
         int reliefPacks = metrics.getTotal_packs();
         int totalAffected = metrics.getTotal_affected();
 
-        // Update the "Registered Families" Text View
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
         if (tvPercentage != null) {
             tvPercentage.setText(String.valueOf(totalFamilies));
@@ -221,7 +292,6 @@ public class Dashboard_fragment extends BaseFragment {
                 txtInsight.setText("CRITICAL: " + deficit + " families have no allocated packs.");
                 txtInsight.setTextColor(Color.RED);
             } else if (coveragePercent < 100) {
-                // Use Deep Orange for warning
                 progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DEEP_ORANGE));
                 txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed.");
                 txtInsight.setTextColor(COLOR_DEEP_ORANGE);
@@ -249,7 +319,6 @@ public class Dashboard_fragment extends BaseFragment {
 
         if (badge != null) {
             txtAffectedView.setText(totalAffected + " / " + totalFamilies + " Families Applied");
-
             int riskPercent = (totalAffected * 100) / totalFamilies;
 
             if (riskPercent >= 50) {
@@ -259,8 +328,8 @@ public class Dashboard_fragment extends BaseFragment {
                 txtDesc.setText("⚠️ Major crisis. Immediate action required.");
             } else if (riskPercent >= 20) {
                 badge.setText("MODERATE");
-                badge.setBackgroundColor(COLOR_PALE_ORANGE); // Use pale orange bg
-                badge.setTextColor(COLOR_DEEP_ORANGE);       // Use deep orange text
+                badge.setBackgroundColor(COLOR_PALE_ORANGE);
+                badge.setTextColor(COLOR_DEEP_ORANGE);
                 txtDesc.setText("⚠️ Significant impact. Monitor closely.");
             } else {
                 badge.setText("LOW RISK");
@@ -280,10 +349,7 @@ public class Dashboard_fragment extends BaseFragment {
         if (chart.getData() != null && chart.getData().getDataSet() != null) {
             PieDataSet set = (PieDataSet) chart.getData().getDataSet();
             set.setValues(entries);
-
-            // Apply the new expanded colors to the Pie Chart
             set.setColors(ORANGE_SCALE_COLORS);
-
             chart.getData().notifyDataChanged();
             chart.notifyDataSetChanged();
             chart.invalidate();
@@ -314,26 +380,16 @@ public class Dashboard_fragment extends BaseFragment {
 
     private void setupReliefPieChart() {
         List<PieEntry> entries = new ArrayList<>();
-        // Empty string label to hide text
         entries.add(new PieEntry(1f, ""));
-
         PieDataSet dataSet = new PieDataSet(entries, "");
         dataSet.setColors(ORANGE_SCALE_COLORS);
-
-        // ⭐ HIDE TEXT ON CHART (Clean Look)
         dataSet.setDrawValues(false);
-
         PieData data = new PieData(dataSet);
         chartRelief.setData(data);
-
-        // ⭐ HIDE LABELS
         chartRelief.setDrawEntryLabels(false);
-
         chartRelief.getDescription().setEnabled(false);
         chartRelief.getLegend().setEnabled(false);
         chartRelief.setTouchEnabled(false);
-
-        // Donut Style
         chartRelief.setDrawHoleEnabled(true);
         chartRelief.setHoleColor(Color.TRANSPARENT);
         chartRelief.setHoleRadius(50f);
@@ -343,24 +399,15 @@ public class Dashboard_fragment extends BaseFragment {
     private void setupAffectedPieChart() {
         List<PieEntry> entries = new ArrayList<>();
         entries.add(new PieEntry(1f, ""));
-
         PieDataSet dataSet = new PieDataSet(entries, "");
         dataSet.setColors(ORANGE_SCALE_COLORS);
-
-        // ⭐ HIDE TEXT ON CHART
         dataSet.setDrawValues(false);
-
         PieData data = new PieData(dataSet);
         chartAffected.setData(data);
-
-        // ⭐ HIDE LABELS
         chartAffected.setDrawEntryLabels(false);
-
         chartAffected.getDescription().setEnabled(false);
         chartAffected.getLegend().setEnabled(false);
         chartAffected.setTouchEnabled(false);
-
-        // Donut Style
         chartAffected.setDrawHoleEnabled(true);
         chartAffected.setHoleColor(Color.TRANSPARENT);
         chartAffected.setHoleRadius(50f);
@@ -374,10 +421,8 @@ public class Dashboard_fragment extends BaseFragment {
         dataSet.setCircleColor(COLOR_DEEP_ORANGE);
         dataSet.setDrawValues(false);
         dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
-
         LineData data = new LineData(dataSet);
         chartFamilies.setData(data);
-
         chartFamilies.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
         chartFamilies.getXAxis().setDrawGridLines(false);
         chartFamilies.getAxisRight().setEnabled(false);
@@ -396,10 +441,8 @@ public class Dashboard_fragment extends BaseFragment {
         dataSet.setFillColor(COLOR_TEAL);
         dataSet.setFillAlpha(30);
         dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
-
         LineData data = new LineData(dataSet);
         chartDonations.setData(data);
-
         chartDonations.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
         chartDonations.getXAxis().setDrawGridLines(true);
         chartDonations.getXAxis().setGridColor(Color.parseColor("#EEEEEE"));

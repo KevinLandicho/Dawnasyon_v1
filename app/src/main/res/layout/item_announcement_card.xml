@@ -13,15 +13,13 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:paddingBottom="12dp">
 
         <ImageView
             android:id="@+id/imgAnnouncementPhoto"
             android:layout_width="0dp"
             android:layout_height="180dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="16dp"
             android:background="#FFC107"
             android:contentDescription="Announcement image"
             android:scaleType="centerCrop"
@@ -69,17 +67,15 @@
             app:layout_constraintEnd_toEndOf="@+id/txtAnnouncementTitle"
             app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
             app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementTime"
-            tools:text="Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." />
+            tools:text="Lorem ipsum description text..." />
 
         <Button
             android:id="@+id/btnApply"
             style="@style/Widget.MaterialComponents.Button"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
+            android:layout_marginTop="12dp"
             android:backgroundTint="#F5901A"
-            app:icon="@drawable/ic_plus"
-            app:iconGravity="end"  android:drawablePadding="4dp"
-
             android:fontFamily="@font/dongle"
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
@@ -87,34 +83,44 @@
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             app:cornerRadius="5dp"
-            app:iconTint="@color/white"
-            app:layout_constraintBottom_toBottomOf="@+id/btnBookmark"
-            app:layout_constraintEnd_toStartOf="@+id/btnBookmark"
-            app:layout_constraintTop_toTopOf="@+id/btnBookmark" />
-        <ImageButton
-            android:id="@+id/btnBookmark"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="12dp"
-            android:background="@android:color/transparent"
-            android:src="@drawable/ic_bookmark_outline"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/btnLike"
-            app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementDescription"
-            android:contentDescription="Bookmark button" />
+            app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
+            app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementDescription" />
 
         <ImageButton
             android:id="@+id/btnLike"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:layout_marginEnd="8dp"
             android:background="@android:color/transparent"
             android:src="@drawable/ic_heart_outline"
-            app:layout_constraintBottom_toBottomOf="@+id/btnBookmark"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/btnBookmark"
+            app:layout_constraintTop_toTopOf="@+id/btnApply"
+            app:layout_constraintBottom_toBottomOf="@+id/btnApply"
+            android:layout_marginEnd="16dp"
             android:contentDescription="Like button" />
+
+        <TextView
+            android:id="@+id/tv_like_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textSize="12sp"
+            android:textColor="#666"
+            android:layout_marginEnd="4dp"
+            app:layout_constraintEnd_toStartOf="@id/btnLike"
+            app:layout_constraintTop_toTopOf="@id/btnLike"
+            app:layout_constraintBottom_toBottomOf="@id/btnLike"/>
+
+        <ImageButton
+            android:id="@+id/btnBookmark"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@android:color/transparent"
+            android:src="@drawable/ic_bookmark_outline"
+            android:layout_marginEnd="8dp"
+            app:layout_constraintEnd_toStartOf="@+id/tv_like_count"
+            app:layout_constraintTop_toTopOf="@+id/btnApply"
+            app:layout_constraintBottom_toBottomOf="@+id/btnApply"
+            android:contentDescription="Bookmark button" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>
