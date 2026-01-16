@@ -16,7 +16,7 @@ public class RegistrationCache {
     public static String tempCity = "";
     public static String tempProvince = "";
     public static String tempZip = "";
-
+    public static String userType = "Resident";
     public static String tempIdImageUri = "";
 
     // ⭐ ADD THIS: Store the family members here

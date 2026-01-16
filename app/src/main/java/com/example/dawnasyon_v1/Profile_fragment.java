@@ -23,8 +23,6 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 
-import java.util.List;
-
 public class Profile_fragment extends BaseFragment {
 
     private LinearLayout familyContainer;
@@ -58,68 +56,12 @@ public class Profile_fragment extends BaseFragment {
         TextView detailAddress = view.findViewById(R.id.detail_address);
         TextView detailContact = view.findViewById(R.id.detail_contact);
         TextView userNameHeader = view.findViewById(R.id.user_name);
-
-        // ⭐ NEW: Bind the Badge TextView
         TextView badgeStatus = view.findViewById(R.id.badge_status);
 
         familyContainer = view.findViewById(R.id.ll_family_container);
 
-        // --- 2. LOAD DATA ---
-
-        // A. Load Profile Info
-        AuthHelper.fetchUserProfile(profile -> {
-            if (profile != null && isAdded()) {
-
-                // 1. Set Name (Just the name, no emojis here)
-                if (detailName != null) detailName.setText(profile.getFull_name());
-                if (userNameHeader != null) userNameHeader.setText(profile.getFull_name());
-
-                // 2. ⭐ CHECK VERIFICATION STATUS
-                boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
-
-                if (badgeStatus != null) {
-                    badgeStatus.setVisibility(View.VISIBLE);
-
-                    if (isVerified) {
-                        // ✅ Verified Style
-                        badgeStatus.setText("✅ VERIFIED ACTIVE");
-                        badgeStatus.setTextColor(Color.parseColor("#2E7D32")); // Green Text
-                        badgeStatus.setBackgroundColor(Color.parseColor("#E8F5E9")); // Light Green BG
-                    } else {
-                        // ❌ Unverified Style
-                        badgeStatus.setText("⚠️ NOT VERIFIED");
-                        badgeStatus.setTextColor(Color.parseColor("#C62828")); // Red Text
-                        badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE")); // Light Red BG
-
-                        // ⭐ DISABLE FEATURES FOR UNVERIFIED USERS
-                        disableFeature(btnViewQR, "QR Code");
-                        disableFeature(btnPinLocation, "Map Pinning");
-                        disableFeature(menuSuggestion, "Suggestion Form");
-                        disableFeature(menuHistory, "Donation History");
-                    }
-                }
-
-                // 3. Set Contact
-                if (detailContact != null) detailContact.setText(profile.getContact_number());
-
-                // 4. Construct Address
-                String fullAddress = "";
-                if(profile.getHouse_number() != null) fullAddress += profile.getHouse_number() + " ";
-                if(profile.getStreet() != null) fullAddress += profile.getStreet() + ", ";
-                if(profile.getBarangay() != null) fullAddress += profile.getBarangay() + ", ";
-                if(profile.getCity() != null) fullAddress += profile.getCity();
-
-                if (detailAddress != null) detailAddress.setText(fullAddress);
-            } else if (isAdded()) {
-                Log.e("ProfileFragment", "Failed to load profile data.");
-            }
-            return null;
-        });
-
-        // B. Load Family Tree
-        loadFamilyMembers();
-
-        // --- 3. Setup Listeners (Default Behavior) ---
+        // --- 2. SETUP LISTENERS (Default: All Active) ---
+        // We set these first. If the user is restricted later, we overwrite them.
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
@@ -152,12 +94,72 @@ public class Profile_fragment extends BaseFragment {
         menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
         menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
+
+        // --- 3. LOAD DATA & APPLY RESTRICTIONS ---
+        AuthHelper.fetchUserProfile(profile -> {
+            if (profile != null && isAdded()) {
+
+                // A. Set Basic Info
+                if (detailName != null) detailName.setText(profile.getFull_name());
+                if (userNameHeader != null) userNameHeader.setText(profile.getFull_name());
+                if (detailContact != null) detailContact.setText(profile.getContact_number());
+
+                String fullAddress = "";
+                if(profile.getHouse_number() != null) fullAddress += profile.getHouse_number() + " ";
+                if(profile.getStreet() != null) fullAddress += profile.getStreet() + ", ";
+                if(profile.getBarangay() != null) fullAddress += profile.getBarangay() + ", ";
+                if(profile.getCity() != null) fullAddress += profile.getCity();
+                if (detailAddress != null) detailAddress.setText(fullAddress);
+
+                // B. ⭐ CHECK TYPE & VERIFICATION ⭐
+                boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
+                String userType = profile.getType(); // "Resident" or "Non-Resident"
+
+                if (badgeStatus != null) {
+                    badgeStatus.setVisibility(View.VISIBLE);
+
+                    // CASE 1: Non-Resident (Always Open)
+                    if (userType != null && userType.equalsIgnoreCase("Non-Resident")) {
+                        badgeStatus.setText("🌍 NON-RESIDENT");
+                        badgeStatus.setTextColor(Color.parseColor("#000000")); // Black
+                        badgeStatus.setBackgroundColor(Color.parseColor("#FFF3E0")); // Light Orange
+                        // We DO NOT call disableFeature here. They get full access.
+                    }
+                    // CASE 2: Resident (Must be Verified)
+                    else {
+                        if (isVerified) {
+                            badgeStatus.setText("✅ VERIFIED RESIDENT");
+                            badgeStatus.setTextColor(Color.parseColor("#2E7D32")); // Green
+                            badgeStatus.setBackgroundColor(Color.parseColor("#E8F5E9"));
+                            // Access granted.
+                        } else {
+                            badgeStatus.setText("⚠️ NOT VERIFIED");
+                            badgeStatus.setTextColor(Color.parseColor("#C62828")); // Red
+                            badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE"));
+
+                            // ⭐ LOCK FEATURES FOR UNVERIFIED RESIDENTS
+                            disableFeature(btnViewQR, "QR Code");
+                            disableFeature(btnPinLocation, "Map Pinning");
+                            disableFeature(menuSuggestion, "Suggestion Form");
+                            disableFeature(menuHistory, "Donation History");
+                        }
+                    }
+                }
+
+            } else if (isAdded()) {
+                Log.e("ProfileFragment", "Failed to load profile data.");
+            }
+            return null;
+        });
+
+        // C. Load Family Tree
+        loadFamilyMembers();
     }
 
-    // Helper to disable features
+    // Helper to disable features (Overwrites the click listener)
     private void disableFeature(View view, String featureName) {
         if (view == null) return;
-        view.setAlpha(0.4f);
+        view.setAlpha(0.4f); // Dim the button
         view.setOnClickListener(v ->
                 Toast.makeText(getContext(),
                         "🔒 " + featureName + " is locked. Please verify your account.",

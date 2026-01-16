@@ -33,7 +33,10 @@ public class Home_fragment extends BaseFragment {
 
     private List<Announcement> announcementList = new ArrayList<>();
     private List<Announcement> fullAnnouncementList = new ArrayList<>();
+
+    // ⭐ User Status Variables
     private boolean isUserVerified = false;
+    private String userType; // Store Resident/Non-Resident here
 
     private final Runnable sliderRunnable = new Runnable() {
         @Override
@@ -75,7 +78,10 @@ public class Home_fragment extends BaseFragment {
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
+
+                // ⭐ Capture Verification AND User Type
                 isUserVerified = Boolean.TRUE.equals(profile.getVerified());
+                userType = profile.getType();
             }
             return null;
         });
@@ -96,7 +102,7 @@ public class Home_fragment extends BaseFragment {
     private void setupAnnouncementsList() {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
 
-        // ⭐ INITIALIZE ADAPTER WITH CLICK LISTENERS
+        // INITIALIZE ADAPTER WITH CLICK LISTENERS
         announcementAdapter = new AnnouncementAdapter(announcementList, new AnnouncementAdapter.OnItemClickListener() {
             @Override
             public void onApplyClick(Announcement announcement) {
@@ -117,36 +123,30 @@ public class Home_fragment extends BaseFragment {
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
 
-    // ⭐ LOGIC: Handle Like Click
+    // Handle Like Click
     private void handleLike(Announcement item, int position) {
-        // 1. Optimistic update: Change UI instantly
         boolean currentState = item.isLiked();
         boolean newState = !currentState;
 
         item.setLiked(newState);
 
-        // Update count visually
         int currentCount = item.getLikeCount();
         int newCount = newState ? currentCount + 1 : Math.max(0, currentCount - 1);
         item.setLikeCount(newCount);
 
-        // Notify adapter to redraw row immediately
         announcementAdapter.notifyItemChanged(position);
 
-        // 2. Send to Database
         SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SimpleCallback() {
             @Override
             public void onSuccess() {
-                // Success - UI is already updated, nothing to do
                 Log.d("HomeFragment", "Like updated successfully");
             }
 
             @Override
             public void onError(String msg) {
-                // 3. If DB fails, Revert UI
                 if (isAdded()) {
-                    item.setLiked(currentState); // Revert state
-                    item.setLikeCount(currentCount); // Revert count
+                    item.setLiked(currentState);
+                    item.setLikeCount(currentCount);
                     announcementAdapter.notifyItemChanged(position);
                     Toast.makeText(getContext(), "Failed to like: " + msg, Toast.LENGTH_SHORT).show();
                 }
@@ -154,9 +154,8 @@ public class Home_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ LOGIC: Handle Bookmark Click
+    // Handle Bookmark Click
     private void handleBookmark(Announcement item, int position) {
-        // 1. Optimistic update
         boolean currentState = item.isBookmarked();
         boolean newState = !currentState;
 
@@ -166,17 +165,14 @@ public class Home_fragment extends BaseFragment {
         String msg = newState ? "Saved to bookmarks" : "Removed from bookmarks";
         Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
 
-        // 2. Send to Database
         SupabaseJavaHelper.toggleBookmark(item.getPostId(), newState, new SimpleCallback() {
             @Override
             public void onSuccess() {
-                // Success - nothing to do
                 Log.d("HomeFragment", "Bookmark updated successfully");
             }
 
             @Override
             public void onError(String msg) {
-                // 3. Revert if failed
                 if (isAdded()) {
                     item.setBookmarked(currentState);
                     announcementAdapter.notifyItemChanged(position);
@@ -245,7 +241,12 @@ public class Home_fragment extends BaseFragment {
     }
 
     private void showApplyDialog(Announcement announcement) {
-        if (!isUserVerified) {
+        // ⭐ UPDATED LOGIC:
+        // Check if user is "Non-Resident". They are exempt from verification.
+        boolean isNonResident = userType != null && userType.equalsIgnoreCase("Non-Resident");
+
+        // If user is NOT Non-Resident (meaning they are Resident) AND NOT Verified -> Block them.
+        if (!isNonResident && !isUserVerified) {
             Toast.makeText(getContext(), "🔒 You must verify your account to apply.", Toast.LENGTH_LONG).show();
             return;
         }
@@ -264,7 +265,7 @@ public class Home_fragment extends BaseFragment {
                     if (isAdded()) {
                         dialog.dismiss();
 
-                        // ⭐ UPDATE UI: Mark as Applied
+                        // UPDATE UI: Mark as Applied
                         announcement.setApplied(true);
                         announcementAdapter.notifyDataSetChanged();
 

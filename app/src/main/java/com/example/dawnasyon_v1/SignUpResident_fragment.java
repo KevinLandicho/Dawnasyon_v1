@@ -73,6 +73,9 @@ public class SignUpResident_fragment extends BaseFragment {
             return;
         }
 
+        // ⭐ ADDED: Save the selection to Cache so it can be sent to DB later
+        RegistrationCache.userType = selectedResidency;
+
         Fragment nextFragment = null;
 
         if (selectedResidency.equals("Resident")) {
@@ -80,8 +83,8 @@ public class SignUpResident_fragment extends BaseFragment {
             nextFragment = new SignUpValidID_fragment();
         } else {
             // Action for Non-Resident (You can implement this later)
-            Toast.makeText(getContext(), "Non-Resident registration coming soon.", Toast.LENGTH_SHORT).show();
-            return;
+            // For now, it goes to the same flow as you requested
+            nextFragment = new SignUpValidID_fragment();
         }
 
         // Perform the transition

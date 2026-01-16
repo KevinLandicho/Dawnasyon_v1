@@ -190,7 +190,7 @@ object AuthHelper {
         }
     }
 
-    // --- 7. CREATE PROFILE ---
+    // --- 7. CREATE PROFILE (UPDATED WITH USER TYPE) ---
     @JvmStatic
     fun createProfileAfterVerification(context: Context, callback: RegistrationCallback) {
         val client = SupabaseManager.client
@@ -232,8 +232,11 @@ object AuthHelper {
                     }
                 }
 
-                // C. Get Face Embedding from Cache
+                // C. Get Face Embedding & User Type from Cache
                 val faceData = RegistrationCache.faceEmbedding
+
+                // ⭐ GET THE USER TYPE HERE (Default to Resident if null)
+                val userType = RegistrationCache.userType ?: "Resident"
 
                 // D. Create Profile Object
                 val profile = Profile(
@@ -249,7 +252,8 @@ object AuthHelper {
                     zip_code = RegistrationCache.tempZip,
                     id_image_url = uploadedIdUrl,
                     qr_code_url = qrCodeUrl,
-                    face_embedding = if (faceData.isNotEmpty()) faceData else null
+                    face_embedding = if (faceData.isNotEmpty()) faceData else null,
+                    type = userType
                 )
 
                 // E. Insert into Supabase
