@@ -328,10 +328,9 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
         // Debug Score
         String resultMsg = "Score: " + String.format("%.2f", score);
-        Toast.makeText(this, resultMsg, Toast.LENGTH_SHORT).show();
 
         if (score > 0.60f) {
-            Toast.makeText(this, "✅ Verified!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Welcome!", Toast.LENGTH_SHORT).show();
             prefs.edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
             startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
             finish();
