@@ -125,6 +125,9 @@ public class LiveMap_fragment extends BaseFragment {
         // Risks
         addQuakeMarker(14.7025, 121.0535, "Flood Risk", "Creek Side", Color.BLUE);
         addQuakeMarker(14.7040, 121.0550, "Fire Alert", "Sitio 1", Color.RED);
+        addQuakeMarker(14.7284328, 121.03131750000001, "Flood Risk", "Creek Side", Color.BLUE);
+        addQuakeMarker(14.7284328, 121.03131750000001, "Fire Alert", "Sitio 1", Color.RED);
+
 
         // Scanners
         fetchUSGSData();

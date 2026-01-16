@@ -187,45 +187,92 @@
             android:layout_marginTop="16dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="8dp"
+            android:foreground="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
             app:layout_constraintTop_toBottomOf="@id/details_card">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="16dp"
-                android:gravity="center_vertical"
+                android:orientation="vertical"
                 android:background="#FFF3E0">
-
-                <ImageView
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_warning"
-                    app:tint="#D32F2F"/>
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:src="@drawable/ic_warning"
+                        app:tint="#D32F2F"/>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1">
+
+                        <TextView
+                            android:id="@+id/tv_priority_level"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="CALCULATING..."
+                            android:textStyle="bold"
+                            android:textColor="#D32F2F"
+                            android:textSize="14sp"/>
+
+                        <TextView
+                            android:id="@+id/tv_priority_score"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Score: 0"
+                            android:textSize="11sp"
+                            android:textColor="#E65100"/>
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/iv_expand_arrow"
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="#E65100"/>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_breakdown_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:layout_marginStart="12dp">
+                    android:visibility="gone"
+                    android:paddingStart="60dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="16dp">
 
                     <TextView
-                        android:id="@+id/tv_priority_level"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="CALCULATING..."
+                        android:text="Score Breakdown:"
                         android:textStyle="bold"
-                        android:textColor="#D32F2F"
-                        android:textSize="14sp"/>
+                        android:textSize="12sp"
+                        android:textColor="#BF360C"
+                        android:layout_marginBottom="4dp"/>
 
                     <TextView
-                        android:id="@+id/tv_priority_score"
-                        android:layout_width="wrap_content"
+                        android:id="@+id/tv_priority_reason"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Score: 0"
-                        android:textSize="11sp"
+                        android:text="Loading details..."
+                        android:textSize="12sp"
+                        android:lineSpacingExtra="4dp"
                         android:textColor="#E65100"/>
                 </LinearLayout>
+
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
