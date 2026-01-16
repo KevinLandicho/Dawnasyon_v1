@@ -34,9 +34,9 @@ public class Home_fragment extends BaseFragment {
     private List<Announcement> announcementList = new ArrayList<>();
     private List<Announcement> fullAnnouncementList = new ArrayList<>();
 
-    // ⭐ User Status Variables
+    // User Status Variables
     private boolean isUserVerified = false;
-    private String userType; // Store Resident/Non-Resident here
+    private String userType = "Resident"; // Default
 
     private final Runnable sliderRunnable = new Runnable() {
         @Override
@@ -79,9 +79,11 @@ public class Home_fragment extends BaseFragment {
             if (profile != null && isAdded()) {
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
 
-                // ⭐ Capture Verification AND User Type
+                // Capture Status
                 isUserVerified = Boolean.TRUE.equals(profile.getVerified());
-                userType = profile.getType();
+                if (profile.getType() != null) {
+                    userType = profile.getType();
+                }
             }
             return null;
         });
@@ -101,8 +103,6 @@ public class Home_fragment extends BaseFragment {
 
     private void setupAnnouncementsList() {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-
-        // INITIALIZE ADAPTER WITH CLICK LISTENERS
         announcementAdapter = new AnnouncementAdapter(announcementList, new AnnouncementAdapter.OnItemClickListener() {
             @Override
             public void onApplyClick(Announcement announcement) {
@@ -119,64 +119,48 @@ public class Home_fragment extends BaseFragment {
                 handleBookmark(announcement, position);
             }
         });
-
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
 
-    // Handle Like Click
     private void handleLike(Announcement item, int position) {
         boolean currentState = item.isLiked();
         boolean newState = !currentState;
-
         item.setLiked(newState);
-
         int currentCount = item.getLikeCount();
         int newCount = newState ? currentCount + 1 : Math.max(0, currentCount - 1);
         item.setLikeCount(newCount);
-
         announcementAdapter.notifyItemChanged(position);
 
         SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SimpleCallback() {
             @Override
-            public void onSuccess() {
-                Log.d("HomeFragment", "Like updated successfully");
-            }
-
+            public void onSuccess() {}
             @Override
             public void onError(String msg) {
                 if (isAdded()) {
                     item.setLiked(currentState);
                     item.setLikeCount(currentCount);
                     announcementAdapter.notifyItemChanged(position);
-                    Toast.makeText(getContext(), "Failed to like: " + msg, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Failed: " + msg, Toast.LENGTH_SHORT).show();
                 }
             }
         });
     }
 
-    // Handle Bookmark Click
     private void handleBookmark(Announcement item, int position) {
         boolean currentState = item.isBookmarked();
         boolean newState = !currentState;
-
         item.setBookmarked(newState);
         announcementAdapter.notifyItemChanged(position);
-
-        String msg = newState ? "Saved to bookmarks" : "Removed from bookmarks";
-        Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+        Toast.makeText(getContext(), newState ? "Saved" : "Removed", Toast.LENGTH_SHORT).show();
 
         SupabaseJavaHelper.toggleBookmark(item.getPostId(), newState, new SimpleCallback() {
             @Override
-            public void onSuccess() {
-                Log.d("HomeFragment", "Bookmark updated successfully");
-            }
-
+            public void onSuccess() {}
             @Override
             public void onError(String msg) {
                 if (isAdded()) {
                     item.setBookmarked(currentState);
                     announcementAdapter.notifyItemChanged(position);
-                    Toast.makeText(getContext(), "Failed to bookmark", Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -185,16 +169,9 @@ public class Home_fragment extends BaseFragment {
     private void setupSearch() {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
-            public boolean onQueryTextSubmit(String query) {
-                filterAnnouncements(query);
-                return true;
-            }
-
+            public boolean onQueryTextSubmit(String query) { filterAnnouncements(query); return true; }
             @Override
-            public boolean onQueryTextChange(String newText) {
-                filterAnnouncements(newText);
-                return true;
-            }
+            public boolean onQueryTextChange(String newText) { filterAnnouncements(newText); return true; }
         });
     }
 
@@ -205,11 +182,9 @@ public class Home_fragment extends BaseFragment {
         }
         List<Announcement> filteredList = new ArrayList<>();
         String lowerCaseQuery = query.toLowerCase().trim();
-
         for (Announcement item : fullAnnouncementList) {
             boolean matchesTitle = item.getTitle() != null && item.getTitle().toLowerCase().contains(lowerCaseQuery);
             boolean matchesBody = item.getDescription() != null && item.getDescription().toLowerCase().contains(lowerCaseQuery);
-
             if (matchesTitle || matchesBody) filteredList.add(item);
         }
         announcementAdapter.updateData(filteredList);
@@ -222,40 +197,44 @@ public class Home_fragment extends BaseFragment {
                 if (isAdded()) {
                     announcementList.clear();
                     announcementList.addAll(data);
-
                     fullAnnouncementList.clear();
                     fullAnnouncementList.addAll(data);
-
                     announcementAdapter.notifyDataSetChanged();
                 }
             }
-
             @Override
             public void onError(@NonNull String message) {
-                if (isAdded()) {
-                    Log.e("HomeFragment", "Fetch Error: " + message);
-                    Toast.makeText(getContext(), "Failed to load announcements", Toast.LENGTH_SHORT).show();
-                }
+                if (isAdded()) Log.e("HomeFragment", "Fetch Error: " + message);
             }
         });
     }
 
     private void showApplyDialog(Announcement announcement) {
-        // ⭐ UPDATED LOGIC:
-        // Check if user is "Non-Resident". They are exempt from verification.
-        boolean isNonResident = userType != null && userType.equalsIgnoreCase("Non-Resident");
+        boolean isForeign = userType != null && userType.equalsIgnoreCase("Overseas");
+        boolean isResident = userType != null && userType.equalsIgnoreCase("Non-Resident");
 
-        // If user is NOT Non-Resident (meaning they are Resident) AND NOT Verified -> Block them.
-        if (!isNonResident && !isUserVerified) {
-            Toast.makeText(getContext(), "🔒 You must verify your account to apply.", Toast.LENGTH_LONG).show();
+        // ⭐ STRICT RULE 1: Foreign users CANNOT apply at all
+        if (isForeign) {
+            Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
+        if (isResident) {
+            Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
+            return;
+        }
 
+        // ⭐ STRICT RULE 2: Residents MUST be verified
+        if (!isUserVerified) {
+            Toast.makeText(getContext(), "🔒 You must be a VERIFIED Resident to apply.", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        // If passed both checks, show dialog
+        ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
         dialog.setOnConfirmListener(() -> {
             if (announcement.getLinkedDriveId() == null) {
-                Toast.makeText(getContext(), "Error: This drive is not linked properly.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Error: Drive not linked.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -264,16 +243,12 @@ public class Home_fragment extends BaseFragment {
                 public void onSuccess() {
                     if (isAdded()) {
                         dialog.dismiss();
-
-                        // UPDATE UI: Mark as Applied
                         announcement.setApplied(true);
                         announcementAdapter.notifyDataSetChanged();
-
                         ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
                         successDialog.show(getParentFragmentManager(), "SuccessDialog");
                     }
                 }
-
                 @Override
                 public void onError(@NonNull String message) {
                     if (isAdded()) {
@@ -283,25 +258,13 @@ public class Home_fragment extends BaseFragment {
                 }
             });
         });
-
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
 
     @Override
-    public void onResume() {
-        super.onResume();
-        sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
-    }
-
+    public void onResume() { super.onResume(); sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS); }
     @Override
-    public void onPause() {
-        super.onPause();
-        sliderHandler.removeCallbacks(sliderRunnable);
-    }
-
+    public void onPause() { super.onPause(); sliderHandler.removeCallbacks(sliderRunnable); }
     @Override
-    public void onDestroy() {
-        super.onDestroy();
-        sliderHandler.removeCallbacksAndMessages(null);
-    }
+    public void onDestroy() { super.onDestroy(); sliderHandler.removeCallbacksAndMessages(null); }
 }

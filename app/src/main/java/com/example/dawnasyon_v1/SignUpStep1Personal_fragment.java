@@ -13,6 +13,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 public class SignUpStep1Personal_fragment extends BaseFragment {
 
@@ -45,6 +46,11 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         btnNext = view.findViewById(R.id.btn_next);
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
+
+        // ⭐ HIDE ID PREVIEW FOR OVERSEAS USERS (Since they skipped ID upload)
+        if ("Overseas".equals(RegistrationCache.userType)) {
+            ivIdPreview.setVisibility(View.GONE);
+        }
 
         // --- RECEIVE DATA FROM STEP 0 (If available) ---
         if (getArguments() != null) {
@@ -81,7 +87,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         });
 
         // ⭐ UPDATED NEXT BUTTON LISTENER ⭐
-        // ⭐ UPDATED NEXT BUTTON LISTENER ⭐
         btnNext.setOnClickListener(v -> {
             String fName = etFirstName.getText().toString().trim();
             String lName = etLastName.getText().toString().trim();
@@ -111,17 +116,25 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             // ⭐ FIX: SAVE THE ID IMAGE URI TO CACHE HERE
             if (finalIdUri != null) {
                 RegistrationCache.tempIdImageUri = finalIdUri.toString();
-            } else {
-                // Optional: Warn the user if image is missing
-                // Toast.makeText(getContext(), "Valid ID image is missing!", Toast.LENGTH_SHORT).show();
             }
 
-            // 4. Proceed to Step 2 (Household)
+            // 4. ⭐ HANDLE NAVIGATION (Overseas vs Local)
+            Fragment nextFragment;
+
+            if ("Overseas".equals(RegistrationCache.userType)) {
+                // Overseas skips Household (Step 2) -> Goes to Location (Step 3)
+                nextFragment = new SignUpStep3Location_fragment();
+            } else {
+                // Local goes to Household (Step 2)
+                nextFragment = new SignUpStep2Household_fragment();
+            }
+
             getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container_signup, new SignUpStep2Household_fragment())
+                    .replace(R.id.fragment_container_signup, nextFragment)
                     .addToBackStack(null)
                     .commit();
         });
+
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 }

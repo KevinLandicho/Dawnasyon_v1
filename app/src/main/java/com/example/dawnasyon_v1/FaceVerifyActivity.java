@@ -10,6 +10,7 @@ import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Size;
+import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -57,6 +58,8 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private SecurityStep currentStep = SecurityStep.ALIGN;
     private int stabilityCounter = 0;
 
+    private String userType = "Resident";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -66,10 +69,14 @@ public class FaceVerifyActivity extends AppCompatActivity {
         faceOverlay = findViewById(R.id.faceOverlay);
         tvStatus = findViewById(R.id.tvStatus);
 
+        // ⭐ SET VERIFICATION MODE (Dynamic Box)
+        // Ensures we don't see the static hole punch here
+        faceOverlay.setRegistrationMode(false);
+
         faceHelper = new FaceHelper(this);
         cameraExecutor = Executors.newSingleThreadExecutor();
 
-        // FAST MODE for Zero Lag
+        // Initialize Face Detector
         FaceDetectorOptions options = new FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                 .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
@@ -77,10 +84,66 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 .build();
         detector = FaceDetection.getClient(options);
 
+        // ⭐ KEY CHANGE: DO NOT START CAMERA HERE.
+        // We strictly check permissions first, then check the User Type.
         if (allPermissionsGranted()) {
-            startCamera();
+            checkUserTypeAndStart();
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 10);
+        }
+    }
+
+    // ⭐ STEP 1: CHECK DATABASE BEFORE OPENING CAMERA
+    private void checkUserTypeAndStart() {
+        runOnUiThread(() -> {
+            tvStatus.setText("Checking profile...");
+            // Hide camera preview while checking to avoid confusion
+            previewView.setVisibility(View.INVISIBLE);
+        });
+
+        AuthHelper.fetchUserProfile(profile -> {
+            if (profile != null) {
+                String type = profile.getType(); // Should return "Foreign" or "Resident"
+
+                // Save to cache for future speed
+                getSharedPreferences("UserSession", MODE_PRIVATE)
+                        .edit().putString("user_type", type).apply();
+
+                handleUserType(type);
+            } else {
+                // If fetch fails (offline?), check local cache
+                String cachedType = getSharedPreferences("UserSession", MODE_PRIVATE)
+                        .getString("user_type", "Resident");
+                handleUserType(cachedType);
+            }
+            return null;
+        });
+    }
+
+    // ⭐ STEP 2: DECIDE - SKIP OR START
+    private void handleUserType(String type) {
+        userType = type;
+
+        boolean isForeign = (type != null && (type.equalsIgnoreCase("Foreign") || type.equalsIgnoreCase("Overseas")));
+
+        if (isForeign) {
+            // ⭐ BYPASS: Go directly to Main Activity
+            runOnUiThread(() -> {
+                Toast.makeText(FaceVerifyActivity.this, "Welcome Foreign Donor!", Toast.LENGTH_SHORT).show();
+
+                // Mark Verified
+                getSharedPreferences("UserSession", MODE_PRIVATE)
+                        .edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
+
+                startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
+                finish();
+            });
+        } else {
+            // ⭐ RESIDENT: Now we can start the camera
+            runOnUiThread(() -> {
+                previewView.setVisibility(View.VISIBLE); // Show camera again
+                startCamera();
+            });
         }
     }
 
@@ -103,6 +166,9 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
+
+                runOnUiThread(() -> tvStatus.setText("Center Your Face"));
+
             } catch (Exception e) { e.printStackTrace(); }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -143,53 +209,33 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
-    // ==============================================================
-    // ⭐ NEW MANUAL CALCULATIONS (For Fast Mode)
-    // ==============================================================
-
-    /** * Calculates Head Turn (Yaw).
-     * Returns: Negative for Right, Positive for Left (Approx -50 to +50)
-     */
     private float calculateYaw(Face face) {
         Rect box = face.getBoundingBox();
         FaceContour nose = face.getContour(FaceContour.NOSE_BRIDGE);
         if (nose == null || nose.getPoints().isEmpty()) return 0;
-
         float noseX = nose.getPoints().get(0).x;
         float ratio = (noseX - box.left) / (float)box.width();
-
-        // Center is 0.5. Left > 0.5. Right < 0.5.
         return (ratio - 0.5f) * 100;
     }
 
-    /** * Calculates Looking Up/Down (Pitch).
-     * Returns: Positive for Looking Up, Negative for Down.
-     */
     private float calculatePitch(Face face) {
         Rect box = face.getBoundingBox();
         FaceContour noseBottom = face.getContour(FaceContour.NOSE_BOTTOM);
         if (noseBottom == null || noseBottom.getPoints().isEmpty()) return 0;
-
         float noseY = noseBottom.getPoints().get(0).y;
-
-        // Calculate where the nose tip is vertically in the box (0.0 top, 1.0 bottom)
         float ratio = (noseY - box.top) / (float)box.height();
-
-        // Normal face: Nose tip is usually at ~0.60
-        // Looking UP: Nose moves HIGHER (ratio decreases, e.g. 0.50)
-        // Looking DOWN: Nose moves LOWER (ratio increases, e.g. 0.70)
-
-        // We invert it so "Up" is positive
         float diff = 0.60f - ratio;
-        return diff * 100; // Returns roughly +10 for Up, -10 for Down
+        return diff * 100;
     }
 
     private void processGestures(Face face, int w, int h) {
-        // Use manual math instead of AI angles
+        // Redundant safety check (Main logic is in handleUserType)
+        if (userType != null && userType.equalsIgnoreCase("Foreign")) {
+            currentStep = SecurityStep.VERIFYING;
+        }
+
         float rotY = calculateYaw(face);
         float rotX = calculatePitch(face);
-
-        // Debug text on screen to help you see what's happening
         String debug = String.format("\nY: %.1f | X: %.1f", rotY, rotX);
 
         switch (currentStep) {
@@ -208,7 +254,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 break;
 
             case LOOK_LEFT:
-                if (rotY > 12) { // Threshold for Left
+                if (rotY > 12) {
                     updateStatus("Good! Hold Left..." + stabilityCounter, Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
@@ -223,7 +269,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 break;
 
             case LOOK_RIGHT:
-                if (rotY < -12) { // Threshold for Right
+                if (rotY < -12) {
                     updateStatus("Good! Hold Right..." + stabilityCounter, Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
@@ -238,8 +284,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 break;
 
             case LOOK_UP:
-                // ⭐ FIX: Using new manual Pitch calculation
-                // If rotX is positive (> 5), the nose has moved up significantly
                 if (rotX > 4) {
                     updateStatus("Good! Hold Up...", Color.GREEN);
                     stabilityCounter++;
@@ -326,17 +370,14 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
         float score = FaceHelper.compareFaces(newEmbedding, savedEmbedding);
 
-        // Debug Score
-        String resultMsg = "Score: " + String.format("%.2f", score);
-
         if (score > 0.60f) {
-            Toast.makeText(this, "Welcome!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "✅ Welcome!", Toast.LENGTH_SHORT).show();
             prefs.edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
             startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
             finish();
         } else {
             isCapturing = false;
-            resetToStart("Mismatch");
+            resetToStart("❌ Face Mismatch");
         }
     }
 
@@ -345,6 +386,19 @@ public class FaceVerifyActivity extends AppCompatActivity {
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 10) {
+            if (allPermissionsGranted()) {
+                checkUserTypeAndStart();
+            } else {
+                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
     }
 
     private boolean allPermissionsGranted() {

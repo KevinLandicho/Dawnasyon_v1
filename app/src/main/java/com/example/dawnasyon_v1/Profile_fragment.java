@@ -61,7 +61,6 @@ public class Profile_fragment extends BaseFragment {
         familyContainer = view.findViewById(R.id.ll_family_container);
 
         // --- 2. SETUP LISTENERS (Default: All Active) ---
-        // We set these first. If the user is restricted later, we overwrite them.
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
@@ -113,19 +112,22 @@ public class Profile_fragment extends BaseFragment {
 
                 // B. ⭐ CHECK TYPE & VERIFICATION ⭐
                 boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
-                String userType = profile.getType(); // "Resident" or "Non-Resident"
+                String userType = profile.getType(); // "Resident" or "Foreign"
 
                 if (badgeStatus != null) {
                     badgeStatus.setVisibility(View.VISIBLE);
 
-                    // CASE 1: Non-Resident (Always Open)
-                    if (userType != null && userType.equalsIgnoreCase("Non-Resident")) {
-                        badgeStatus.setText("🌍 NON-RESIDENT");
-                        badgeStatus.setTextColor(Color.parseColor("#000000")); // Black
-                        badgeStatus.setBackgroundColor(Color.parseColor("#FFF3E0")); // Light Orange
-                        // We DO NOT call disableFeature here. They get full access.
+                    // CASE 1: FOREIGN / OVERSEAS (Always Open)
+                    // We check for "Foreign" (Database value) or "Overseas" (Safety check)
+                    if (userType != null && (userType.equalsIgnoreCase("Overseas") || userType.equalsIgnoreCase("Overseas"))) {
+                        badgeStatus.setText("🌍 OVERSEAS DONOR");
+                        badgeStatus.setTextColor(Color.parseColor("#0D47A1")); // Dark Blue Text
+                        badgeStatus.setBackgroundColor(Color.parseColor("#E3F2FD")); // Light Blue BG
+
+                        // We DO NOT call disableFeature here.
+                        // They get full access by default.
                     }
-                    // CASE 2: Resident (Must be Verified)
+                    // CASE 2: RESIDENT (Must be Verified)
                     else {
                         if (isVerified) {
                             badgeStatus.setText("✅ VERIFIED RESIDENT");
