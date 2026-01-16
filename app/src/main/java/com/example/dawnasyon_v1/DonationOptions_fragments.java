@@ -1,20 +1,23 @@
 package com.example.dawnasyon_v1;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.os.Bundle;
-
-import androidx.annotation.NonNull;
-import androidx.fragment.app.Fragment;
-
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.fragment.app.Fragment;
 
 public class DonationOptions_fragments extends BaseFragment {
 
     private LinearLayout categoryContainer;
+    private String currentUserType = "Resident"; // Default to allow access
 
     public DonationOptions_fragments() {
         // Required empty public constructor
@@ -36,6 +39,13 @@ public class DonationOptions_fragments extends BaseFragment {
         View view = inflater.inflate(R.layout.fragment_donation_options, container, false);
 
         categoryContainer = view.findViewById(R.id.categoryContainer);
+
+        // 1. ⭐ GET USER TYPE BEFORE LOADING CATEGORIES
+        if (getActivity() != null) {
+            SharedPreferences prefs = getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE);
+            // Default to Resident if not found
+            currentUserType = prefs.getString("user_type", "Resident");
+        }
 
         loadCategories(inflater);
 
@@ -60,7 +70,7 @@ public class DonationOptions_fragments extends BaseFragment {
 
         addCategory(
                 inflater,
-                "FOOD", // Use uppercase "FOOD" to match the map key
+                "FOOD",
                 "Rice, noodles, and canned goods for nourishment.",
                 "Critical",
                 R.drawable.ic_food
@@ -68,7 +78,7 @@ public class DonationOptions_fragments extends BaseFragment {
 
         addCategory(
                 inflater,
-                "HYGIENE KITS", // Use uppercase "HYGIENE KITS" to match the map key
+                "HYGIENE KITS",
                 "Soap, toothpaste, and essentials for cleanliness.",
                 "High",
                 R.drawable.ic_hygiene
@@ -76,7 +86,7 @@ public class DonationOptions_fragments extends BaseFragment {
 
         addCategory(
                 inflater,
-                "MEDICINE", // Use uppercase "MEDICINE" to match the map key
+                "MEDICINE",
                 "Vitamins and first aid for basic health care.",
                 "Critical",
                 R.drawable.ic_health
@@ -88,7 +98,6 @@ public class DonationOptions_fragments extends BaseFragment {
                 "Packed goods for nourishment and survival.",
                 "High",
                 R.drawable.ic_packs
-
         );
     }
 
@@ -117,24 +126,40 @@ public class DonationOptions_fragments extends BaseFragment {
             txtStatus.setBackgroundResource(R.drawable.status_green);
         }
 
-        // Make whole card clickable and navigate to Donation_details_fragment
-        item.setOnClickListener(v -> {
-            // CRITICAL FIX: Use Donation_details_fragment.newInstance()
-            // and pass the category data (title, description, status, imageRes)
-            Fragment nextFragment = Donation_details_fragment.newInstance(
-                    title,
-                    description,
-                    status,
-                    imageRes
-            );
+        // ⭐ 2. CHECK RESTRICTION
+        // If User is Foreign AND the category is NOT Cash -> Disable it
+        boolean isRestricted = currentUserType != null
+                && (currentUserType.equalsIgnoreCase("Foreign") || currentUserType.equalsIgnoreCase("Overseas"))
+                && !title.equalsIgnoreCase("CASH");
 
-            requireActivity()
-                    .getSupportFragmentManager()
-                    .beginTransaction()
-                    .replace(R.id.fragment_container, nextFragment)
-                    .addToBackStack(null)
-                    .commit();
-        });
+        if (isRestricted) {
+            // --- DISABLED STATE ---
+            item.setAlpha(0.5f); // Dim the view to look disabled
+
+            // Show toast explaining why it's disabled
+            item.setOnClickListener(v ->
+                    Toast.makeText(getContext(), "Overseas donors can only donate Cash.", Toast.LENGTH_SHORT).show()
+            );
+        } else {
+            // --- ENABLED STATE ---
+            item.setAlpha(1.0f);
+
+            item.setOnClickListener(v -> {
+                Fragment nextFragment = Donation_details_fragment.newInstance(
+                        title,
+                        description,
+                        status,
+                        imageRes
+                );
+
+                requireActivity()
+                        .getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.fragment_container, nextFragment)
+                        .addToBackStack(null)
+                        .commit();
+            });
+        }
 
         categoryContainer.addView(item);
     }
