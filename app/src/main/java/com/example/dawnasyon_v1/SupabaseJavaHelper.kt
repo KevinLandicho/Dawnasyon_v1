@@ -8,9 +8,11 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
+import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
 // --- CALLBACK INTERFACES ---
@@ -53,10 +55,13 @@ interface DashboardCallback {
 
 object SupabaseJavaHelper {
 
-    // 1. FETCH ANNOUNCEMENTS
-    // 1. FETCH ANNOUNCEMENTS (UPDATED TO CHECK LIKES & BOOKMARKS)
-    // 1. FETCH ANNOUNCEMENTS (UPDATED TO CHECK LIKES, BOOKMARKS & APPLICATIONS)
-    // 1. FETCH ANNOUNCEMENTS (UPDATED: SORT BOOKMARKS TO TOP)
+    // ⭐ 1. INTERFACE FOR JAVA (Needed for archiveAccount)
+    interface RegistrationCallback {
+        fun onSuccess()
+        fun onError(message: String)
+    }
+
+    // ⭐ 2. FETCH ANNOUNCEMENTS (Likes, Bookmarks, Applications + Sorting)
     @JvmStatic
     fun fetchAnnouncements(callback: AnnouncementCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -115,13 +120,12 @@ object SupabaseJavaHelper {
                         if (item.linkedDriveId != null && appliedDriveIds.contains(item.linkedDriveId)) item.isApplied = true
                     }
 
-                    // ⭐ G. SORT: BOOKMARKS FIRST ⭐
-                    // Sort logic: True (Bookmarked) comes before False. Secondary sort is ignored here (keeps original date order).
+                    // ⭐ G. SORT: BOOKMARKS FIRST
                     dataList.sortWith(Comparator { a, b ->
                         when {
-                            a.isBookmarked == b.isBookmarked -> 0 // If both match, keep original order
-                            a.isBookmarked -> -1 // 'a' is bookmarked, moves up
-                            else -> 1 // 'b' is bookmarked, moves up
+                            a.isBookmarked == b.isBookmarked -> 0
+                            a.isBookmarked -> -1
+                            else -> 1
                         }
                     })
                 }
@@ -134,7 +138,8 @@ object SupabaseJavaHelper {
             }
         }
     }
-    // 2. APPLY TO DONATION DRIVE
+
+    // 3. APPLY TO DONATION DRIVE
     @JvmStatic
     fun applyToDrive(driveId: Long, callback: ApplicationCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -161,7 +166,7 @@ object SupabaseJavaHelper {
         }
     }
 
-    // 3. FETCH NOTIFICATIONS
+    // 4. FETCH NOTIFICATIONS
     @JvmStatic
     fun fetchNotifications(callback: NotificationCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -188,7 +193,7 @@ object SupabaseJavaHelper {
         }
     }
 
-    // 4. SUBMIT SUGGESTION
+    // 5. SUBMIT SUGGESTION
     @JvmStatic
     fun submitSuggestion(message: String, callback: ApplicationCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -208,7 +213,7 @@ object SupabaseJavaHelper {
         }
     }
 
-    // 5. FETCH DONATION HISTORY
+    // 6. FETCH DONATION HISTORY
     @JvmStatic
     fun fetchDonationHistory(callback: DonationHistoryCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -235,7 +240,7 @@ object SupabaseJavaHelper {
         }
     }
 
-    // 6. FETCH DASHBOARD DATA
+    // 7. FETCH DASHBOARD DATA
     @JvmStatic
     fun fetchDashboardData(callback: DashboardCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -278,7 +283,50 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ⭐ 7. TOGGLE LIKE (UPDATED TO FIX CRASH) ⭐
+    // ⭐ 8. ARCHIVE ACCOUNT (Soft Delete)
+    @JvmStatic
+    fun archiveAccount(callback: RegistrationCallback) {
+        val client = SupabaseManager.client
+        val currentUser = client.auth.currentUserOrNull()
+
+        if (currentUser == null) {
+            Handler(Looper.getMainLooper()).post { callback.onError("No user logged in.") }
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // A. Prepare Anonymized Data
+                val updateData = mapOf(
+                    "account_status" to "Archived",
+                    "full_name" to "Deleted User",
+                    "contact_number" to "",
+                    "face_embedding" to null,
+                    "id_image_url" to null,
+                    "qr_code_url" to null,
+                    "fcm_token" to null,
+                    "type" to "Archived"
+                )
+
+                // B. Update Database
+                client.from("profiles").update(updateData) {
+                    filter { eq("id", currentUser.id) }
+                }
+
+                // C. Sign Out
+                client.auth.signOut()
+
+                Handler(Looper.getMainLooper()).post { callback.onSuccess() }
+
+            } catch (e: Exception) {
+                Handler(Looper.getMainLooper()).post {
+                    callback.onError(e.message ?: "Failed to delete account")
+                }
+            }
+        }
+    }
+
+    // 9. TOGGLE LIKE (With Duplicate Fix)
     @JvmStatic
     fun toggleLike(postId: Long, isLiked: Boolean, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -291,23 +339,18 @@ object SupabaseJavaHelper {
                 }
 
                 if (isLiked) {
-                    // INSERT (Handle Duplicate Key Error)
                     val dto = LikeDTO(currentUser.id, postId)
                     try {
                         SupabaseManager.client.from("post_likes").insert(dto)
                     } catch (e: Exception) {
-                        // Check if it's the duplicate error
                         if (e.message?.contains("duplicate key") == true || e.message?.contains("unique constraint") == true) {
-                            // Already liked! Treat this as a success.
                             Handler(Looper.getMainLooper()).post { callback.onSuccess() }
                             return@launch
                         } else {
-                            // Real error, throw it to the outer catch
                             throw e
                         }
                     }
                 } else {
-                    // DELETE
                     SupabaseManager.client.from("post_likes").delete {
                         filter {
                             eq("user_id", currentUser.id)
@@ -324,7 +367,7 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ⭐ 8. TOGGLE BOOKMARK (UPDATED TO FIX CRASH) ⭐
+    // 10. TOGGLE BOOKMARK (With Duplicate Fix)
     @JvmStatic
     fun toggleBookmark(postId: Long, isBookmarked: Boolean, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -337,13 +380,11 @@ object SupabaseJavaHelper {
                 }
 
                 if (isBookmarked) {
-                    // INSERT (Handle Duplicate Key Error)
                     val dto = BookmarkDTO(currentUser.id, postId)
                     try {
                         SupabaseManager.client.from("bookmarks").insert(dto)
                     } catch (e: Exception) {
                         if (e.message?.contains("duplicate key") == true || e.message?.contains("unique constraint") == true) {
-                            // Already bookmarked! Treat as success.
                             Handler(Looper.getMainLooper()).post { callback.onSuccess() }
                             return@launch
                         } else {
@@ -351,7 +392,6 @@ object SupabaseJavaHelper {
                         }
                     }
                 } else {
-                    // DELETE
                     SupabaseManager.client.from("bookmarks").delete {
                         filter {
                             eq("user_id", currentUser.id)
@@ -377,3 +417,18 @@ object SupabaseJavaHelper {
 @Serializable data class DashboardMetrics(val total_families: Int, val total_packs: Int, val total_affected: Int)
 @Serializable data class LikeDTO(val user_id: String, val post_id: Long)
 @Serializable data class BookmarkDTO(val user_id: String, val post_id: Long)
+// Add ProfileDTO if not already in another file, just in case:
+@Serializable data class ProfileDTO(
+    val id: String,
+    val email: String,
+    val full_name: String,
+    val contact_number: String,
+    val house_number: String,
+    val street: String,
+    val barangay: String,
+    val city: String,
+    val province: String,
+    val zip_code: String,
+    val face_embedding: String?,
+    val type: String
+)

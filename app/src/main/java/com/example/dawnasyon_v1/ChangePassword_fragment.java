@@ -10,9 +10,11 @@ import android.widget.ImageButton;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class ChangePassword_fragment extends BaseFragment {
+
+    private Button btnUpdate;
+    private EditText etOldPass, etNewPass, etConfirmPass;
 
     public ChangePassword_fragment() {
         // Required empty public constructor
@@ -29,35 +31,72 @@ public class ChangePassword_fragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
-        Button btnUpdate = view.findViewById(R.id.btn_update_password);
+        btnUpdate = view.findViewById(R.id.btn_update_password);
 
-        EditText etOldPass = view.findViewById(R.id.et_old_password);
-        EditText etNewPass = view.findViewById(R.id.et_new_password);
-        EditText etConfirmPass = view.findViewById(R.id.et_confirm_new_password);
+        etOldPass = view.findViewById(R.id.et_old_password);
+        etNewPass = view.findViewById(R.id.et_new_password);
+        etConfirmPass = view.findViewById(R.id.et_confirm_new_password);
 
         // Back Button -> Go back to Profile
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
         // Update Logic
-        btnUpdate.setOnClickListener(v -> {
-            String oldPass = etOldPass.getText().toString();
-            String newPass = etNewPass.getText().toString();
-            String confirmPass = etConfirmPass.getText().toString();
+        btnUpdate.setOnClickListener(v -> handlePasswordUpdate());
+    }
 
-            if (oldPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
-                Toast.makeText(getContext(), "Please fill in all fields.", Toast.LENGTH_SHORT).show();
-                return;
+    private void handlePasswordUpdate() {
+        String oldPass = etOldPass.getText().toString().trim();
+        String newPass = etNewPass.getText().toString().trim();
+        String confirmPass = etConfirmPass.getText().toString().trim();
+
+        // 1. Basic Validations
+        if (oldPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
+            Toast.makeText(getContext(), "Please fill in all fields.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!newPass.equals(confirmPass)) {
+            etConfirmPass.setError("Passwords do not match");
+            Toast.makeText(getContext(), "New passwords do not match.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (newPass.length() < 6) {
+            etNewPass.setError("Must be at least 6 characters");
+            return;
+        }
+
+        if (oldPass.equals(newPass)) {
+            etNewPass.setError("New password cannot be the same as old");
+            return;
+        }
+
+        // 2. Disable button to prevent double clicks
+        btnUpdate.setEnabled(false);
+        btnUpdate.setText("Updating...");
+
+        // 3. Call AuthHelper
+        AuthHelper.changePassword(oldPass, newPass, new AuthHelper.RegistrationCallback() {
+            @Override
+            public void onSuccess() {
+                if (isAdded()) {
+                    btnUpdate.setEnabled(true);
+                    btnUpdate.setText("Update Password");
+
+                    Toast.makeText(getContext(), "✅ Password updated successfully!", Toast.LENGTH_LONG).show();
+                    getParentFragmentManager().popBackStack(); // Go back to Profile
+                }
             }
 
-            if (!newPass.equals(confirmPass)) {
-                Toast.makeText(getContext(), "New passwords do not match.", Toast.LENGTH_SHORT).show();
-                return;
+            @Override
+            public void onError(@NonNull String message) {
+                if (isAdded()) {
+                    btnUpdate.setEnabled(true);
+                    btnUpdate.setText("Update Password");
+
+                    Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+                }
             }
-
-            // TODO: Add logic to verify old password and save new one to database
-
-            Toast.makeText(getContext(), "Password updated successfully!", Toast.LENGTH_SHORT).show();
-            getParentFragmentManager().popBackStack(); // Go back to Profile
         });
     }
 }

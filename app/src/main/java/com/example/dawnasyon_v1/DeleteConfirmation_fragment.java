@@ -11,12 +11,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class DeleteConfirmation_fragment extends BaseFragment {
 
     private CountDownTimer deleteTimer;
     private TextView tvCountdown;
+    private Button btnCancel, btnDeleteNow;
+    private boolean isDeleting = false; // Prevent double clicks
 
     public DeleteConfirmation_fragment() {
         // Required empty public constructor
@@ -33,8 +34,8 @@ public class DeleteConfirmation_fragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
 
         tvCountdown = view.findViewById(R.id.tv_countdown);
-        Button btnCancel = view.findViewById(R.id.btn_cancel_timer);
-        Button btnDeleteNow = view.findViewById(R.id.btn_delete_now);
+        btnCancel = view.findViewById(R.id.btn_cancel_timer);
+        btnDeleteNow = view.findViewById(R.id.btn_delete_now);
 
         // Start the 10-second countdown
         startDeleteTimer();
@@ -53,7 +54,6 @@ public class DeleteConfirmation_fragment extends BaseFragment {
         deleteTimer = new CountDownTimer(10000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                // Update UI (approx seconds remaining)
                 long secondsLeft = (millisUntilFinished / 1000) + 1;
                 tvCountdown.setText(String.valueOf(secondsLeft));
             }
@@ -67,25 +67,47 @@ public class DeleteConfirmation_fragment extends BaseFragment {
     }
 
     private void performAccountDeletion() {
-        // Ensure timer is cancelled if called manually
+        // 1. Safety Checks
         if (deleteTimer != null) deleteTimer.cancel();
+        if (isDeleting) return; // Prevent double execution
+        isDeleting = true;
 
-        // TODO: Call API to actually delete the user account here
+        // UI Feedback
+        btnDeleteNow.setText("Deleting...");
+        btnDeleteNow.setEnabled(false);
+        btnCancel.setEnabled(false);
 
-        Toast.makeText(getContext(), "Account Deleted Successfully.", Toast.LENGTH_LONG).show();
+        // 2. Call the Archive Function
+        // We use AuthHelper (or SupabaseJavaHelper depending on where you put the code)
+        SupabaseJavaHelper.archiveAccount(new SupabaseJavaHelper.RegistrationCallback() {
+            @Override
+            public void onSuccess() {
+                if (getContext() != null) {
+                    Toast.makeText(getContext(), "Account has been deleted.", Toast.LENGTH_LONG).show();
 
-        // Redirect to Login (Clear entire back stack)
-        if (getActivity() != null) {
-            Intent intent = new Intent(getActivity(), LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-        }
+                    // 3. Redirect to Login
+                    Intent intent = new Intent(getActivity(), LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                if (getContext() != null) {
+                    isDeleting = false;
+                    btnDeleteNow.setText("Delete Now");
+                    btnDeleteNow.setEnabled(true);
+                    btnCancel.setEnabled(true);
+                    Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Safety: Cancel timer if user navigates away or app closes
         if (deleteTimer != null) deleteTimer.cancel();
     }
 }

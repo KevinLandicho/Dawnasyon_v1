@@ -275,4 +275,89 @@ object AuthHelper {
             }
         }
     }
+
+    // --- 8. CHANGE PASSWORD ---
+    @JvmStatic
+    fun changePassword(oldPass: String, newPass: String, callback: RegistrationCallback) {
+        val client = SupabaseManager.client
+        val currentUser = client.auth.currentUserOrNull()
+        val email = currentUser?.email
+
+        if (email == null) {
+            callback.onError("User not logged in.")
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. Verify Old Password by attempting to sign in again
+                // This ensures the user actually knows the current password
+                client.auth.signInWith(Email) {
+                    this.email = email
+                    this.password = oldPass
+                }
+
+                // 2. If login succeeds, update to the New Password
+                client.auth.updateUser {
+                    password = newPass
+                }
+
+                withContext(Dispatchers.Main) { callback.onSuccess() }
+
+            } catch (e: Exception) {
+                val msg = e.message ?: ""
+                withContext(Dispatchers.Main) {
+                    if (msg.contains("Invalid login") || msg.contains("invalid_grant")) {
+                        callback.onError("Incorrect old password.")
+                    } else {
+                        callback.onError("Failed to update password: $msg")
+                    }
+                }
+            }
+        }
+    }
+
+    // --- 9. ARCHIVE ACCOUNT (SOFT DELETE) ---
+    @JvmStatic
+    fun archiveAccount(callback: RegistrationCallback) {
+        val client = SupabaseManager.client
+        val currentUser = client.auth.currentUserOrNull()
+
+        if (currentUser == null) {
+            callback.onError("No user logged in.")
+            return
+        }
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. Prepare Anonymized Data
+                // We keep the ID, but clear the personal info
+                val updateData = mapOf(
+                    "account_status" to "Archived",
+                    "full_name" to "Deleted User",
+                    "contact_number" to "",
+                    "face_embedding" to null,
+                    "id_image_url" to null,
+                    "qr_code_url" to null,
+                    "fcm_token" to null
+                    // Note: We keep the ID so donation history is preserved
+                )
+
+                // 2. Update the Profile in Database
+                client.from("profiles").update(updateData) {
+                    filter { eq("id", currentUser.id) }
+                }
+
+                // 3. Sign Out the User from Auth
+                client.auth.signOut()
+
+                withContext(Dispatchers.Main) { callback.onSuccess() }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback.onError(e.message ?: "Failed to delete account")
+                }
+            }
+        }
+    }
 }
