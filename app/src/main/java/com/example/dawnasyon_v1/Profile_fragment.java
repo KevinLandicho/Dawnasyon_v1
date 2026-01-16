@@ -19,13 +19,21 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.cardview.widget.CardView;
 import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 
+import java.util.List;
+
 public class Profile_fragment extends BaseFragment {
 
     private LinearLayout familyContainer;
+
+    // ⭐ PRIORITY CARD VARIABLES
+    private CardView cardPriority;
+    private TextView tvPriorityLevel;
+    private TextView tvPriorityScore;
 
     public Profile_fragment() {
         // Required empty public constructor
@@ -60,7 +68,12 @@ public class Profile_fragment extends BaseFragment {
 
         familyContainer = view.findViewById(R.id.ll_family_container);
 
-        // --- 2. SETUP LISTENERS (Default: All Active) ---
+        // ⭐ BIND PRIORITY CARD VIEWS (Matches XML IDs)
+        cardPriority = view.findViewById(R.id.card_priority);
+        tvPriorityLevel = view.findViewById(R.id.tv_priority_level);
+        tvPriorityScore = view.findViewById(R.id.tv_priority_score);
+
+        // --- 2. SETUP LISTENERS ---
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
@@ -110,36 +123,37 @@ public class Profile_fragment extends BaseFragment {
                 if(profile.getCity() != null) fullAddress += profile.getCity();
                 if (detailAddress != null) detailAddress.setText(fullAddress);
 
-                // B. ⭐ CHECK TYPE & VERIFICATION ⭐
+                // B. CHECK TYPE & VERIFICATION
                 boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
                 String userType = profile.getType(); // "Resident" or "Foreign"
 
                 if (badgeStatus != null) {
                     badgeStatus.setVisibility(View.VISIBLE);
 
-                    // CASE 1: FOREIGN / OVERSEAS (Always Open)
-                    // We check for "Foreign" (Database value) or "Overseas" (Safety check)
-                    if (userType != null && (userType.equalsIgnoreCase("Overseas") || userType.equalsIgnoreCase("Overseas"))) {
+                    // CASE 1: FOREIGN / OVERSEAS
+                    if (userType != null && (userType.equalsIgnoreCase("Foreign") || userType.equalsIgnoreCase("Overseas"))) {
                         badgeStatus.setText("🌍 OVERSEAS DONOR");
-                        badgeStatus.setTextColor(Color.parseColor("#0D47A1")); // Dark Blue Text
-                        badgeStatus.setBackgroundColor(Color.parseColor("#E3F2FD")); // Light Blue BG
+                        badgeStatus.setTextColor(Color.parseColor("#0D47A1")); // Blue
+                        badgeStatus.setBackgroundColor(Color.parseColor("#E3F2FD"));
 
-                        // We DO NOT call disableFeature here.
-                        // They get full access by default.
+                        // ⭐ HIDE PRIORITY CARD FOR FOREIGNERS
+                        if (cardPriority != null) cardPriority.setVisibility(View.GONE);
                     }
-                    // CASE 2: RESIDENT (Must be Verified)
+                    // CASE 2: RESIDENT
                     else {
+                        // ⭐ SHOW PRIORITY CARD FOR RESIDENTS
+                        if (cardPriority != null) cardPriority.setVisibility(View.VISIBLE);
+
                         if (isVerified) {
                             badgeStatus.setText("✅ VERIFIED RESIDENT");
                             badgeStatus.setTextColor(Color.parseColor("#2E7D32")); // Green
                             badgeStatus.setBackgroundColor(Color.parseColor("#E8F5E9"));
-                            // Access granted.
                         } else {
                             badgeStatus.setText("⚠️ NOT VERIFIED");
                             badgeStatus.setTextColor(Color.parseColor("#C62828")); // Red
                             badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE"));
 
-                            // ⭐ LOCK FEATURES FOR UNVERIFIED RESIDENTS
+                            // Lock features if not verified
                             disableFeature(btnViewQR, "QR Code");
                             disableFeature(btnPinLocation, "Map Pinning");
                             disableFeature(menuSuggestion, "Suggestion Form");
@@ -148,56 +162,98 @@ public class Profile_fragment extends BaseFragment {
                     }
                 }
 
+                // C. Load Family Tree (Pass verified status for calculation)
+                loadFamilyMembers(isVerified);
+
             } else if (isAdded()) {
                 Log.e("ProfileFragment", "Failed to load profile data.");
             }
             return null;
         });
-
-        // C. Load Family Tree
-        loadFamilyMembers();
     }
 
-    // Helper to disable features (Overwrites the click listener)
+    // ⭐ LOAD FAMILY & CALCULATE PRIORITY
+    private void loadFamilyMembers(boolean isVerified) {
+        AuthHelper.fetchHouseholdMembers(members -> {
+            if (isAdded()) {
+                // 1. Populate Family List
+                if (familyContainer != null) {
+                    familyContainer.removeAllViews();
+                    if (members == null || members.isEmpty()) {
+                        TextView emptyView = new TextView(getContext());
+                        emptyView.setText("No registered members found.");
+                        emptyView.setPadding(0, 8, 0, 8);
+                        familyContainer.addView(emptyView);
+                    } else {
+                        for (int i = 0; i < members.size(); i++) {
+                            HouseholdMember member = members.get(i);
+                            addMemberRow(member);
+                            if (i < members.size() - 1) {
+                                View line = new View(getContext());
+                                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT, 2);
+                                params.setMargins(0, 12, 0, 12);
+                                line.setLayoutParams(params);
+                                line.setBackgroundColor(Color.parseColor("#F0F0F0"));
+                                familyContainer.addView(line);
+                            }
+                        }
+                    }
+                }
+
+                // 2. ⭐ CALCULATE PRIORITY SCORE (If Resident and Card is Visible)
+                if (cardPriority != null && cardPriority.getVisibility() == View.VISIBLE) {
+                    calculateAndDisplayPriority(members, isVerified);
+                }
+            }
+            return null;
+        });
+    }
+
+    // ⭐ LOGIC TO COMPUTE PRIORITY SCORE
+    private void calculateAndDisplayPriority(List<HouseholdMember> members, boolean isVerified) {
+        if (tvPriorityScore == null || tvPriorityLevel == null) return;
+
+        int score = 10; // Base score for having a profile
+
+        // 1. Family Size Points (+5 per member, max 50)
+        int familySize = (members != null) ? members.size() : 0;
+        int familyPoints = Math.min(familySize * 5, 50);
+        score += familyPoints;
+
+        // 2. Vulnerability Bonus (Mock logic: Large families > 4 get bonus)
+        if (familySize > 4) score += 20;
+
+        // 3. Verification Bonus
+        if (isVerified) score += 10;
+
+        // Cap at 100
+        if (score > 100) score = 100;
+
+        // Display Score
+        tvPriorityScore.setText("Score: " + score + "/100");
+
+        // Determine Level
+        if (score >= 80) {
+            tvPriorityLevel.setText("CRITICAL PRIORITY");
+            tvPriorityLevel.setTextColor(Color.RED);
+        } else if (score >= 50) {
+            tvPriorityLevel.setText("HIGH PRIORITY");
+            tvPriorityLevel.setTextColor(Color.parseColor("#F57C00")); // Orange
+        } else {
+            tvPriorityLevel.setText("NORMAL PRIORITY");
+            tvPriorityLevel.setTextColor(Color.parseColor("#388E3C")); // Green
+        }
+    }
+
     private void disableFeature(View view, String featureName) {
         if (view == null) return;
-        view.setAlpha(0.4f); // Dim the button
+        view.setAlpha(0.4f);
         view.setOnClickListener(v ->
                 Toast.makeText(getContext(),
                         "🔒 " + featureName + " is locked. Please verify your account.",
                         Toast.LENGTH_SHORT).show()
         );
-    }
-
-    private void loadFamilyMembers() {
-        AuthHelper.fetchHouseholdMembers(members -> {
-            if (isAdded() && familyContainer != null) {
-                familyContainer.removeAllViews();
-
-                if (members == null || members.isEmpty()) {
-                    TextView emptyView = new TextView(getContext());
-                    emptyView.setText("No registered members found.");
-                    emptyView.setPadding(0, 8, 0, 8);
-                    familyContainer.addView(emptyView);
-                } else {
-                    for (int i = 0; i < members.size(); i++) {
-                        HouseholdMember member = members.get(i);
-                        addMemberRow(member);
-
-                        if (i < members.size() - 1) {
-                            View line = new View(getContext());
-                            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT, 2);
-                            params.setMargins(0, 12, 0, 12);
-                            line.setLayoutParams(params);
-                            line.setBackgroundColor(Color.parseColor("#F0F0F0"));
-                            familyContainer.addView(line);
-                        }
-                    }
-                }
-            }
-            return null;
-        });
     }
 
     private void addMemberRow(HouseholdMember member) {
