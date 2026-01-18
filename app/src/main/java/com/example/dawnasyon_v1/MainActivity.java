@@ -97,6 +97,12 @@ public class MainActivity extends BaseActivity {
     private void checkSecurityTimer() {
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
 
+        // ⭐ 0. CHECK USER TYPE FIRST (Bypass for Overseas)
+        String userType = prefs.getString("user_type", "Resident");
+        if (userType != null && (userType.equalsIgnoreCase("Foreign") || userType.equalsIgnoreCase("Overseas"))) {
+            return; // Stop here. Do not check face data or timer.
+        }
+
         // 1. Check if user has a face registered
         String faceData = prefs.getString("face_embedding", "");
         if (faceData.isEmpty()) {
@@ -114,7 +120,7 @@ public class MainActivity extends BaseActivity {
         long timelim = 10000;
 
         // 4. Check if expired
-        if (currentTime - lastTime > timelim) {
+        if (currentTime - lastTime > timeLimit) {
             Intent intent = new Intent(this, FaceVerifyActivity.class);
             // Clear back stack so they can't press "Back" to return here
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
