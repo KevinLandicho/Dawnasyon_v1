@@ -17,29 +17,27 @@ import androidx.appcompat.app.AppCompatActivity;
 public class BaseActivity extends AppCompatActivity {
 
     private AlertDialog noInternetDialog;
+    private AlertDialog loadingDialog; // ⭐ NEW VARIABLE
     private NetworkReceiver networkReceiver;
 
-    // ⭐ EXISTING LANGUAGE LOGIC
     @Override
     protected void attachBaseContext(Context newBase) {
         super.attachBaseContext(LocaleHelper.onAttach(newBase));
     }
 
-    // ⭐ NEW INTERNET CHECK LOGIC
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        createNoInternetDialog(); // Prepare the dialog
+        createNoInternetDialog();
+        createLoadingDialog(); // ⭐ INITIALIZE LOADING DIALOG
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // Register receiver to listen for real-time changes
         networkReceiver = new NetworkReceiver();
         registerReceiver(networkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
 
-        // Immediate check when activity opens
         if (!NetworkUtils.isNetworkAvailable(this)) {
             showNoInternetDialog();
         } else {
@@ -50,7 +48,6 @@ public class BaseActivity extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        // Unregister to prevent memory leaks
         if (networkReceiver != null) {
             try {
                 unregisterReceiver(networkReceiver);
@@ -60,17 +57,12 @@ public class BaseActivity extends AppCompatActivity {
         }
     }
 
-    // --- DIALOG LOGIC ---
-
+    // --- NO INTERNET LOGIC (EXISTING) ---
     private void createNoInternetDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LayoutInflater inflater = getLayoutInflater();
-
-        // Ensure you have created dialog_no_internet.xml
         View dialogView = inflater.inflate(R.layout.dialog_no_internet, null);
         builder.setView(dialogView);
-
-        // ⭐ CRITICAL: PREVENTS CLOSING
         builder.setCancelable(false);
 
         Button btnRetry = dialogView.findViewById(R.id.btn_retry);
@@ -79,7 +71,6 @@ public class BaseActivity extends AppCompatActivity {
                 dismissNoInternetDialog();
             }
         });
-
         noInternetDialog = builder.create();
     }
 
@@ -95,8 +86,44 @@ public class BaseActivity extends AppCompatActivity {
         }
     }
 
+    // --- ⭐ NEW: LOADING DIALOG LOGIC ---
+
+    private void createLoadingDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        LayoutInflater inflater = getLayoutInflater();
+        View dialogView = inflater.inflate(R.layout.dialog_loading, null);
+        builder.setView(dialogView);
+
+        // Prevent user from clicking outside to close it
+        builder.setCancelable(false);
+
+        // Make background transparent if you want the rounded corners to show nicely
+        // (Optional, depends on your theme)
+        // if (builder.getContext() != null) {
+        //     dialogView.setBackgroundResource(android.R.color.transparent);
+        // }
+
+        loadingDialog = builder.create();
+
+        // Remove standard dialog background to show our rounded drawable
+        if (loadingDialog.getWindow() != null) {
+            loadingDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        }
+    }
+
+    public void showLoading() {
+        if (loadingDialog != null && !loadingDialog.isShowing() && !isFinishing()) {
+            loadingDialog.show();
+        }
+    }
+
+    public void hideLoading() {
+        if (loadingDialog != null && loadingDialog.isShowing()) {
+            loadingDialog.dismiss();
+        }
+    }
+
     // --- BROADCAST RECEIVER ---
-    // Listens for system network changes (Wi-Fi on/off)
     class NetworkReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {

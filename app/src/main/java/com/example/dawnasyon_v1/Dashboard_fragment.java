@@ -18,7 +18,7 @@ import androidx.annotation.Nullable;
 // MPAndroidChart Imports
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
-import com.github.mikephil.charting.charts.RadarChart; // ⭐ NEW IMPORT
+import com.github.mikephil.charting.charts.RadarChart;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
@@ -26,9 +26,9 @@ import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
-import com.github.mikephil.charting.data.RadarData; // ⭐ NEW IMPORT
-import com.github.mikephil.charting.data.RadarDataSet; // ⭐ NEW IMPORT
-import com.github.mikephil.charting.data.RadarEntry; // ⭐ NEW IMPORT
+import com.github.mikephil.charting.data.RadarData;
+import com.github.mikephil.charting.data.RadarDataSet;
+import com.github.mikephil.charting.data.RadarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 
 import java.util.ArrayList;
@@ -42,12 +42,11 @@ public class Dashboard_fragment extends BaseFragment {
     private PieChart chartAffected;
     private LineChart chartFamilies;
     private LineChart chartDonations;
-    private RadarChart chartImpact; // ⭐ NEW CHART
+    private RadarChart chartImpact;
 
     private LinearLayout llReliefList;
     private LinearLayout llAffectedList;
 
-    // ⭐ NEW VIEW BINDINGS
     private TextView tvImpactCount;
 
     // --- COLOR PALETTE ---
@@ -86,9 +85,9 @@ public class Dashboard_fragment extends BaseFragment {
         chartAffected = view.findViewById(R.id.chart_affected_areas);
         chartFamilies = view.findViewById(R.id.chart_registered_families);
         chartDonations = view.findViewById(R.id.chart_donation_trends);
-        chartImpact = view.findViewById(R.id.chart_donation_impact); // ⭐ NEW BINDING
+        chartImpact = view.findViewById(R.id.chart_donation_impact);
 
-        tvImpactCount = view.findViewById(R.id.tv_impact_count); // ⭐ NEW BINDING
+        tvImpactCount = view.findViewById(R.id.tv_impact_count);
 
         Button btnLiveMap = view.findViewById(R.id.btn_live_map);
 
@@ -100,7 +99,7 @@ public class Dashboard_fragment extends BaseFragment {
         setupAffectedPieChart();
         setupFamiliesLineChart();
         setupDonationTrendsChart();
-        setupImpactRadarChart(); // ⭐ NEW SETUP METHOD
+        setupImpactRadarChart();
 
         // Listeners
         View.OnClickListener mapClickListener = v -> {
@@ -118,6 +117,12 @@ public class Dashboard_fragment extends BaseFragment {
     }
 
     private void loadRealData(View view) {
+
+        // ⭐ 1. SHOW LOADING
+        if (getActivity() instanceof BaseActivity) {
+            ((BaseActivity) getActivity()).showLoading();
+        }
+
         SupabaseJavaHelper.fetchDashboardData(new DashboardCallback() {
             @Override
             public void onDataLoaded(Map<String, Integer> inventory,
@@ -125,6 +130,12 @@ public class Dashboard_fragment extends BaseFragment {
                                      Map<String, Float> donations,
                                      Map<String, Integer> families,
                                      DashboardMetrics metrics) {
+
+                // ⭐ 2. HIDE LOADING ON SUCCESS
+                if (isAdded() && getActivity() instanceof BaseActivity) {
+                    ((BaseActivity) getActivity()).hideLoading();
+                }
+
                 if (!isAdded()) return;
 
                 // A. Update Standard Charts
@@ -148,13 +159,18 @@ public class Dashboard_fragment extends BaseFragment {
                 // C. Update Analytics
                 updateAnalyticsUI(view, metrics);
 
-                // ⭐ D. Update Impact Radar Chart
-                // We use the 'areas' map to show how donations are impacting specific areas
+                // D. Update Impact Radar Chart
                 updateRadarChart(areas);
             }
 
             @Override
             public void onError(String message) {
+
+                // ⭐ 3. HIDE LOADING ON ERROR
+                if (isAdded() && getActivity() instanceof BaseActivity) {
+                    ((BaseActivity) getActivity()).hideLoading();
+                }
+
                 if (isAdded()) {
                     Toast.makeText(getContext(), "Error loading dashboard: " + message, Toast.LENGTH_SHORT).show();
                 }
@@ -162,7 +178,8 @@ public class Dashboard_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ NEW METHOD: Setup Radar Chart Visuals
+    // --- CHART SETUP & UPDATE METHODS (Unchanged) ---
+
     private void setupImpactRadarChart() {
         chartImpact.getDescription().setEnabled(false);
         chartImpact.setWebLineWidth(1f);
@@ -170,8 +187,6 @@ public class Dashboard_fragment extends BaseFragment {
         chartImpact.setWebLineWidthInner(1f);
         chartImpact.setWebColorInner(Color.LTGRAY);
         chartImpact.setWebAlpha(100);
-
-        // Remove Legend/Y-Axis to keep it clean like the design
         chartImpact.getLegend().setEnabled(false);
         chartImpact.getYAxis().setEnabled(false);
 
@@ -179,11 +194,10 @@ public class Dashboard_fragment extends BaseFragment {
         xAxis.setTextSize(9f);
         xAxis.setYOffset(0f);
         xAxis.setXOffset(0f);
-        xAxis.setValueFormatter(new IndexAxisValueFormatter(new String[]{})); // Default empty
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new String[]{}));
         xAxis.setTextColor(Color.DKGRAY);
     }
 
-    // ⭐ NEW METHOD: Update Radar Chart Data
     private void updateRadarChart(Map<String, Integer> data) {
         if (data == null || data.isEmpty()) return;
 
@@ -191,43 +205,34 @@ public class Dashboard_fragment extends BaseFragment {
         List<String> labels = new ArrayList<>();
         int totalHelped = 0;
 
-        // Populate entries
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             entries.add(new RadarEntry(entry.getValue()));
-            labels.add(entry.getKey()); // Street Name
-
-            // Calculate total families helped based on area data
+            labels.add(entry.getKey());
             totalHelped += entry.getValue();
         }
 
-        // Update the Big Number Text
         if (tvImpactCount != null) {
             tvImpactCount.setText(String.valueOf(totalHelped));
         }
 
         RadarDataSet set = new RadarDataSet(entries, "Impact");
-        // Style to match the image (Orange fill with outline)
         set.setColor(COLOR_VIBRANT_ORANGE);
         set.setFillColor(COLOR_SOFT_ORANGE);
         set.setDrawFilled(true);
-        set.setFillAlpha(100); // Semi-transparent
+        set.setFillAlpha(100);
         set.setLineWidth(2f);
         set.setDrawHighlightCircleEnabled(true);
         set.setDrawHighlightIndicators(false);
-
-        // Value Text on the chart points
         set.setValueTextSize(10f);
         set.setValueTextColor(Color.BLACK);
-        set.setDrawValues(true); // Show numbers like "100%", "75.0%"
+        set.setDrawValues(true);
 
         RadarData radarData = new RadarData(set);
-
-        // Set Labels on X-Axis (the corners of the radar)
         XAxis xAxis = chartImpact.getXAxis();
         xAxis.setValueFormatter(new IndexAxisValueFormatter(labels));
 
         chartImpact.setData(radarData);
-        chartImpact.invalidate(); // Refresh
+        chartImpact.invalidate();
     }
 
     private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {

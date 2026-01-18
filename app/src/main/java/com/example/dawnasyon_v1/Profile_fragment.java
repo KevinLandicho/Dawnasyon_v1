@@ -135,6 +135,12 @@ public class Profile_fragment extends BaseFragment {
         menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
 
         // --- 3. Load Data ---
+
+        // ⭐ 1. SHOW LOADING START
+        if (getActivity() instanceof BaseActivity) {
+            ((BaseActivity) getActivity()).showLoading();
+        }
+
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
                 if (detailName != null) detailName.setText(profile.getFull_name());
@@ -176,7 +182,13 @@ public class Profile_fragment extends BaseFragment {
                     }
                 }
 
+                // Continue to load family members (Chain the request)
                 loadFamilyMembers(isVerified, profile, fullAddress);
+            } else {
+                // ⭐ HIDE LOADING IF PROFILE FETCH FAILS
+                if (isAdded() && getActivity() instanceof BaseActivity) {
+                    ((BaseActivity) getActivity()).hideLoading();
+                }
             }
             return null;
         });
@@ -197,6 +209,12 @@ public class Profile_fragment extends BaseFragment {
 
     private void loadFamilyMembers(boolean isVerified, Profile profile, String fullAddress) {
         AuthHelper.fetchHouseholdMembers(members -> {
+
+            // ⭐ 2. HIDE LOADING DONE (Data is fully loaded)
+            if (isAdded() && getActivity() instanceof BaseActivity) {
+                ((BaseActivity) getActivity()).hideLoading();
+            }
+
             if (isAdded()) {
                 if (familyContainer != null) {
                     familyContainer.removeAllViews();
@@ -213,6 +231,7 @@ public class Profile_fragment extends BaseFragment {
                 }
 
                 if (cardPriority != null && cardPriority.getVisibility() == View.VISIBLE) {
+                    // This runs in background, so we don't need to block the UI with a loader
                     calculatePriorityWithGeoRisk(members, isVerified, profile, fullAddress);
                 }
             }

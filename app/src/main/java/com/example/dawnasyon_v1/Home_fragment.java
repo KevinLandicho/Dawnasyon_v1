@@ -31,6 +31,9 @@ public class Home_fragment extends BaseFragment {
     private RecyclerView announcementRecyclerView;
     private AnnouncementAdapter announcementAdapter;
 
+    // Placeholder View Variable
+    private TextView tvEmptyPlaceholder;
+
     private List<Announcement> announcementList = new ArrayList<>();
     private List<Announcement> fullAnnouncementList = new ArrayList<>();
 
@@ -64,6 +67,9 @@ public class Home_fragment extends BaseFragment {
         searchView = view.findViewById(R.id.search_view);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
+
+        // BIND PLACEHOLDER VIEW
+        tvEmptyPlaceholder = view.findViewById(R.id.tv_empty_placeholder);
 
         loadUserProfile();
         setupCarousel();
@@ -175,9 +181,11 @@ public class Home_fragment extends BaseFragment {
         });
     }
 
+    // UPDATED FILTER LOGIC TO CHECK EMPTY STATE
     private void filterAnnouncements(String query) {
         if (query == null || query.isEmpty()) {
             announcementAdapter.updateData(new ArrayList<>(fullAnnouncementList));
+            updatePlaceholder(fullAnnouncementList.isEmpty());
             return;
         }
         List<Announcement> filteredList = new ArrayList<>();
@@ -188,32 +196,72 @@ public class Home_fragment extends BaseFragment {
             if (matchesTitle || matchesBody) filteredList.add(item);
         }
         announcementAdapter.updateData(filteredList);
+
+        // Check if filtered result is empty
+        updatePlaceholder(filteredList.isEmpty());
     }
 
+    // ⭐ UPDATED: ADDED LOADING DIALOG LOGIC
     private void fetchAnnouncementsFromSupabase() {
+
+        // 1. Show Loading
+        if (getActivity() instanceof BaseActivity) {
+            ((BaseActivity) getActivity()).showLoading();
+        }
+
         SupabaseJavaHelper.fetchAnnouncements(new AnnouncementCallback() {
             @Override
             public void onSuccess(List<? extends Announcement> data) {
+                // 2. Hide Loading
+                if (isAdded() && getActivity() instanceof BaseActivity) {
+                    ((BaseActivity) getActivity()).hideLoading();
+                }
+
                 if (isAdded()) {
                     announcementList.clear();
                     announcementList.addAll(data);
                     fullAnnouncementList.clear();
                     fullAnnouncementList.addAll(data);
                     announcementAdapter.notifyDataSetChanged();
+
+                    // Show/Hide Placeholder
+                    updatePlaceholder(announcementList.isEmpty());
                 }
             }
+
             @Override
             public void onError(@NonNull String message) {
-                if (isAdded()) Log.e("HomeFragment", "Fetch Error: " + message);
+                // 3. Hide Loading on Error
+                if (isAdded() && getActivity() instanceof BaseActivity) {
+                    ((BaseActivity) getActivity()).hideLoading();
+                }
+
+                if (isAdded()) {
+                    Log.e("HomeFragment", "Fetch Error: " + message);
+                    // On error, list is effectively empty or stale
+                    updatePlaceholder(announcementList.isEmpty());
+                }
             }
         });
+    }
+
+    // HELPER METHOD TO TOGGLE VISIBILITY
+    private void updatePlaceholder(boolean isEmpty) {
+        if (tvEmptyPlaceholder == null) return;
+
+        if (isEmpty) {
+            tvEmptyPlaceholder.setVisibility(View.VISIBLE);
+            announcementRecyclerView.setVisibility(View.GONE);
+        } else {
+            tvEmptyPlaceholder.setVisibility(View.GONE);
+            announcementRecyclerView.setVisibility(View.VISIBLE);
+        }
     }
 
     private void showApplyDialog(Announcement announcement) {
         boolean isForeign = userType != null && userType.equalsIgnoreCase("Overseas");
         boolean isResident = userType != null && userType.equalsIgnoreCase("Non-Resident");
 
-        // ⭐ STRICT RULE 1: Foreign users CANNOT apply at all
         if (isForeign) {
             Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
             return;
@@ -224,13 +272,11 @@ public class Home_fragment extends BaseFragment {
             return;
         }
 
-        // ⭐ STRICT RULE 2: Residents MUST be verified
         if (!isUserVerified) {
             Toast.makeText(getContext(), "🔒 You must be a VERIFIED Resident to apply.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        // If passed both checks, show dialog
         ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
         dialog.setOnConfirmListener(() -> {
             if (announcement.getLinkedDriveId() == null) {
