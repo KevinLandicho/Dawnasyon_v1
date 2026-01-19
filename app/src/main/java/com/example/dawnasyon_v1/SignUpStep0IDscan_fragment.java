@@ -57,7 +57,9 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
                                 capturedImageUri = res.getPages().get(0).getImageUri();
                                 runTextRecognition(capturedImageUri);
                             }
-                        } catch (Exception e) {}
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
         );
@@ -85,6 +87,7 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
         btnUploadId.setOnClickListener(v -> galleryLauncher.launch("image/*"));
     }
 
+    // ⭐ UPDATED METHOD TO PREVENT CRASH ON SCREEN RECORDING
     private void startDocumentScan() {
         GmsDocumentScannerOptions options = new GmsDocumentScannerOptions.Builder()
                 .setGalleryImportAllowed(false)
@@ -95,9 +98,19 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
 
         GmsDocumentScanning.getClient(options)
                 .getStartScanIntent(requireActivity())
-                .addOnSuccessListener(intentSender ->
-                        scannerLauncher.launch(new IntentSenderRequest.Builder(intentSender).build())
-                );
+                .addOnSuccessListener(intentSender -> {
+                    try {
+                        scannerLauncher.launch(new IntentSenderRequest.Builder(intentSender).build());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Toast.makeText(getContext(), "Error launching scanner.", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // This catches the security exception when screen recording is active
+                    e.printStackTrace();
+                    Toast.makeText(getContext(), "Cannot scan while screen recording is active.", Toast.LENGTH_LONG).show();
+                });
     }
 
     private void runTextRecognition(Uri imageUri) {
@@ -111,7 +124,7 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
 
             recognizer.process(image)
                     .addOnSuccessListener(visionText -> {
-                        // --- NEW: VALIDATION CHECK ---
+                        // VALIDATION CHECK
                         if (isValidIdDocument(visionText.getText())) {
                             processSmartTextResult(visionText);
                             proceedToStep1();
@@ -173,7 +186,7 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
                 .commit();
     }
 
-    // --- PARSING LOGIC (Unchanged) ---
+    // --- PARSING LOGIC ---
     private void processSmartTextResult(Text text) {
         String fullText = text.getText();
         String[] lines = fullText.split("\n");
@@ -192,11 +205,6 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
         }
     }
 
-    // [Insert your helper parsing methods here: parseQCID, parseNationalID, cleanText, etc.]
-    // I am omitting them here to save space since they are identical to your previous working code.
-    // Make sure to include them inside the class!
-
-    // --- Helper for Parsing ---
     private void parseQCID(String[] lines) {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim().toUpperCase();
@@ -221,17 +229,22 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
     private void parseNationalID(String[] lines) {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim().toUpperCase();
-            if (line.contains("LAST NAME") && i+1 < lines.length) extractLName = cleanText(lines[i+1]);
-            if (line.contains("GIVEN NAME") && i+1 < lines.length) extractFName = cleanText(lines[i+1]);
-            if (line.contains("MIDDLE NAME") && i+1 < lines.length) extractMName = cleanText(lines[i+1]);
+            if (line.contains("LAST NAME") && i + 1 < lines.length)
+                extractLName = cleanText(lines[i + 1]);
+            if (line.contains("GIVEN NAME") && i + 1 < lines.length)
+                extractFName = cleanText(lines[i + 1]);
+            if (line.contains("MIDDLE NAME") && i + 1 < lines.length)
+                extractMName = cleanText(lines[i + 1]);
         }
     }
 
     private void parsePassport(String[] lines) {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim().toUpperCase();
-            if (line.contains("SURNAME") && i+1 < lines.length) extractLName = cleanText(lines[i+1]);
-            if (line.contains("GIVEN NAME") && i+1 < lines.length) extractFName = cleanText(lines[i+1]);
+            if (line.contains("SURNAME") && i + 1 < lines.length)
+                extractLName = cleanText(lines[i + 1]);
+            if (line.contains("GIVEN NAME") && i + 1 < lines.length)
+                extractFName = cleanText(lines[i + 1]);
             if (line.contains("P<PHL")) {
                 try {
                     String raw = line.substring(line.indexOf("P<PHL")).replace("P<PHL", "");
@@ -240,7 +253,8 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
                         extractLName = parts[0].replace("<", " ").trim();
                         extractFName = parts[1].replace("<", " ").trim();
                     }
-                } catch(Exception e){}
+                } catch (Exception e) {
+                }
             }
         }
     }
@@ -249,7 +263,8 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
         for (String rawLine : lines) {
             String line = rawLine.trim();
             String upper = line.toUpperCase();
-            if (upper.contains("REPUBLIC") || upper.contains("BARANGAY") || upper.contains("ADDRESS")) continue;
+            if (upper.contains("REPUBLIC") || upper.contains("BARANGAY") || upper.contains("ADDRESS"))
+                continue;
             if (upper.matches("[A-Z Ññ.-]{5,}") && !upper.matches(".*\\d.*")) {
                 String[] words = line.split("\\s+");
                 if (words.length > 1) {
