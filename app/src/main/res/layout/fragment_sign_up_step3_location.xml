@@ -94,91 +94,39 @@
                     app:layout_constraintTop_toBottomOf="@id/divider" />
 
                 <TextView
-                    android:id="@+id/lbl_house_no"
+                    android:id="@+id/lbl_prov"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
                     android:fontFamily="@font/dongle"
-                    android:text="House / Block / Lot Number"
+                    android:text="@string/province"
                     android:textColor="#444444"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tv_subtitle" />
 
-                <EditText
-                    android:id="@+id/et_house_no"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_home_placeholder"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="Ex. Lot 5 Blk 2"
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_house_no" />
-
-                <TextView
-                    android:id="@+id/lbl_street"
-                    android:layout_width="wrap_content"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_prov"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:fontFamily="@font/dongle"
-                    android:text="@string/street"
-                    android:textColor="#444444"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_house_no" />
+                    android:layout_marginTop="4dp"
+                    app:hintEnabled="false"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_prov">
 
-                <EditText
-                    android:id="@+id/et_street"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_location_on"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="Ex. Emerald St."
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_street" />
-
-                <TextView
-                    android:id="@+id/lbl_brgy"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:fontFamily="@font/dongle"
-                    android:text="@string/barangay"
-                    android:textColor="#444444"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_street" />
-
-                <EditText
-                    android:id="@+id/et_brgy"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_location_on"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="Ex. Sta. Lucia"
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_brgy" />
+                    <AutoCompleteTextView
+                        android:id="@+id/et_prov_dropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:drawableStart="@drawable/ic_location_on"
+                        android:drawablePadding="12dp"
+                        android:fontFamily="@font/dongle"
+                        android:hint="Select Province"
+                        android:inputType="none"
+                        android:paddingStart="16dp"
+                        android:textSize="20sp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
                     android:id="@+id/lbl_city"
@@ -191,52 +139,129 @@
                     android:textSize="20sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_brgy" />
+                    app:layout_constraintTop_toBottomOf="@id/til_prov" />
 
-                <EditText
-                    android:id="@+id/et_city"
-                    android:layout_width="0dp"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_location_on"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="Ex. Quezon City"
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_city" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_city"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    app:hintEnabled="false"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_city">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/et_city_dropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:drawableStart="@drawable/ic_location_on"
+                        android:drawablePadding="12dp"
+                        android:fontFamily="@font/dongle"
+                        android:hint="Select City"
+                        android:inputType="none"
+                        android:paddingStart="16dp"
+                        android:textSize="20sp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <TextView
-                    android:id="@+id/lbl_prov"
+                    android:id="@+id/lbl_brgy"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:fontFamily="@font/dongle"
-                    android:text="@string/province"
+                    android:text="@string/barangay"
                     android:textColor="#444444"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_city" />
+                    app:layout_constraintTop_toBottomOf="@id/til_city" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_brgy"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    app:hintEnabled="false"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_brgy">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/et_brgy_dropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:drawableStart="@drawable/ic_location_on"
+                        android:drawablePadding="12dp"
+                        android:fontFamily="@font/dongle"
+                        android:hint="Select Barangay"
+                        android:inputType="none"
+                        android:paddingStart="16dp"
+                        android:textSize="20sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/lbl_street"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="@string/street"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/til_brgy" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_street"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    app:hintEnabled="false"
+                    app:layout_constraintTop_toBottomOf="@id/lbl_street">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/et_street_dropdown"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:background="@drawable/bg_input_field"
+                        android:drawableStart="@drawable/ic_location_on"
+                        android:drawablePadding="12dp"
+                        android:fontFamily="@font/dongle"
+                        android:hint="Select or Type Street"
+                        android:inputType="textCapWords"
+                        android:completionThreshold="1"
+                        android:paddingStart="16dp"
+                        android:textSize="20sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/lbl_house_no"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/dongle"
+                    android:text="House / Block / Lot Number"
+                    android:textColor="#444444"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/til_street" />
 
                 <EditText
-                    android:id="@+id/et_prov"
+                    android:id="@+id/et_house_no"
                     android:layout_width="0dp"
                     android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_location_on"
+                    android:drawableStart="@drawable/ic_home_placeholder"
                     android:drawablePadding="12dp"
                     android:fontFamily="@font/dongle"
-                    android:hint="Ex. Metro Manila"
+                    android:hint="Ex. Lot 5 Blk 2"
                     android:paddingStart="16dp"
                     android:textSize="20sp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_prov" />
+                    app:layout_constraintTop_toBottomOf="@id/lbl_house_no" />
 
                 <TextView
                     android:id="@+id/lbl_zip"
@@ -249,13 +274,13 @@
                     android:textSize="20sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_prov" />
+                    app:layout_constraintTop_toBottomOf="@id/et_house_no" />
 
                 <EditText
                     android:id="@+id/et_zip"
                     android:layout_width="0dp"
                     android:layout_height="50dp"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="4dp"
                     android:background="@drawable/bg_input_field"
                     android:drawableStart="@drawable/ic_location_on"
                     android:drawablePadding="12dp"
@@ -309,7 +334,7 @@
                         android:layout_width="130dp"
                         android:layout_height="wrap_content"
                         android:backgroundTint="#27859A"
-                        android:text="Submit"
+                        android:text="Next"
                         android:textColor="@color/white"
                         app:cornerRadius="6dp" />
                 </LinearLayout>
