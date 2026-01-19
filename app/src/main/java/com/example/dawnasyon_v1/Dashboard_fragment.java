@@ -7,7 +7,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,6 +50,10 @@ public class Dashboard_fragment extends BaseFragment {
     private LinearLayout llAffectedList;
 
     private TextView tvImpactCount;
+    private ImageView iconFilter; // Filter Icon
+
+    // Default Filter
+    private String currentFilter = "all"; // "all", "monthly", "yearly"
 
     // --- COLOR PALETTE ---
     private final int COLOR_DEEP_ORANGE = Color.parseColor("#E65100");
@@ -88,13 +94,14 @@ public class Dashboard_fragment extends BaseFragment {
         chartImpact = view.findViewById(R.id.chart_donation_impact);
 
         tvImpactCount = view.findViewById(R.id.tv_impact_count);
+        iconFilter = view.findViewById(R.id.icon_filter);
 
         Button btnLiveMap = view.findViewById(R.id.btn_live_map);
 
         llReliefList = view.findViewById(R.id.ll_relief_list);
         llAffectedList = view.findViewById(R.id.ll_affected_list);
 
-        // Initial Setup
+        // Initial Chart Setup
         setupReliefPieChart();
         setupAffectedPieChart();
         setupFamiliesLineChart();
@@ -113,17 +120,54 @@ public class Dashboard_fragment extends BaseFragment {
         if (btnLiveMap != null) btnLiveMap.setOnClickListener(mapClickListener);
         if (chartAffected != null) chartAffected.setOnClickListener(mapClickListener);
 
-        loadRealData(view);
+        // Filter Click Listener
+        if (iconFilter != null) {
+            iconFilter.setOnClickListener(this::showFilterMenu);
+        }
+
+        // Load Initial Data
+        loadRealData(view, currentFilter);
     }
 
-    private void loadRealData(View view) {
+    // ⭐ POPUP MENU LOGIC
+    private void showFilterMenu(View v) {
+        PopupMenu popup = new PopupMenu(getContext(), v);
+        popup.getMenu().add(0, 0, 0, "All Time");
+        popup.getMenu().add(0, 1, 1, "Monthly (This Month)");
+        popup.getMenu().add(0, 2, 2, "Yearly (This Year)");
 
-        // ⭐ 1. SHOW LOADING
+        popup.setOnMenuItemClickListener(item -> {
+            switch (item.getItemId()) {
+                case 0:
+                    currentFilter = "all";
+                    Toast.makeText(getContext(), "Filter: All Time", Toast.LENGTH_SHORT).show();
+                    break;
+                case 1:
+                    currentFilter = "monthly";
+                    Toast.makeText(getContext(), "Filter: Monthly", Toast.LENGTH_SHORT).show();
+                    break;
+                case 2:
+                    currentFilter = "yearly";
+                    Toast.makeText(getContext(), "Filter: Yearly", Toast.LENGTH_SHORT).show();
+                    break;
+            }
+            // Reload with new filter
+            if (getView() != null) {
+                loadRealData(getView(), currentFilter);
+            }
+            return true;
+        });
+        popup.show();
+    }
+
+    private void loadRealData(View view, String filterType) {
+
+        // 1. SHOW LOADING
         if (getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
 
-        SupabaseJavaHelper.fetchDashboardData(new DashboardCallback() {
+        SupabaseJavaHelper.fetchDashboardData(filterType, new DashboardCallback() {
             @Override
             public void onDataLoaded(Map<String, Integer> inventory,
                                      Map<String, Integer> areas,
@@ -131,7 +175,7 @@ public class Dashboard_fragment extends BaseFragment {
                                      Map<String, Integer> families,
                                      DashboardMetrics metrics) {
 
-                // ⭐ 2. HIDE LOADING ON SUCCESS
+                // 2. HIDE LOADING ON SUCCESS
                 if (isAdded() && getActivity() instanceof BaseActivity) {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
@@ -166,7 +210,7 @@ public class Dashboard_fragment extends BaseFragment {
             @Override
             public void onError(String message) {
 
-                // ⭐ 3. HIDE LOADING ON ERROR
+                // 3. HIDE LOADING ON ERROR
                 if (isAdded() && getActivity() instanceof BaseActivity) {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
@@ -178,7 +222,7 @@ public class Dashboard_fragment extends BaseFragment {
         });
     }
 
-    // --- CHART SETUP & UPDATE METHODS (Unchanged) ---
+    // --- CHART SETUP & UPDATE METHODS ---
 
     private void setupImpactRadarChart() {
         chartImpact.getDescription().setEnabled(false);
