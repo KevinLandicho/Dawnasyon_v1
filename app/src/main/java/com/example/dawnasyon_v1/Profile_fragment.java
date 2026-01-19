@@ -45,6 +45,9 @@ public class Profile_fragment extends BaseFragment {
 
     private LinearLayout familyContainer;
 
+    // ⭐ NEW: Profile Image View
+    private ImageView ivProfilePic;
+
     // Prioritize Card Views
     private CardView cardPriority;
     private TextView tvPriorityLevel;
@@ -94,6 +97,9 @@ public class Profile_fragment extends BaseFragment {
         TextView detailContact = view.findViewById(R.id.detail_contact);
         TextView userNameHeader = view.findViewById(R.id.user_name);
         TextView badgeStatus = view.findViewById(R.id.badge_status);
+
+        // ⭐ BIND PROFILE PIC (Make sure ID in XML is profile_pic)
+        ivProfilePic = view.findViewById(R.id.profile_pic);
 
         familyContainer = view.findViewById(R.id.ll_family_container);
 
@@ -153,6 +159,13 @@ public class Profile_fragment extends BaseFragment {
                 if (profile.getBarangay() != null) fullAddress += profile.getBarangay() + ", ";
                 if (profile.getCity() != null) fullAddress += profile.getCity();
                 if (detailAddress != null) detailAddress.setText(fullAddress);
+
+                // ⭐ LOAD AVATAR FROM DB
+                String avatarName = profile.getAvatarName(); // Ensure Profile model has this getter
+                int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
+                if (ivProfilePic != null) {
+                    ivProfilePic.setImageResource(avatarResId);
+                }
 
                 boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
                 String userType = profile.getType();

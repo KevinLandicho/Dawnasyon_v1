@@ -28,5 +28,11 @@ data class Profile(
     val verified: Boolean? = false,
 
     // ⭐ NEW: Store User Type (Resident / Non-Resident)
-    val type: String? = "Resident"
+    val type: String? = "Resident",
+
+    // ⭐ NEW: Avatar Field
+    // This maps the DB column "avatar_name" to the Java/Kotlin variable "avatarName"
+    // It creates the profile.getAvatarName() method automatically.
+    @SerialName("avatar_name")
+    val avatarName: String? = "avatar1"
 )

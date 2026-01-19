@@ -1,6 +1,7 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -10,26 +11,47 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 import com.google.android.material.textfield.TextInputEditText;
 
-// ⭐ FIX 1: Implement the required interface to receive the result from the picker
-public class EditProfile_fragment extends BaseFragment implements AvatarPicker_fragment.OnAvatarSelectedListener {
+public class EditProfile_fragment extends BaseFragment {
 
-    // You would typically use a ViewModel for real data, but for UI, we use fields:
     private TextInputEditText editName, editProvince, editCity, editBarangay, editStreet, editContact;
-
-    // ⭐ FIX 2: Added required fields for profile image management
     private ImageView profilePic;
     private ImageView btnEditImage;
     private Button btnSaveProfile;
 
-    // To store the current selected avatar resource ID for saving (start with default)
-    private int currentProfileAvatarResId = R.drawable.ic_profile_avatar;
+    // Default avatar
+    private int currentProfileAvatarResId = R.drawable.avatar1;
+
+    // ⭐ NEW FLAG: Tracks if user manually changed the avatar in this session
+    private boolean isAvatarUpdated = false;
 
     public EditProfile_fragment() {
         // Required empty public constructor
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Listen for result from AvatarPicker
+        getParentFragmentManager().setFragmentResultListener("requestKey_avatar", this, (requestKey, bundle) -> {
+            int selectedId = bundle.getInt("selected_avatar_id");
+
+            Log.d("EditProfile", "Avatar updated locally to ID: " + selectedId);
+
+            // 1. Update variable
+            this.currentProfileAvatarResId = selectedId;
+
+            // ⭐ 2. MARK AS UPDATED so the database fetch doesn't overwrite it
+            this.isAvatarUpdated = true;
+
+            // 3. Update UI immediately
+            if (profilePic != null) {
+                profilePic.setImageResource(selectedId);
+            }
+        });
     }
 
     @Override
@@ -42,7 +64,7 @@ public class EditProfile_fragment extends BaseFragment implements AvatarPicker_f
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 1. Initialize Input Fields
+        // Initialize Views
         editName = view.findViewById(R.id.edit_name);
         editProvince = view.findViewById(R.id.edit_province);
         editCity = view.findViewById(R.id.edit_city);
@@ -50,22 +72,22 @@ public class EditProfile_fragment extends BaseFragment implements AvatarPicker_f
         editStreet = view.findViewById(R.id.edit_street);
         editContact = view.findViewById(R.id.edit_contact);
 
-        // ⭐ FIX 3: Initialize the profile picture ImageView
         profilePic = view.findViewById(R.id.profile_pic);
         btnEditImage = view.findViewById(R.id.btn_edit_image);
         btnSaveProfile = view.findViewById(R.id.btn_save_profile);
 
-        // Set the current avatar (default or previously selected)
-        profilePic.setImageResource(currentProfileAvatarResId);
+        // ⭐ Set the image immediately (In case listener fired before view creation)
+        if (profilePic != null) {
+            profilePic.setImageResource(currentProfileAvatarResId);
+        }
 
+        // Load Data from Database
+        loadCurrentUserProfile();
 
-        // 2. Setup Click Listeners
-
+        // Open Picker
         btnEditImage.setOnClickListener(v -> {
-            // Navigate to AvatarPicker_fragment, passing 'this' as the listener
+            AvatarPicker_fragment avatarPickerFragment = new AvatarPicker_fragment();
             if (getActivity() != null) {
-                AvatarPicker_fragment avatarPickerFragment = AvatarPicker_fragment.newInstance(this);
-
                 getActivity().getSupportFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, avatarPickerFragment)
                         .addToBackStack(null)
@@ -73,44 +95,82 @@ public class EditProfile_fragment extends BaseFragment implements AvatarPicker_f
             }
         });
 
-        btnSaveProfile.setOnClickListener(v -> {
-            saveUserData();
+        // Save
+        btnSaveProfile.setOnClickListener(v -> saveUserData());
+    }
+
+    private void loadCurrentUserProfile() {
+        AuthHelper.fetchUserProfile(profile -> {
+            if (profile != null && isAdded()) {
+                if (editName != null) editName.setText(profile.getFull_name());
+                if (editContact != null) editContact.setText(profile.getContact_number());
+                if (editProvince != null) editProvince.setText(profile.getProvince());
+                if (editCity != null) editCity.setText(profile.getCity());
+                if (editBarangay != null) editBarangay.setText(profile.getBarangay());
+                if (editStreet != null) editStreet.setText(profile.getStreet());
+
+                // ⭐ CRITICAL FIX: Only overwrite the avatar if the user HAS NOT picked a new one yet
+                if (!isAvatarUpdated) {
+                    String dbAvatarName = profile.getAvatarName();
+                    currentProfileAvatarResId = AvatarHelper.getDrawableId(getContext(), dbAvatarName);
+                    if (profilePic != null) {
+                        profilePic.setImageResource(currentProfileAvatarResId);
+                    }
+                } else {
+                    Log.d("EditProfile", "Skipping DB avatar load because user selected a new one.");
+                }
+            }
+            return null;
         });
     }
 
-    // ⭐ FIX 4: Implement the result callback method from the interface
-    @Override
-    public void onAvatarSelected(int selectedAvatarResId) {
-        // This method receives the selected avatar ID when the user hits 'Select'
-        this.currentProfileAvatarResId = selectedAvatarResId;
-        if (profilePic != null) {
-            profilePic.setImageResource(selectedAvatarResId);
-        }
-        Toast.makeText(getContext(), "Avatar updated on edit screen.", Toast.LENGTH_SHORT).show();
-    }
-
-
-    /**
-     * Handles validation and saves updated user data.
-     */
     private void saveUserData() {
         String name = editName.getText().toString().trim();
         String contact = editContact.getText().toString().trim();
+        String province = editProvince.getText().toString().trim();
+        String city = editCity.getText().toString().trim();
+        String barangay = editBarangay.getText().toString().trim();
+        String street = editStreet.getText().toString().trim();
 
         if (name.isEmpty() || contact.isEmpty()) {
             Toast.makeText(getContext(), "Name and Contact are required.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // TODO: Implement logic to update the data in SQLite/Firebase
+        // Get String Name using Helper
+        String avatarName = AvatarHelper.getResourceName(getContext(), currentProfileAvatarResId);
 
-        Toast.makeText(getContext(), "Profile updated successfully!", Toast.LENGTH_SHORT).show();
-
-        // After successful save, navigate back to the main Profile Fragment
-        if (getActivity() != null) {
-            // Note: When you go back, the main Profile Fragment will need to be refreshed
-            // or receive this updated avatar ID to show the change.
-            getActivity().getSupportFragmentManager().popBackStack();
+        // Show loading
+        if (getActivity() instanceof BaseActivity) {
+            ((BaseActivity) getActivity()).showLoading();
         }
+
+        SupabaseJavaHelper.updateUserProfile(
+                name, contact, province, city, barangay, street, avatarName,
+                new SupabaseJavaHelper.ProfileUpdateCallback() {
+                    @Override
+                    public void onSuccess() {
+                        if (isAdded()) {
+                            if (getActivity() instanceof BaseActivity) {
+                                ((BaseActivity) getActivity()).hideLoading();
+                            }
+                            Toast.makeText(getContext(), "Profile updated!", Toast.LENGTH_SHORT).show();
+                            if (getActivity() != null) {
+                                getActivity().getSupportFragmentManager().popBackStack();
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (isAdded()) {
+                            if (getActivity() instanceof BaseActivity) {
+                                ((BaseActivity) getActivity()).hideLoading();
+                            }
+                            Toast.makeText(getContext(), "Update failed: " + message, Toast.LENGTH_LONG).show();
+                        }
+                    }
+                }
+        );
     }
 }

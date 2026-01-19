@@ -61,6 +61,12 @@ object SupabaseJavaHelper {
         fun onError(message: String)
     }
 
+    // ⭐ NEW: Interface specifically for profile updates
+    interface ProfileUpdateCallback {
+        fun onSuccess()
+        fun onError(message: String)
+    }
+
     // ⭐ 2. FETCH ANNOUNCEMENTS (Likes, Bookmarks, Applications + Sorting)
     @JvmStatic
     fun fetchAnnouncements(callback: AnnouncementCallback) {
@@ -240,32 +246,40 @@ object SupabaseJavaHelper {
         }
     }
 
-    // 7. FETCH DASHBOARD DATA
+    // 7. FETCH DASHBOARD DATA (With Filter)
     @JvmStatic
-    fun fetchDashboardData(callback: DashboardCallback) {
+    fun fetchDashboardData(filterType: String, callback: DashboardCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val invResult = SupabaseManager.client.postgrest.rpc("get_inventory_stats").data
+                // Pass the filter to the RPC calls
+                val params = mapOf("filter_type" to filterType)
+
+                // 1. Inventory (Likely static, but passing param for consistency)
+                val invResult = SupabaseManager.client.postgrest.rpc("get_inventory_stats", params).data
                 val invJson = invResult ?: "[]"
                 val invMap = Gson().fromJson<List<ChartDataInt>>(invJson, object : TypeToken<List<ChartDataInt>>() {}.type)
                     .associate { it.label to it.value }
 
-                val areaResult = SupabaseManager.client.postgrest.rpc("get_affected_areas_stats").data
+                // 2. Affected Areas
+                val areaResult = SupabaseManager.client.postgrest.rpc("get_affected_areas_stats", params).data
                 val areaJson = areaResult ?: "[]"
                 val areaMap = Gson().fromJson<List<ChartDataInt>>(areaJson, object : TypeToken<List<ChartDataInt>>() {}.type)
                     .associate { it.label to it.value }
 
-                val donResult = SupabaseManager.client.postgrest.rpc("get_monthly_donations").data
+                // 3. Monthly Donations
+                val donResult = SupabaseManager.client.postgrest.rpc("get_monthly_donations", params).data
                 val donJson = donResult ?: "[]"
                 val donMap = Gson().fromJson<List<ChartDataFloat>>(donJson, object : TypeToken<List<ChartDataFloat>>() {}.type)
                     .associate { it.label to it.value }
 
-                val famResult = SupabaseManager.client.postgrest.rpc("get_monthly_registrations").data
+                // 4. Monthly Registrations
+                val famResult = SupabaseManager.client.postgrest.rpc("get_monthly_registrations", params).data
                 val famJson = famResult ?: "[]"
                 val famMap = Gson().fromJson<List<ChartDataInt>>(famJson, object : TypeToken<List<ChartDataInt>>() {}.type)
                     .associate { it.label to it.value }
 
-                val metricsResult = SupabaseManager.client.postgrest.rpc("get_dashboard_metrics").data
+                // 5. Dashboard Metrics
+                val metricsResult = SupabaseManager.client.postgrest.rpc("get_dashboard_metrics", params).data
                 val metricsJson = metricsResult ?: "[]"
                 val metricsList = Gson().fromJson<List<DashboardMetrics>>(metricsJson, object : TypeToken<List<DashboardMetrics>>() {}.type)
                 val metrics = if (metricsList.isNotEmpty()) metricsList[0] else DashboardMetrics(0, 0, 0)
@@ -275,9 +289,12 @@ object SupabaseJavaHelper {
                 }
 
             } catch (e: Exception) {
+                // Fallback for when RPC doesn't support params yet (Prevents crash if SQL isn't updated)
                 e.printStackTrace()
                 Handler(Looper.getMainLooper()).post {
-                    callback.onError(e.message ?: "Failed to load dashboard")
+                    // callback.onError(e.message ?: "Failed to load dashboard")
+                    // Optional: You can try calling the no-param version here as fallback
+                    callback.onError("Update your Database Functions to support filters: " + e.message)
                 }
             }
         }
@@ -407,6 +424,54 @@ object SupabaseJavaHelper {
             }
         }
     }
+
+    // ⭐ 11. UPDATE USER PROFILE (Includes Avatar)
+    @JvmStatic
+    fun updateUserProfile(
+        fullName: String,
+        contactNumber: String,
+        province: String,
+        city: String,
+        barangay: String,
+        street: String,
+        avatarName: String,
+        callback: ProfileUpdateCallback
+    ) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val auth = SupabaseManager.client.pluginManager.getPlugin(io.github.jan.supabase.auth.Auth)
+                val currentUser = auth.currentSessionOrNull()?.user
+
+                if (currentUser == null) {
+                    Handler(Looper.getMainLooper()).post { callback.onError("User not logged in.") }
+                    return@launch
+                }
+
+                // Create a map of fields to update
+                // Note: We use the column names exactly as they appear in your Supabase 'profiles' table
+                val updateData = mapOf(
+                    "full_name" to fullName,
+                    "contact_number" to contactNumber,
+                    "province" to province,
+                    "city" to city,
+                    "barangay" to barangay,
+                    "street" to street,
+                    "avatar_name" to avatarName // This matches the new column you added
+                )
+
+                // Perform the update
+                SupabaseManager.client.from("profiles").update(updateData) {
+                    filter { eq("id", currentUser.id) }
+                }
+
+                Handler(Looper.getMainLooper()).post { callback.onSuccess() }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Handler(Looper.getMainLooper()).post { callback.onError(e.message ?: "Failed to update profile") }
+            }
+        }
+    }
 }
 
 // --- DTO CLASSES ---
@@ -430,5 +495,6 @@ object SupabaseJavaHelper {
     val province: String,
     val zip_code: String,
     val face_embedding: String?,
-    val type: String
+    val type: String,
+    val avatar_name: String? // Added this field
 )
