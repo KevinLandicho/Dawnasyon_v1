@@ -6,9 +6,10 @@ import java.util.List;
 public class RegistrationCache {
     public static String tempEmail = "";
     public static String tempPassword = "";
-    public static String tempFullName = "";
+    public static String tempFullName = ""; // This stores the name from Step 1
     public static String tempContact = "";
     public static String faceEmbedding = "";
+
     // Address
     public static String tempHouseNo = "";
     public static String tempStreet = "";
@@ -19,7 +20,7 @@ public class RegistrationCache {
     public static String userType = "Resident";
     public static String tempIdImageUri = "";
 
-    // ⭐ ADD THIS: Store the family members here
+    // Household Members List
     public static List<HouseholdMember> tempHouseholdList = new ArrayList<>();
 
     public static void clear() {
@@ -34,6 +35,6 @@ public class RegistrationCache {
         tempProvince = "";
         tempZip = "";
         tempIdImageUri = "";
-        tempHouseholdList.clear(); // ⭐ Clear the list too
+        tempHouseholdList.clear();
     }
 }

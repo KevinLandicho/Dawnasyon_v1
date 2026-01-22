@@ -17,7 +17,6 @@ import androidx.fragment.app.Fragment;
 
 public class SignUpStep1Personal_fragment extends BaseFragment {
 
-    // ⭐ ADDED: etEmail
     private EditText etFirstName, etMiddleName, etLastName, etContact, etEmail;
     private CheckBox cbNoMiddleName;
     private Button btnNext, btnPrevious;
@@ -38,8 +37,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         etMiddleName = view.findViewById(R.id.et_middlename);
         etLastName = view.findViewById(R.id.et_lastname);
         etContact = view.findViewById(R.id.et_contact);
-
-        // ⭐ BIND EMAIL VIEW (Make sure you added this ID to your XML!)
         etEmail = view.findViewById(R.id.et_email);
 
         cbNoMiddleName = view.findViewById(R.id.cb_no_middlename);
@@ -47,7 +44,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
 
-        // ⭐ HIDE ID PREVIEW FOR OVERSEAS USERS (Since they skipped ID upload)
+        // Hide ID preview for Overseas users
         if ("Overseas".equals(RegistrationCache.userType)) {
             ivIdPreview.setVisibility(View.GONE);
         }
@@ -74,7 +71,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         }
 
         // --- UI LOGIC ---
-
         cbNoMiddleName.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 etMiddleName.setText("");
@@ -86,7 +82,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         });
 
-        // ⭐ UPDATED NEXT BUTTON LISTENER ⭐
+        // --- NEXT BUTTON ---
         btnNext.setOnClickListener(v -> {
             String fName = etFirstName.getText().toString().trim();
             String lName = etLastName.getText().toString().trim();
@@ -108,24 +104,20 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 fullName = fName + " " + mName + " " + lName;
             }
 
-            // 3. Save to Cache (Crucial for Step 4 and Supabase)
-            RegistrationCache.tempFullName = fullName;
+            // 3. Save to Cache
+            RegistrationCache.tempFullName = fullName; // <--- IMPORTANT: Step 2 uses this!
             RegistrationCache.tempContact = contact;
             RegistrationCache.tempEmail = email;
 
-            // ⭐ FIX: SAVE THE ID IMAGE URI TO CACHE HERE
             if (finalIdUri != null) {
                 RegistrationCache.tempIdImageUri = finalIdUri.toString();
             }
 
-            // 4. ⭐ HANDLE NAVIGATION (Overseas vs Local)
+            // 4. Navigate
             Fragment nextFragment;
-
             if ("Overseas".equals(RegistrationCache.userType)) {
-                // Overseas skips Household (Step 2) -> Goes to Location (Step 3)
                 nextFragment = new SignUpStep3Location_fragment();
             } else {
-                // Local goes to Household (Step 2)
                 nextFragment = new SignUpStep2Household_fragment();
             }
 

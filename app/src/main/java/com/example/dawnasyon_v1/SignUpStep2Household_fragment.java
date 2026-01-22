@@ -52,9 +52,12 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             public void afterTextChanged(Editable s) {}
         });
 
+        // ⭐ REQUIREMENT: Automatically set to 1 so the first row appears
+        etHouseNum.setText("1");
+
         // Navigation
         btnNext.setOnClickListener(v -> {
-            if (saveMembersToCache()) { // Save data before moving
+            if (saveMembersToCache()) {
                 getParentFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container_signup, new SignUpStep3Location_fragment())
                         .addToBackStack(null)
@@ -65,9 +68,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 
-    /**
-     * Loops through the dynamic views and saves them to RegistrationCache
-     */
     private boolean saveMembersToCache() {
         RegistrationCache.tempHouseholdList.clear(); // Start fresh
         int childCount = membersContainer.getChildCount();
@@ -86,7 +86,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             Spinner spGender = row.findViewById(R.id.sp_gender);
             Spinner spRelation = row.findViewById(R.id.sp_relation);
 
-            // Safety check: if views are missing (e.g. wrong ID), skip or handle error
+            // Safety check
             if (etName == null || etAge == null) continue;
 
             String name = etName.getText().toString().trim();
@@ -101,15 +101,15 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
             int age = Integer.parseInt(ageStr);
 
-            // ⭐ CRITICAL FIX: Set is_registered_census to TRUE
+            // Create Member Object
             HouseholdMember member = new HouseholdMember(
                     null, // head_id (set later)
                     name,
                     relation,
                     age,
                     gender,
-                    true,  // <--- CHANGED THIS FROM false TO true
-                    false  // is_authorized_proxy (default false)
+                    true,  // is_registered_census
+                    false  // is_authorized_proxy
             );
 
             RegistrationCache.tempHouseholdList.add(member);
@@ -128,6 +128,9 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         }
 
         if (count > 15) count = 15;
+
+        // Optional: If you want to force at least 1 member always visible:
+        // if (count < 1 && !input.isEmpty()) count = 1;
 
         int currentChildCount = membersContainer.getChildCount();
 
@@ -148,6 +151,8 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         TextView tvNumber = row.findViewById(R.id.tv_row_number);
         if (tvNumber != null) tvNumber.setText(index + ".");
 
+        EditText etName = row.findViewById(R.id.et_name);
+
         Spinner spGender = row.findViewById(R.id.sp_gender);
         String[] genders = {"Male", "Female", "Other"};
         ArrayAdapter<String> genderAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, genders);
@@ -158,11 +163,22 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         ArrayAdapter<String> relationAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, relations);
         spRelation.setAdapter(relationAdapter);
 
-        // Auto-select "Head" for the first row
+        // ⭐ LOGIC FOR THE FIRST ROW (THE REGISTRANT)
         if (index == 1) {
+            // A. Auto-fill Name from Cache
+            if (!RegistrationCache.tempFullName.isEmpty()) {
+                etName.setText(RegistrationCache.tempFullName);
+            }
+            // B. Lock Name Field
+            etName.setEnabled(false);
+            etName.setFocusable(false);
+
+            // C. Auto-select "Head" (Index 0) and Lock Relation
             spRelation.setSelection(0);
             spRelation.setEnabled(false);
+            spRelation.setClickable(false);
         } else {
+            // For other members, set default selection (e.g. Son/Daughter)
             spRelation.setSelection(2);
         }
 
