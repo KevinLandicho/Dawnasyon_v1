@@ -30,16 +30,16 @@ public class Home_fragment extends BaseFragment {
 
     private RecyclerView announcementRecyclerView;
     private AnnouncementAdapter announcementAdapter;
-
-    // Placeholder View Variable
     private TextView tvEmptyPlaceholder;
 
     private List<Announcement> announcementList = new ArrayList<>();
     private List<Announcement> fullAnnouncementList = new ArrayList<>();
 
-    // User Status Variables
     private boolean isUserVerified = false;
-    private String userType = "Resident"; // Default
+    private String userType = "Resident";
+
+    // ⭐ NEW: Flag to control loading indicator behavior
+    private boolean isFirstLoad = true;
 
     private final Runnable sliderRunnable = new Runnable() {
         @Override
@@ -67,29 +67,51 @@ public class Home_fragment extends BaseFragment {
         searchView = view.findViewById(R.id.search_view);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
-
-        // BIND PLACEHOLDER VIEW
         tvEmptyPlaceholder = view.findViewById(R.id.tv_empty_placeholder);
 
-        loadUserProfile();
+        // Setup UI (But DO NOT load data yet)
         setupCarousel();
         setupAnnouncementsList();
         setupSearch();
-        fetchAnnouncementsFromSupabase();
 
         return view;
+    }
+
+    // ⭐ MOVED DATA LOADING TO ONRESUME
+    // This ensures that even if Auth takes a second to load,
+    // the fragment refreshes the data as soon as it appears.
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        // 1. Restart Slider
+        sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
+
+        // 2. Load User Profile (Fixes "Welcome User" missing)
+        loadUserProfile();
+
+        // 3. Load Announcements (Fixes Likes/Bookmarks missing)
+        fetchAnnouncementsFromSupabase();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        sliderHandler.removeCallbacks(sliderRunnable);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        sliderHandler.removeCallbacksAndMessages(null);
     }
 
     private void loadUserProfile() {
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
-
-                // Capture Status
                 isUserVerified = Boolean.TRUE.equals(profile.getVerified());
-                if (profile.getType() != null) {
-                    userType = profile.getType();
-                }
+                if (profile.getType() != null) userType = profile.getType();
             }
             return null;
         });
@@ -102,7 +124,6 @@ public class Home_fragment extends BaseFragment {
         imageList.add(R.drawable.pangatlo);
         imageList.add(R.drawable.pangapat);
         imageList.add(R.drawable.panglima);
-
         carouselAdapter = new ImageCarouselAdapter(imageList);
         imageCarouselViewPager.setAdapter(carouselAdapter);
     }
@@ -114,12 +135,10 @@ public class Home_fragment extends BaseFragment {
             public void onApplyClick(Announcement announcement) {
                 showApplyDialog(announcement);
             }
-
             @Override
             public void onLikeClick(Announcement announcement, int position) {
                 handleLike(announcement, position);
             }
-
             @Override
             public void onBookmarkClick(Announcement announcement, int position) {
                 handleBookmark(announcement, position);
@@ -133,11 +152,10 @@ public class Home_fragment extends BaseFragment {
         boolean newState = !currentState;
         item.setLiked(newState);
         int currentCount = item.getLikeCount();
-        int newCount = newState ? currentCount + 1 : Math.max(0, currentCount - 1);
-        item.setLikeCount(newCount);
+        item.setLikeCount(newState ? currentCount + 1 : Math.max(0, currentCount - 1));
         announcementAdapter.notifyItemChanged(position);
 
-        SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SimpleCallback() {
+        SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SupabaseJavaHelper.SimpleCallback() {
             @Override
             public void onSuccess() {}
             @Override
@@ -159,7 +177,7 @@ public class Home_fragment extends BaseFragment {
         announcementAdapter.notifyItemChanged(position);
         Toast.makeText(getContext(), newState ? "Saved" : "Removed", Toast.LENGTH_SHORT).show();
 
-        SupabaseJavaHelper.toggleBookmark(item.getPostId(), newState, new SimpleCallback() {
+        SupabaseJavaHelper.toggleBookmark(item.getPostId(), newState, new SupabaseJavaHelper.SimpleCallback() {
             @Override
             public void onSuccess() {}
             @Override
@@ -181,7 +199,6 @@ public class Home_fragment extends BaseFragment {
         });
     }
 
-    // UPDATED FILTER LOGIC TO CHECK EMPTY STATE
     private void filterAnnouncements(String query) {
         if (query == null || query.isEmpty()) {
             announcementAdapter.updateData(new ArrayList<>(fullAnnouncementList));
@@ -196,23 +213,20 @@ public class Home_fragment extends BaseFragment {
             if (matchesTitle || matchesBody) filteredList.add(item);
         }
         announcementAdapter.updateData(filteredList);
-
-        // Check if filtered result is empty
         updatePlaceholder(filteredList.isEmpty());
     }
 
-    // ⭐ UPDATED: ADDED LOADING DIALOG LOGIC
     private void fetchAnnouncementsFromSupabase() {
-
-        // 1. Show Loading
-        if (getActivity() instanceof BaseActivity) {
+        // ⭐ OPTIMIZATION: Only show blocking loader on the very first load
+        // Subsequent refreshes (tabs) happen silently in background
+        if (isFirstLoad && getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
 
-        SupabaseJavaHelper.fetchAnnouncements(new AnnouncementCallback() {
+        SupabaseJavaHelper.fetchAnnouncements(new SupabaseJavaHelper.AnnouncementCallback() {
             @Override
-            public void onSuccess(List<? extends Announcement> data) {
-                // 2. Hide Loading
+            public void onSuccess(List<Announcement> data) {
+                // Hide loader regardless of first load or not
                 if (isAdded() && getActivity() instanceof BaseActivity) {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
@@ -223,55 +237,41 @@ public class Home_fragment extends BaseFragment {
                     fullAnnouncementList.clear();
                     fullAnnouncementList.addAll(data);
                     announcementAdapter.notifyDataSetChanged();
-
-                    // Show/Hide Placeholder
                     updatePlaceholder(announcementList.isEmpty());
+
+                    isFirstLoad = false; // Mark first load complete
                 }
             }
 
             @Override
             public void onError(@NonNull String message) {
-                // 3. Hide Loading on Error
                 if (isAdded() && getActivity() instanceof BaseActivity) {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
-
                 if (isAdded()) {
                     Log.e("HomeFragment", "Fetch Error: " + message);
-                    // On error, list is effectively empty or stale
                     updatePlaceholder(announcementList.isEmpty());
                 }
             }
         });
     }
 
-    // HELPER METHOD TO TOGGLE VISIBILITY
     private void updatePlaceholder(boolean isEmpty) {
         if (tvEmptyPlaceholder == null) return;
-
-        if (isEmpty) {
-            tvEmptyPlaceholder.setVisibility(View.VISIBLE);
-            announcementRecyclerView.setVisibility(View.GONE);
-        } else {
-            tvEmptyPlaceholder.setVisibility(View.GONE);
-            announcementRecyclerView.setVisibility(View.VISIBLE);
-        }
+        tvEmptyPlaceholder.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        announcementRecyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
     }
 
     private void showApplyDialog(Announcement announcement) {
-        boolean isForeign = userType != null && userType.equalsIgnoreCase("Overseas");
-        boolean isResident = userType != null && userType.equalsIgnoreCase("Non-Resident");
-
-        if (isForeign) {
-            Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
+        if (announcement.isApplied()) {
+            Toast.makeText(getContext(), "You have already applied to this drive!", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        if (isResident) {
+        if (userType != null && (userType.equalsIgnoreCase("Overseas") || userType.equalsIgnoreCase("Non-Resident"))) {
             Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
             return;
         }
-
         if (!isUserVerified) {
             Toast.makeText(getContext(), "🔒 You must be a VERIFIED Resident to apply.", Toast.LENGTH_LONG).show();
             return;
@@ -284,7 +284,7 @@ public class Home_fragment extends BaseFragment {
                 return;
             }
 
-            SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), new ApplicationCallback() {
+            SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), new SupabaseJavaHelper.ApplicationCallback() {
                 @Override
                 public void onSuccess() {
                     if (isAdded()) {
@@ -306,11 +306,4 @@ public class Home_fragment extends BaseFragment {
         });
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
-
-    @Override
-    public void onResume() { super.onResume(); sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS); }
-    @Override
-    public void onPause() { super.onPause(); sliderHandler.removeCallbacks(sliderRunnable); }
-    @Override
-    public void onDestroy() { super.onDestroy(); sliderHandler.removeCallbacksAndMessages(null); }
 }

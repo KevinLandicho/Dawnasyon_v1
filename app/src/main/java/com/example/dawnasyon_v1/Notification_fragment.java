@@ -68,12 +68,12 @@ public class Notification_fragment extends BaseFragment {
     }
 
     private void loadNotifications() {
-        // Fetch raw data using Helper
-        SupabaseJavaHelper.fetchNotifications(new NotificationCallback() {
+        // ⭐ FIX: Updated to SupabaseJavaHelper.NotificationCallback
+        SupabaseJavaHelper.fetchNotifications(new SupabaseJavaHelper.NotificationCallback() {
             @Override
-            public void onSuccess(List<? extends NotificationItem> data) {
+            public void onSuccess(List<NotificationItem> data) {
                 if (isAdded()) {
-                    processAndDisplay((List<NotificationItem>) data);
+                    processAndDisplay(data);
                 }
             }
 
@@ -81,9 +81,8 @@ public class Notification_fragment extends BaseFragment {
             public void onError(@NonNull String message) {
                 if (isAdded()) {
                     Log.e("NotifFrag", "Error: " + message);
-                    // If error, show empty state just in case, or show toast
                     Toast.makeText(getContext(), "Failed to load notifications", Toast.LENGTH_SHORT).show();
-                    // Optional: show empty state if list is currently empty
+
                     if (rvNew.getAdapter() == null || rvNew.getAdapter().getItemCount() == 0) {
                         showEmptyState(true);
                     }

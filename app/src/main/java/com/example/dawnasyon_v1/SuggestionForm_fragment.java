@@ -49,9 +49,8 @@ public class SuggestionForm_fragment extends BaseFragment {
             btnSendSuggestion.setEnabled(false);
             btnSendSuggestion.setText("Sending...");
 
-            // ⭐ Call Supabase Helper ⭐
-            // We reuse 'ApplicationCallback' since it has the same onSuccess/onError structure we need
-            SupabaseJavaHelper.submitSuggestion(suggestionText, new ApplicationCallback() {
+            // ⭐ FIX: Updated to SupabaseJavaHelper.ApplicationCallback
+            SupabaseJavaHelper.submitSuggestion(suggestionText, new SupabaseJavaHelper.ApplicationCallback() {
                 @Override
                 public void onSuccess() {
                     if (isAdded()) {

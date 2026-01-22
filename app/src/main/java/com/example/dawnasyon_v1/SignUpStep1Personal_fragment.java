@@ -44,12 +44,10 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
 
-        // Hide ID preview for Overseas users
         if ("Overseas".equals(RegistrationCache.userType)) {
             ivIdPreview.setVisibility(View.GONE);
         }
 
-        // --- RECEIVE DATA FROM STEP 0 (If available) ---
         if (getArguments() != null) {
             String fName = getArguments().getString("FNAME", "");
             String lName = getArguments().getString("LNAME", "");
@@ -70,7 +68,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         }
 
-        // --- UI LOGIC ---
         cbNoMiddleName.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 etMiddleName.setText("");
@@ -82,21 +79,21 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         });
 
-        // --- NEXT BUTTON ---
+        // --- NEXT BUTTON WITH STRICT VALIDATION ---
         btnNext.setOnClickListener(v -> {
+            // Trim inputs to remove leading/trailing spaces
             String fName = etFirstName.getText().toString().trim();
             String lName = etLastName.getText().toString().trim();
             String mName = etMiddleName.getText().toString().trim();
             String contact = etContact.getText().toString().trim();
             String email = etEmail.getText().toString().trim();
 
-            // 1. Validate Required Fields
             if (fName.isEmpty() || lName.isEmpty() || contact.isEmpty() || email.isEmpty()) {
                 Toast.makeText(getContext(), "Please fill in all required fields (Name, Contact, Email)", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 2. Construct Full Name
+            // Construct Full Name
             String fullName;
             if (cbNoMiddleName.isChecked() || mName.isEmpty()) {
                 fullName = fName + " " + lName;
@@ -104,29 +101,50 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 fullName = fName + " " + mName + " " + lName;
             }
 
-            // 3. Save to Cache
-            RegistrationCache.tempFullName = fullName; // <--- IMPORTANT: Step 2 uses this!
-            RegistrationCache.tempContact = contact;
-            RegistrationCache.tempEmail = email;
+            if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            if (finalIdUri != null) {
-                RegistrationCache.tempIdImageUri = finalIdUri.toString();
-            }
+            // ⭐ Call SupabaseJavaHelper checkUserExists (Now includes Strict Name Check)
+            SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
+                @Override
+                public void onSuccess() {
+                    if (isAdded()) {
+                        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                        proceedToNextStep(fullName, contact, email);
+                    }
+                }
 
-            // 4. Navigate
-            Fragment nextFragment;
-            if ("Overseas".equals(RegistrationCache.userType)) {
-                nextFragment = new SignUpStep3Location_fragment();
-            } else {
-                nextFragment = new SignUpStep2Household_fragment();
-            }
-
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container_signup, nextFragment)
-                    .addToBackStack(null)
-                    .commit();
+                @Override
+                public void onError(String message) {
+                    if (isAdded()) {
+                        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                        Toast.makeText(getContext(), "Validation Failed: " + message, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+    }
+
+    private void proceedToNextStep(String fullName, String contact, String email) {
+        RegistrationCache.tempFullName = fullName;
+        RegistrationCache.tempContact = contact;
+        RegistrationCache.tempEmail = email;
+
+        if (finalIdUri != null) {
+            RegistrationCache.tempIdImageUri = finalIdUri.toString();
+        }
+
+        Fragment nextFragment;
+        if ("Overseas".equals(RegistrationCache.userType)) {
+            nextFragment = new SignUpStep3Location_fragment();
+        } else {
+            nextFragment = new SignUpStep2Household_fragment();
+        }
+
+        getParentFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container_signup, nextFragment)
+                .addToBackStack(null)
+                .commit();
     }
 }

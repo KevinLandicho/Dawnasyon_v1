@@ -24,9 +24,7 @@ public class DonationHistory_fragment extends BaseFragment {
     private DonationHistoryAdapter adapter;
     private List<DonationHistoryItem> historyList = new ArrayList<>();
 
-    public DonationHistory_fragment() {
-        // Required empty public constructor
-    }
+    public DonationHistory_fragment() {}
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -41,34 +39,27 @@ public class DonationHistory_fragment extends BaseFragment {
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         rvHistory = view.findViewById(R.id.rv_donation_history);
 
-        if (btnBack != null) {
-            btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
-        }
+        if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
         if (rvHistory != null) {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
-
             adapter = new DonationHistoryAdapter(historyList, item -> {
-                // Pass data to receipt
                 DonationReceipt_fragment receiptFragment = DonationReceipt_fragment.newInstance(item);
                 getParentFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, receiptFragment)
                         .addToBackStack(null)
                         .commit();
             });
-
             rvHistory.setAdapter(adapter);
             loadDonationHistory();
         }
     }
 
     private void loadDonationHistory() {
-        SupabaseJavaHelper.fetchDonationHistory(new DonationHistoryCallback() {
+        SupabaseJavaHelper.fetchDonationHistory(new SupabaseJavaHelper.DonationHistoryCallback() {
             @Override
-            public void onSuccess(List<? extends DonationHistoryItem> data) {
-                if (isAdded()) {
-                    processAndDisplay((List<DonationHistoryItem>) data);
-                }
+            public void onSuccess(List<DonationHistoryItem> data) {
+                if (isAdded()) processAndDisplay(data);
             }
 
             @Override
@@ -83,13 +74,11 @@ public class DonationHistory_fragment extends BaseFragment {
 
     private void processAndDisplay(List<DonationHistoryItem> rawList) {
         historyList.clear();
-
         SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
         inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         SimpleDateFormat outputFormat = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
 
         for (DonationHistoryItem item : rawList) {
-            // A. Format Date
             try {
                 if (item.getCreatedAt() != null) {
                     Date date = inputFormat.parse(item.getCreatedAt());
@@ -99,47 +88,24 @@ public class DonationHistory_fragment extends BaseFragment {
                 item.setFormattedDate("Unknown Date");
             }
 
-            // B. Format Description Logic
             String type = item.getType();
-
             if (type != null && type.equalsIgnoreCase("Cash")) {
-                if (item.getAmount() != null) {
-                    item.setDisplayDescription("Cash Donation: ₱" + item.getAmount());
-                } else {
-                    item.setDisplayDescription("Cash Donation");
-                }
+                item.setDisplayDescription("Cash Donation" + (item.getAmount() != null ? ": ₱" + item.getAmount() : ""));
             } else {
-                // ✅ FIXED LOGIC: Loop through the LIST of items
-                // We do NOT use item.getQuantity() anymore because quantity is inside the list
                 List<DonationItem> items = item.getDonationItems();
-
                 if (items != null && !items.isEmpty()) {
-                    // Get the first item to show as summary
                     DonationItem firstItem = items.get(0);
-
-                    // e.g. "5 kg Rice"
                     String summary = firstItem.getQtyString() + " " + firstItem.getItemName();
-
-                    // If there are more items, add "+ X others"
-                    if (items.size() > 1) {
-                        summary += " + " + (items.size() - 1) + " others";
-                    }
+                    if (items.size() > 1) summary += " + " + (items.size() - 1) + " others";
                     item.setDisplayDescription(summary);
                 } else {
                     item.setDisplayDescription("In-Kind Donation");
                 }
             }
-
-            // C. Append Status
-            String fullDesc = item.getDisplayDescription() + " (" + (item.getStatus() != null ? item.getStatus() : "Pending") + ")";
-            item.setDisplayDescription(fullDesc);
-
-            // D. Set Image
+            item.setDisplayDescription(item.getDisplayDescription() + " (" + (item.getStatus() != null ? item.getStatus() : "Pending") + ")");
             item.setImageResId(R.drawable.ic_profile_avatar);
-
             historyList.add(item);
         }
-
         adapter.notifyDataSetChanged();
     }
 }
