@@ -415,13 +415,8 @@ public class Profile_fragment extends BaseFragment {
         textCol.addView(tvRelation);
         row.addView(textCol);
 
-        TextView badge = new TextView(getContext());
-        badge.setText(member.getCensusStatus() ? "✅ Registered" : "❌ Not Registered");
-        badge.setTextSize(10f);
-        badge.setPadding(12, 6, 12, 6);
-        badge.setBackgroundColor(Color.parseColor(member.getCensusStatus() ? "#E8F5E9" : "#F5F5F5"));
-        badge.setTextColor(Color.parseColor(member.getCensusStatus() ? "#2E7D32" : "#757575"));
-        row.addView(badge);
+        // ⭐ REMOVED BADGE CODE HERE COMPLETELY
+        // The TextView badge code block was deleted as per your request.
 
         familyContainer.addView(row);
     }
