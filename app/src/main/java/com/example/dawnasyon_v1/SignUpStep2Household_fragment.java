@@ -52,7 +52,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             public void afterTextChanged(Editable s) {}
         });
 
-        // ⭐ REQUIREMENT: Automatically set to 1 so the first row appears
+        // Automatically set to 1 so the first row appears
         etHouseNum.setText("1");
 
         // Navigation
@@ -101,9 +101,11 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
             int age = Integer.parseInt(ageStr);
 
-            // Create Member Object
+            // ⭐ FIXED CONSTRUCTOR CALL HERE
+            // Added '0L' as the first argument for member_id (Kotlin default param handling in Java is tricky, explicit is safer)
             HouseholdMember member = new HouseholdMember(
-                    null, // head_id (set later)
+                    0L,    // member_id (DB handles auto-increment, just send 0)
+                    null,  // head_id (set later during save)
                     name,
                     relation,
                     age,
@@ -128,9 +130,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         }
 
         if (count > 15) count = 15;
-
-        // Optional: If you want to force at least 1 member always visible:
-        // if (count < 1 && !input.isEmpty()) count = 1;
 
         int currentChildCount = membersContainer.getChildCount();
 
@@ -163,22 +162,18 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         ArrayAdapter<String> relationAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, relations);
         spRelation.setAdapter(relationAdapter);
 
-        // ⭐ LOGIC FOR THE FIRST ROW (THE REGISTRANT)
+        // Logic for first row (Registrant)
         if (index == 1) {
-            // A. Auto-fill Name from Cache
             if (!RegistrationCache.tempFullName.isEmpty()) {
                 etName.setText(RegistrationCache.tempFullName);
             }
-            // B. Lock Name Field
             etName.setEnabled(false);
             etName.setFocusable(false);
 
-            // C. Auto-select "Head" (Index 0) and Lock Relation
             spRelation.setSelection(0);
             spRelation.setEnabled(false);
             spRelation.setClickable(false);
         } else {
-            // For other members, set default selection (e.g. Son/Daughter)
             spRelation.setSelection(2);
         }
 

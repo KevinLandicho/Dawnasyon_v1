@@ -3,9 +3,7 @@ package com.example.dawnasyon_v1;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
@@ -15,7 +13,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.RotateAnimation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -32,7 +29,6 @@ import com.google.android.material.button.MaterialButton;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -41,14 +37,14 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+// Import your HouseMember class
+import com.example.dawnasyon_v1.HouseMember;
+
 public class Profile_fragment extends BaseFragment {
 
     private LinearLayout familyContainer;
-
-    // ⭐ NEW: Profile Image View
     private ImageView ivProfilePic;
 
-    // Prioritize Card Views
     private CardView cardPriority;
     private TextView tvPriorityLevel;
     private TextView tvPriorityScore;
@@ -57,19 +53,16 @@ public class Profile_fragment extends BaseFragment {
     private ImageView ivExpandArrow;
 
     private boolean isExpanded = false;
+    private String currentUserId = "";
 
-    // Networking
     private final OkHttpClient client = new OkHttpClient();
 
-    // Risk Zones (These match your LiveMap)
     private static final double RISK_CREEK_LAT = 14.7025;
     private static final double RISK_CREEK_LON = 121.0535;
     private static final double RISK_FIRE_LAT = 14.7040;
     private static final double RISK_FIRE_LON = 121.0550;
 
-    public Profile_fragment() {
-        // Required empty public constructor
-    }
+    public Profile_fragment() {}
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -81,7 +74,6 @@ public class Profile_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // --- 1. Bind Common Views ---
         LinearLayout menuHistory = view.findViewById(R.id.menu_history);
         LinearLayout menuSuggestion = view.findViewById(R.id.menu_suggestion);
         LinearLayout menuPassword = view.findViewById(R.id.menu_password);
@@ -98,12 +90,9 @@ public class Profile_fragment extends BaseFragment {
         TextView userNameHeader = view.findViewById(R.id.user_name);
         TextView badgeStatus = view.findViewById(R.id.badge_status);
 
-        // ⭐ BIND PROFILE PIC (Make sure ID in XML is profile_pic)
         ivProfilePic = view.findViewById(R.id.profile_pic);
-
         familyContainer = view.findViewById(R.id.ll_family_container);
 
-        // Bind Priority Views
         cardPriority = view.findViewById(R.id.card_priority);
         tvPriorityLevel = view.findViewById(R.id.tv_priority_level);
         tvPriorityScore = view.findViewById(R.id.tv_priority_score);
@@ -111,12 +100,8 @@ public class Profile_fragment extends BaseFragment {
         llBreakdownContainer = view.findViewById(R.id.ll_breakdown_container);
         ivExpandArrow = view.findViewById(R.id.iv_expand_arrow);
 
-        // Setup Expand Click
-        if (cardPriority != null) {
-            cardPriority.setOnClickListener(v -> toggleBreakdown());
-        }
+        if (cardPriority != null) cardPriority.setOnClickListener(v -> toggleBreakdown());
 
-        // --- 2. Setup Menu Listeners ---
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
@@ -140,15 +125,12 @@ public class Profile_fragment extends BaseFragment {
         menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
         menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
 
-        // --- 3. Load Data ---
-
-        // ⭐ 1. SHOW LOADING START
-        if (getActivity() instanceof BaseActivity) {
-            ((BaseActivity) getActivity()).showLoading();
-        }
+        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
+                currentUserId = profile.getId();
+
                 if (detailName != null) detailName.setText(profile.getFull_name());
                 if (userNameHeader != null) userNameHeader.setText(profile.getFull_name());
                 if (detailContact != null) detailContact.setText(profile.getContact_number());
@@ -160,12 +142,9 @@ public class Profile_fragment extends BaseFragment {
                 if (profile.getCity() != null) fullAddress += profile.getCity();
                 if (detailAddress != null) detailAddress.setText(fullAddress);
 
-                // ⭐ LOAD AVATAR FROM DB
-                String avatarName = profile.getAvatarName(); // Ensure Profile model has this getter
+                String avatarName = profile.getAvatarName();
                 int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
-                if (ivProfilePic != null) {
-                    ivProfilePic.setImageResource(avatarResId);
-                }
+                if (ivProfilePic != null) ivProfilePic.setImageResource(avatarResId);
 
                 boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
                 String userType = profile.getType();
@@ -194,14 +173,9 @@ public class Profile_fragment extends BaseFragment {
                         }
                     }
                 }
-
-                // Continue to load family members (Chain the request)
                 loadFamilyMembers(isVerified, profile, fullAddress);
             } else {
-                // ⭐ HIDE LOADING IF PROFILE FETCH FAILS
-                if (isAdded() && getActivity() instanceof BaseActivity) {
-                    ((BaseActivity) getActivity()).hideLoading();
-                }
+                if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
             }
             return null;
         });
@@ -209,7 +183,6 @@ public class Profile_fragment extends BaseFragment {
 
     private void toggleBreakdown() {
         if (llBreakdownContainer == null) return;
-
         if (isExpanded) {
             llBreakdownContainer.setVisibility(View.GONE);
             ivExpandArrow.animate().rotation(0).setDuration(200).start();
@@ -221,136 +194,96 @@ public class Profile_fragment extends BaseFragment {
     }
 
     private void loadFamilyMembers(boolean isVerified, Profile profile, String fullAddress) {
-        AuthHelper.fetchHouseholdMembers(members -> {
-
-            // ⭐ 2. HIDE LOADING DONE (Data is fully loaded)
-            if (isAdded() && getActivity() instanceof BaseActivity) {
-                ((BaseActivity) getActivity()).hideLoading();
-            }
+        AuthHelper.fetchHouseholdMembers(kotlinMembers -> {
+            if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
             if (isAdded()) {
                 if (familyContainer != null) {
                     familyContainer.removeAllViews();
-                    if (members == null || members.isEmpty()) {
+
+                    if (kotlinMembers == null || kotlinMembers.isEmpty()) {
                         TextView emptyView = new TextView(getContext());
                         emptyView.setText("No registered members found.");
                         familyContainer.addView(emptyView);
                     } else {
-                        for (int i = 0; i < members.size(); i++) {
-                            addMemberRow(members.get(i));
-                            if (i < members.size() - 1) addDivider();
+                        List<HouseMember> javaMembers = new ArrayList<>();
+
+                        // Convert Kotlin objects to Java objects
+                        for (Object kMember : kotlinMembers) {
+                            if (kMember instanceof HouseholdMember) {
+                                HouseholdMember km = (HouseholdMember) kMember;
+                                HouseMember jm = new HouseMember();
+
+                                jm.setMember_id(km.getMember_id());
+                                jm.setHead_id(km.getHead_id());
+                                jm.setFull_name(km.getFull_name());
+                                jm.setRelation(km.getRelation());
+                                jm.setAge(km.getAge());
+                                jm.setGender(km.getGender());
+
+                                Boolean isProxy = km.getIs_authorized_proxy();
+                                jm.setIs_authorized_proxy(isProxy != null ? isProxy : false);
+
+                                javaMembers.add(jm);
+                            }
+                        }
+
+                        for (int i = 0; i < javaMembers.size(); i++) {
+                            addMemberRow(javaMembers.get(i));
+                            if (i < javaMembers.size() - 1) addDivider();
+                        }
+
+                        if (cardPriority != null && cardPriority.getVisibility() == View.VISIBLE) {
+                            calculatePriorityWithGeoRisk(javaMembers, isVerified, profile, fullAddress);
                         }
                     }
-                }
-
-                if (cardPriority != null && cardPriority.getVisibility() == View.VISIBLE) {
-                    // This runs in background, so we don't need to block the UI with a loader
-                    calculatePriorityWithGeoRisk(members, isVerified, profile, fullAddress);
                 }
             }
             return null;
         });
     }
 
-    // ⭐ UPDATED LOGIC: 5000m (5km) RADIUS TO COVER YOUR 3.7km DISTANCE
-    private void calculatePriorityWithGeoRisk(List<HouseholdMember> members, boolean isVerified, Profile profile, String addressStr) {
+    private void calculatePriorityWithGeoRisk(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
-
         final int[] score = {10};
         final StringBuilder breakdown = new StringBuilder();
         breakdown.append("• Base Score: +10 pts\n");
 
-        // 1. Family Size
         int familySize = (members != null) ? members.size() : 0;
         int famPoints = Math.min(familySize * 5, 50);
         score[0] += famPoints;
         if(familySize > 0) breakdown.append("• Family Size (").append(familySize).append("): +").append(famPoints).append(" pts\n");
-
-        if(familySize > 4) {
-            score[0] += 20;
-            breakdown.append("• Large Household Bonus: +20 pts\n");
-        }
-
-        // 2. Verification
-        if(isVerified) {
-            score[0] += 10;
-            breakdown.append("• Verified Status: +10 pts\n");
-        }
-
-        // 3. Keyword Check
+        if(familySize > 4) { score[0] += 20; breakdown.append("• Large Household Bonus: +20 pts\n"); }
+        if(isVerified) { score[0] += 10; breakdown.append("• Verified Status: +10 pts\n"); }
         if (addressStr.toLowerCase().contains("creek") || addressStr.toLowerCase().contains("river") || addressStr.toLowerCase().contains("flood")) {
-            score[0] += 10;
-            breakdown.append("• Address Risk Keyword: +10 pts\n");
+            score[0] += 10; breakdown.append("• Address Risk Keyword: +10 pts\n");
         }
 
-        // 4. Async Geo-Risk Check
         new Thread(() -> {
             try {
-                Log.d("GEO_RISK", "Searching for: " + addressStr);
-
                 Geocoder geocoder = new Geocoder(requireContext(), Locale.getDefault());
                 List<Address> addresses = geocoder.getFromLocationName(addressStr, 1);
-
                 if (addresses != null && !addresses.isEmpty()) {
                     double userLat = addresses.get(0).getLatitude();
                     double userLon = addresses.get(0).getLongitude();
-
-                    Log.d("GEO_RISK", "Found Coords: " + userLat + ", " + userLon);
-
                     float distToCreek = getDistance(userLat, userLon, RISK_CREEK_LAT, RISK_CREEK_LON);
                     float distToFire = getDistance(userLat, userLon, RISK_FIRE_LAT, RISK_FIRE_LON);
-
-                    Log.d("GEO_RISK", "Distance to Creek: " + distToCreek + "m");
-                    Log.d("GEO_RISK", "Distance to Fire: " + distToFire + "m");
-
-                    // ⭐ INCREASED RADIUS TO 5000 METERS (5 KM)
-                    if (distToCreek < 5000) {
-                        score[0] += 30;
-                        breakdown.append("• Near Flood Zone (" + (int)distToCreek + "m): +30 pts\n");
-                    }
-                    if (distToFire < 5000) {
-                        score[0] += 40;
-                        breakdown.append("• Near Fire Alert (" + (int)distToFire + "m): +40 pts\n");
-                    }
-
-                    if (checkRecentEarthquake(userLat, userLon)) {
-                        score[0] += 20;
-                        breakdown.append("• Recent Earthquake Nearby: +20 pts\n");
-                    }
-                } else {
-                    Log.e("GEO_RISK", "Geocoding failed for: " + addressStr);
-                    breakdown.append("• Location check failed (Address not found)\n");
-                }
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                Log.e("GEO_RISK", "Error: " + e.getMessage());
-            }
-
-            // Update UI on Main Thread
+                    if (distToCreek < 5000) { score[0] += 30; breakdown.append("• Near Flood Zone (" + (int)distToCreek + "m): +30 pts\n"); }
+                    if (distToFire < 5000) { score[0] += 40; breakdown.append("• Near Fire Alert (" + (int)distToFire + "m): +40 pts\n"); }
+                    if (checkRecentEarthquake(userLat, userLon)) { score[0] += 20; breakdown.append("• Recent Earthquake Nearby: +20 pts\n"); }
+                } else { breakdown.append("• Location check failed (Address not found)\n"); }
+            } catch (Exception e) { e.printStackTrace(); }
             new Handler(Looper.getMainLooper()).post(() -> updatePriorityUI(score[0], breakdown.toString()));
         }).start();
     }
 
     private void updatePriorityUI(int rawScore, String breakdownText) {
         int score = Math.min(rawScore, 100);
-
         tvPriorityScore.setText("Score: " + score + "/100");
         tvPriorityReason.setText(breakdownText.trim());
-
-        if (score >= 80) {
-            tvPriorityLevel.setText("CRITICAL PRIORITY");
-            tvPriorityLevel.setTextColor(Color.RED);
-            cardPriority.setCardBackgroundColor(Color.parseColor("#FFEBEE"));
-        } else if (score >= 50) {
-            tvPriorityLevel.setText("HIGH PRIORITY");
-            tvPriorityLevel.setTextColor(Color.parseColor("#E65100"));
-            cardPriority.setCardBackgroundColor(Color.parseColor("#FFF3E0"));
-        } else {
-            tvPriorityLevel.setText("NORMAL PRIORITY");
-            tvPriorityLevel.setTextColor(Color.parseColor("#2E7D32"));
-            cardPriority.setCardBackgroundColor(Color.parseColor("#E8F5E9"));
-        }
+        if (score >= 80) { tvPriorityLevel.setText("CRITICAL PRIORITY"); tvPriorityLevel.setTextColor(Color.RED); cardPriority.setCardBackgroundColor(Color.parseColor("#FFEBEE")); }
+        else if (score >= 50) { tvPriorityLevel.setText("HIGH PRIORITY"); tvPriorityLevel.setTextColor(Color.parseColor("#E65100")); cardPriority.setCardBackgroundColor(Color.parseColor("#FFF3E0")); }
+        else { tvPriorityLevel.setText("NORMAL PRIORITY"); tvPriorityLevel.setTextColor(Color.parseColor("#2E7D32")); cardPriority.setCardBackgroundColor(Color.parseColor("#E8F5E9")); }
     }
 
     private float getDistance(double lat1, double lon1, double lat2, double lon2) {
@@ -384,7 +317,7 @@ public class Profile_fragment extends BaseFragment {
         view.setOnClickListener(v -> Toast.makeText(getContext(), "🔒 " + featureName + " is locked.", Toast.LENGTH_SHORT).show());
     }
 
-    private void addMemberRow(HouseholdMember member) {
+    private void addMemberRow(HouseMember member) {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setPadding(0, 16, 0, 16);
@@ -415,8 +348,56 @@ public class Profile_fragment extends BaseFragment {
         textCol.addView(tvRelation);
         row.addView(textCol);
 
-        // ⭐ REMOVED BADGE CODE HERE COMPLETELY
-        // The TextView badge code block was deleted as per your request.
+        boolean isProxy = Boolean.TRUE.equals(member.getIs_authorized_proxy());
+
+        if (isProxy) {
+            TextView tvProxy = new TextView(getContext());
+            tvProxy.setText("✅ PROXY");
+            tvProxy.setTextSize(10f);
+            tvProxy.setTextColor(Color.parseColor("#2E7D32"));
+            tvProxy.setBackgroundColor(Color.parseColor("#E8F5E9"));
+            tvProxy.setPadding(12, 4, 12, 4);
+            row.addView(tvProxy);
+        } else {
+            // ⭐ CHANGED: Only add "Assign Proxy" button if relation is NOT "Head"
+            if (!"Head".equalsIgnoreCase(member.getRelation())) {
+                TextView btnAssign = new TextView(getContext());
+                btnAssign.setText("Assign Proxy");
+                btnAssign.setTextSize(10f);
+                btnAssign.setTextColor(Color.WHITE);
+                btnAssign.setBackgroundColor(Color.parseColor("#FF9800"));
+                btnAssign.setPadding(16, 8, 16, 8);
+
+                btnAssign.setOnClickListener(v -> {
+                    if (currentUserId.isEmpty()) return;
+
+                    new AlertDialog.Builder(getContext())
+                            .setTitle("Assign Proxy")
+                            .setMessage("Set " + member.getFull_name() + " as the authorized representative? This will remove any existing proxy.")
+                            .setPositiveButton("Yes", (dialog, which) -> {
+                                if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
+
+                                SupabaseJavaHelper.assignHouseholdProxy(currentUserId, member.getMember_id(), new SupabaseJavaHelper.SimpleCallback() {
+                                    @Override
+                                    public void onSuccess() {
+                                        AuthHelper.fetchUserProfile(profile -> {
+                                            if(profile != null) loadFamilyMembers(true, profile, "");
+                                            return null;
+                                        });
+                                    }
+                                    @Override
+                                    public void onError(String message) {
+                                        if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                                        Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                });
+                row.addView(btnAssign);
+            }
+        }
 
         familyContainer.addView(row);
     }
