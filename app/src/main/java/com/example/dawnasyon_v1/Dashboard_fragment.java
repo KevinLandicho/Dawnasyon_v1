@@ -20,6 +20,7 @@ import androidx.annotation.Nullable;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.charts.PieChart;
 import com.github.mikephil.charting.charts.RadarChart;
+import com.github.mikephil.charting.components.Legend;
 import com.github.mikephil.charting.components.XAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
@@ -31,6 +32,7 @@ import com.github.mikephil.charting.data.RadarData;
 import com.github.mikephil.charting.data.RadarDataSet;
 import com.github.mikephil.charting.data.RadarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
+import com.github.mikephil.charting.formatter.PercentFormatter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +43,7 @@ public class Dashboard_fragment extends BaseFragment {
 
     private PieChart chartRelief;
     private PieChart chartAffected;
+    private PieChart chartUserActivity; // New chart
     private LineChart chartFamilies;
     private LineChart chartDonations;
     private RadarChart chartImpact;
@@ -51,9 +54,14 @@ public class Dashboard_fragment extends BaseFragment {
     private TextView tvImpactCount;
     private ImageView iconFilter;
 
+    // Added back original text views
+    private TextView txtPrediction;
+    private TextView txtRiskBadge;
+    private TextView txtRiskDesc;
+    private TextView txtAffectedFamilies;
+
     private String currentFilter = "all";
 
-    // --- COLOR PALETTE ---
     private final int COLOR_DEEP_ORANGE = Color.parseColor("#E65100");
     private final int COLOR_VIBRANT_ORANGE = Color.parseColor("#F5901A");
     private final int COLOR_MED_ORANGE = Color.parseColor("#FFB74D");
@@ -61,6 +69,8 @@ public class Dashboard_fragment extends BaseFragment {
     private final int COLOR_LIGHT_ORANGE = Color.parseColor("#FFE0B2");
     private final int COLOR_PALE_ORANGE = Color.parseColor("#FFF3E0");
     private final int COLOR_TEAL = Color.parseColor("#27869B");
+    private final int COLOR_ACTIVE = Color.parseColor("#4CAF50");
+    private final int COLOR_INACTIVE = Color.parseColor("#9E9E9E");
 
     private final int[] ORANGE_SCALE_COLORS = {
             COLOR_DEEP_ORANGE, COLOR_VIBRANT_ORANGE, COLOR_MED_ORANGE, COLOR_SOFT_ORANGE, COLOR_LIGHT_ORANGE
@@ -81,6 +91,7 @@ public class Dashboard_fragment extends BaseFragment {
         // Bind Views
         chartRelief = view.findViewById(R.id.chart_relief_status);
         chartAffected = view.findViewById(R.id.chart_affected_areas);
+        chartUserActivity = view.findViewById(R.id.chart_user_activity);
         chartFamilies = view.findViewById(R.id.chart_registered_families);
         chartDonations = view.findViewById(R.id.chart_donation_trends);
         chartImpact = view.findViewById(R.id.chart_donation_impact);
@@ -88,13 +99,19 @@ public class Dashboard_fragment extends BaseFragment {
         tvImpactCount = view.findViewById(R.id.tv_impact_count);
         iconFilter = view.findViewById(R.id.icon_filter);
 
+        // Restore bindings for analytics text views
+        txtPrediction = view.findViewById(R.id.txt_prediction);
+        txtRiskBadge = view.findViewById(R.id.txt_risk_badge);
+        txtRiskDesc = view.findViewById(R.id.txt_risk_desc);
+        txtAffectedFamilies = view.findViewById(R.id.txt_affected_families);
+
         Button btnLiveMap = view.findViewById(R.id.btn_live_map);
         llReliefList = view.findViewById(R.id.ll_relief_list);
         llAffectedList = view.findViewById(R.id.ll_affected_list);
 
-        // Setup Charts
         setupReliefPieChart();
         setupAffectedPieChart();
+        setupUserActivityChart();
         setupFamiliesLineChart();
         setupDonationTrendsChart();
         setupImpactRadarChart();
@@ -147,6 +164,7 @@ public class Dashboard_fragment extends BaseFragment {
 
                 updatePieChart(chartRelief, inventory);
                 updatePieChart(chartAffected, areas);
+                updateUserActivityChart(metrics.getActive_users(), metrics.getTotal_users());
                 updateLineChart(chartDonations, donations);
 
                 Map<String, Float> familiesFloat = new HashMap<>();
@@ -171,7 +189,65 @@ public class Dashboard_fragment extends BaseFragment {
         });
     }
 
-    // --- CHART METHODS ---
+    private void setupUserActivityChart() {
+        if (chartUserActivity == null) return;
+        chartUserActivity.setUsePercentValues(true);
+        chartUserActivity.getDescription().setEnabled(false);
+        chartUserActivity.setExtraOffsets(5, 10, 5, 5);
+        chartUserActivity.setDragDecelerationFrictionCoef(0.95f);
+        chartUserActivity.setDrawHoleEnabled(true);
+        chartUserActivity.setHoleColor(Color.WHITE);
+        chartUserActivity.setTransparentCircleRadius(61f);
+        chartUserActivity.setHoleRadius(50f);
+        chartUserActivity.setEntryLabelColor(Color.WHITE);
+        chartUserActivity.setCenterText("User\nActivity");
+        chartUserActivity.setCenterTextSize(10f);
+
+        // ⭐ KEY CHANGE: Hide Entry Labels (Text like "Active", "Inactive" on the pie)
+        chartUserActivity.setDrawEntryLabels(false);
+
+        Legend l = chartUserActivity.getLegend();
+        l.setEnabled(false);
+    }
+
+    private void updateUserActivityChart(int activeCount, int totalCount) {
+        if (chartUserActivity == null) return;
+
+        int inactiveCount = Math.max(0, totalCount - activeCount);
+        List<PieEntry> entries = new ArrayList<>();
+        ArrayList<Integer> colors = new ArrayList<>();
+
+        if (activeCount > 0) {
+            entries.add(new PieEntry((float) activeCount, "Active"));
+            colors.add(COLOR_ACTIVE);
+        }
+        if (inactiveCount > 0) {
+            entries.add(new PieEntry((float) inactiveCount, "Inactive"));
+            colors.add(COLOR_INACTIVE);
+        }
+
+        if (entries.isEmpty()) {
+            entries.add(new PieEntry(1f, "No Data"));
+            colors.add(Color.LTGRAY);
+        }
+
+        PieDataSet dataSet = new PieDataSet(entries, "Activity");
+        dataSet.setColors(colors);
+        dataSet.setSliceSpace(3f);
+        dataSet.setSelectionShift(5f);
+
+        // ⭐ KEY CHANGE: Disable drawing values (The numbers/percentages on the slices)
+        dataSet.setDrawValues(false);
+
+        PieData data = new PieData(dataSet);
+        data.setValueFormatter(new PercentFormatter(chartUserActivity));
+        data.setValueTextSize(11f);
+        data.setValueTextColor(Color.WHITE);
+
+        chartUserActivity.setData(data);
+        chartUserActivity.setCenterText("Active:\n" + activeCount);
+        chartUserActivity.invalidate();
+    }
 
     private void setupImpactRadarChart() {
         chartImpact.getDescription().setEnabled(false);
@@ -254,16 +330,43 @@ public class Dashboard_fragment extends BaseFragment {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.RED));
                 txtInsight.setText("CRITICAL: " + deficit + " families have no allocated packs.");
                 txtInsight.setTextColor(Color.RED);
+
+                // Update Prediction Text
+                if(txtPrediction != null) txtPrediction.setText("High Risk: Immediate resupply needed.");
             } else if (coveragePercent < 100) {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DEEP_ORANGE));
                 txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed.");
                 txtInsight.setTextColor(COLOR_DEEP_ORANGE);
+
+                if(txtPrediction != null) txtPrediction.setText("Medium Risk: Stock falling below demand.");
             } else {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
                 txtInsight.setText("✅ Sufficient Stock.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
+
+                if(txtPrediction != null) txtPrediction.setText("Low Risk: Inventory is healthy.");
             }
         }
+
+        // Update Risk Index Badge
+        if (txtRiskBadge != null) {
+            if (totalAffected > 50) {
+                txtRiskBadge.setText("HIGH ALERT");
+                txtRiskBadge.setTextColor(Color.WHITE);
+                txtRiskBadge.setBackgroundColor(Color.RED);
+            } else if (totalAffected > 20) {
+                txtRiskBadge.setText("MODERATE");
+                txtRiskBadge.setTextColor(Color.WHITE);
+                txtRiskBadge.setBackgroundColor(COLOR_DEEP_ORANGE);
+            } else {
+                txtRiskBadge.setText("NORMAL");
+                txtRiskBadge.setTextColor(Color.WHITE);
+                txtRiskBadge.setBackgroundColor(Color.parseColor("#2E7D32"));
+            }
+        }
+
+        if(txtAffectedFamilies != null) txtAffectedFamilies.setText(totalAffected + " Families Affected");
+        if(txtRiskDesc != null) txtRiskDesc.setText("Based on recent reports");
     }
 
     private void updatePieChart(PieChart chart, Map<String, Integer> data) {
@@ -276,10 +379,7 @@ public class Dashboard_fragment extends BaseFragment {
             PieDataSet set = (PieDataSet) chart.getData().getDataSet();
             set.setValues(entries);
             set.setColors(ORANGE_SCALE_COLORS);
-
-            // ⭐ FIX: Force text off
             set.setDrawValues(false);
-
             chart.getData().notifyDataChanged();
             chart.notifyDataSetChanged();
             chart.invalidate();
@@ -297,8 +397,6 @@ public class Dashboard_fragment extends BaseFragment {
             index++;
         }
         chart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-
-        // ⭐ FIX: Ensure X-Axis Granularity so labels don't repeat (Jan Jan Jan)
         chart.getXAxis().setGranularity(1f);
         chart.getXAxis().setGranularityEnabled(true);
 
@@ -319,11 +417,8 @@ public class Dashboard_fragment extends BaseFragment {
         dataSet.setColors(ORANGE_SCALE_COLORS);
         PieData data = new PieData(dataSet);
         chartRelief.setData(data);
-
-        // ⭐ FIX: Hide labels
         chartRelief.setDrawEntryLabels(false);
         dataSet.setDrawValues(false);
-
         chartRelief.getDescription().setEnabled(false);
         chartRelief.getLegend().setEnabled(false);
     }
@@ -335,11 +430,8 @@ public class Dashboard_fragment extends BaseFragment {
         dataSet.setColors(ORANGE_SCALE_COLORS);
         PieData data = new PieData(dataSet);
         chartAffected.setData(data);
-
-        // ⭐ FIX: Hide labels
         chartAffected.setDrawEntryLabels(false);
         dataSet.setDrawValues(false);
-
         chartAffected.getDescription().setEnabled(false);
         chartAffected.getLegend().setEnabled(false);
     }
@@ -348,19 +440,13 @@ public class Dashboard_fragment extends BaseFragment {
         LineDataSet dataSet = new LineDataSet(new ArrayList<>(), "Families");
         dataSet.setColor(COLOR_VIBRANT_ORANGE);
         dataSet.setLineWidth(3f);
-
-        // ⭐ FIX: Hide Grid Lines (Removes multiple lines)
         XAxis xAxis = chartFamilies.getXAxis();
         xAxis.setDrawGridLines(false);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-
-        // ⭐ FIX: Prevent repeating labels
         xAxis.setGranularity(1f);
         xAxis.setGranularityEnabled(true);
-
         chartFamilies.getAxisLeft().setDrawGridLines(false);
         chartFamilies.getAxisRight().setDrawGridLines(false);
-
         LineData data = new LineData(dataSet);
         chartFamilies.setData(data);
         chartFamilies.getDescription().setEnabled(false);
@@ -371,19 +457,13 @@ public class Dashboard_fragment extends BaseFragment {
         dataSet.setColor(COLOR_TEAL);
         dataSet.setLineWidth(2f);
         dataSet.setDrawFilled(true);
-
-        // ⭐ FIX: Hide Grid Lines (Removes multiple lines)
         XAxis xAxis = chartDonations.getXAxis();
         xAxis.setDrawGridLines(false);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-
-        // ⭐ FIX: Prevent repeating labels
         xAxis.setGranularity(1f);
         xAxis.setGranularityEnabled(true);
-
         chartDonations.getAxisLeft().setDrawGridLines(false);
         chartDonations.getAxisRight().setDrawGridLines(false);
-
         LineData data = new LineData(dataSet);
         chartDonations.setData(data);
         chartDonations.getDescription().setEnabled(false);
