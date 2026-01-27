@@ -1,178 +1,188 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F8F9FA">
+    android:background="#F8F9FA"
+    android:fillViewport="true">
 
-    <ImageButton
-        android:id="@+id/btn_back"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="40dp"
-        android:background="@drawable/bg_circle_teal"
-        android:src="@drawable/ic_left"
-        app:tint="@color/white"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <TextView
-        android:id="@+id/tv_screen_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:fontFamily="@font/dongle"
-        android:text="@string/your_donation_receipt"
-        android:textColor="@color/black"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btn_back" />
-
-    <androidx.cardview.widget.CardView
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="24dp"
-        app:cardCornerRadius="16dp"
-        app:cardElevation="8dp"
-        app:cardBackgroundColor="@color/white"
-        app:layout_constraintTop_toBottomOf="@id/tv_screen_title"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:paddingBottom="40dp">
 
-        <LinearLayout
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="24dp"
+            android:layout_marginTop="40dp"
+            android:background="@drawable/bg_circle_teal"
+            android:src="@drawable/ic_left"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/white" />
+
+        <TextView
+            android:id="@+id/tv_screen_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:fontFamily="@font/dongle"
+            android:text="@string/your_donation_receipt"
+            android:textColor="@color/black"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/btn_back" />
+
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="24dp">
+            android:layout_margin="24dp"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/tv_screen_title">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:fontFamily="@font/dongle"
-                android:text="@string/thank_you_for_your_donation"
-                android:textColor="@color/black"
-                android:textSize="28sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:gravity="center"
-                android:text="@string/your_support_empowers_us_to_serve_where_help_is_needed_most"
-                android:textSize="12sp"
-                android:textColor="#666666"
-                android:layout_marginBottom="24dp"/>
-
-            <androidx.cardview.widget.CardView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="0dp"
-                app:cardBackgroundColor="#F5F5F5"
-                android:layout_marginBottom="24dp">
+                android:orientation="vertical"
+                android:padding="24dp">
 
-                <LinearLayout
-                    android:id="@+id/ll_items_container"
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:fontFamily="@font/dongle"
+                    android:text="@string/thank_you_for_your_donation"
+                    android:textColor="@color/black"
+                    android:textSize="28sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="24dp"
+                    android:gravity="center"
+                    android:text="@string/your_support_empowers_us_to_serve_where_help_is_needed_most"
+                    android:textColor="#666666"
+                    android:textSize="12sp" />
+
+                <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:layout_marginBottom="24dp"
+                    app:cardBackgroundColor="#F5F5F5"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="0dp">
+
+                    <LinearLayout
+                        android:id="@+id/ll_items_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginBottom="12dp"
+                            android:text="@string/you_have_donated"
+                            android:textColor="#444444"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginBottom="12dp"
+                            android:background="#DDDDDD" />
+
+                    </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <GridLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:columnCount="2"
+                    android:useDefaultMargins="false">
 
                     <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:text="@string/you_have_donated"
-                        android:textStyle="bold"
-                        android:textColor="#444444"
-                        android:textSize="14sp"
-                        android:layout_marginBottom="12dp"/>
+                        android:layout_gravity="start"
+                        android:layout_rowWeight="1"
+                        android:layout_columnWeight="1"
+                        android:text="@string/receipt_no"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="#DDDDDD"
-                        android:layout_marginBottom="12dp"/>
+                    <TextView
+                        android:id="@+id/tv_receipt_no"
+                        android:layout_gravity="end"
+                        android:text="#000000"
+                        android:textColor="@color/black"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                    <TextView
+                        android:layout_marginTop="8dp"
+                        android:text="@string/date"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-            <GridLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:columnCount="2"
-                android:useDefaultMargins="false">
+                    <TextView
+                        android:id="@+id/tv_receipt_date"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="8dp"
+                        android:text="--"
+                        android:textColor="@color/black"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:text="@string/receipt_no"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="#666666"
-                    android:layout_gravity="start"
-                    android:layout_rowWeight="1"
-                    android:layout_columnWeight="1"/>
-                <TextView
-                    android:id="@+id/tv_receipt_no"
-                    android:text="#000000"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="@color/black"
-                    android:layout_gravity="end"/>
+                    <TextView
+                        android:layout_marginTop="8dp"
+                        android:text="@string/donor_name"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:text="@string/date"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="#666666"
-                    android:layout_marginTop="8dp"/>
-                <TextView
-                    android:id="@+id/tv_receipt_date"
-                    android:text="--"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="@color/black"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="8dp"/>
+                    <TextView
+                        android:id="@+id/tv_donor_name"
+                        android:layout_gravity="end"
+                        android:layout_marginTop="8dp"
+                        android:text="Loading..."
+                        android:textColor="@color/black"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:text="@string/donor_name"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="#666666"
-                    android:layout_marginTop="8dp"/>
-                <TextView
-                    android:id="@+id/tv_donor_name"
-                    android:text="Loading..."
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="@color/black"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="8dp"/>
+                    <TextView
+                        android:layout_marginTop="8dp"
+                        android:text="@string/received_by"
+                        android:textColor="#666666"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-                <TextView
-                    android:text="@string/received_by"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="#666666"
-                    android:layout_marginTop="8dp"/>
-                <TextView
-                    android:text="Dawnasyon System"
-                    android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:textColor="@color/black"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="8dp"/>
+                    <TextView
+                        android:layout_gravity="end"
+                        android:layout_marginTop="8dp"
+                        android:text="Dawnasyon System"
+                        android:textColor="@color/black"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
 
-            </GridLayout>
+                </GridLayout>
 
-        </LinearLayout>
-    </androidx.cardview.widget.CardView>
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

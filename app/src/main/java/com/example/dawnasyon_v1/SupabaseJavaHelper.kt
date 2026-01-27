@@ -67,6 +67,11 @@ object SupabaseJavaHelper {
         fun onError(message: String)
     }
 
+    // ⭐ NEW INTERFACE: Fixes the Lambda Error
+    interface TrackingCallback {
+        fun onLoaded(data: DonationTrackingDTO?)
+    }
+
     // ====================================================
     // ⭐ PROXY ASSIGNMENT
     // ====================================================
@@ -101,7 +106,7 @@ object SupabaseJavaHelper {
     }
 
     private fun normalizeStreet(input: String): String {
-        return input.lowercase().replace(".", "").replace(",", "").replace(" street", "").replace(" str", "").replace(" st", "").replace(" avenue", "").replace(" ave", "").replace(" road", "").replace(" rd", "").replace(" boulevard", "").replace(" blvd", "").replace("\\s+".toRegex(), "").trim()
+        return input.lowercase().replace(".", "").replace(",", "").replace(" street", "").replace(" str", "").replace(" st", "").replace(" avenue", "").replace(" ave", "").replace(" road", "").replace(" rd", "").replace(" boulevard", "").replace(" blvd", "").replace(" lane", "").replace(" ln", "").replace("\\s+".toRegex(), "").trim()
     }
 
     private fun normalizeHouseNo(input: String): String {
@@ -223,20 +228,25 @@ object SupabaseJavaHelper {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val params = mapOf("filter_type" to filterType)
-                // ⭐ FIXED VARIABLE NAMES
+
+                // Inventory
                 val invResult = SupabaseManager.client.postgrest.rpc("get_inventory_stats", params).data ?: "[]"
                 val invMap = Gson().fromJson<List<ChartDataInt>>(invResult, object : TypeToken<List<ChartDataInt>>() {}.type).associate { it.label to it.value }.toMutableMap()
 
+                // Affected Areas
                 val areaResult = SupabaseManager.client.postgrest.rpc("get_affected_areas_stats", params).data ?: "[]"
                 val areaMap = Gson().fromJson<List<ChartDataInt>>(areaResult, object : TypeToken<List<ChartDataInt>>() {}.type).associate { it.label to it.value }.toMutableMap()
 
+                // Donations
                 val donResult = SupabaseManager.client.postgrest.rpc("get_monthly_donations", params).data ?: "[]"
                 val donMap = Gson().fromJson<List<ChartDataFloat>>(donResult, object : TypeToken<List<ChartDataFloat>>() {}.type).associate { it.label to it.value }.toMutableMap()
 
+                // Registrations
                 val famResult = SupabaseManager.client.postgrest.rpc("get_monthly_registrations", params).data ?: "[]"
                 val famMap = Gson().fromJson<List<ChartDataInt>>(famResult, object : TypeToken<List<ChartDataInt>>() {}.type).associate { it.label to it.value }.toMutableMap()
 
-                val metricsResult = SupabaseManager.client.postgrest.rpc("get_dashboard_metrics", params).data ?: "[]"
+                // Metrics (Using V2)
+                val metricsResult = SupabaseManager.client.postgrest.rpc("get_dashboard_metrics_v2", params).data ?: "[]"
                 val metricsList = Gson().fromJson<List<DashboardMetrics>>(metricsResult, object : TypeToken<List<DashboardMetrics>>() {}.type)
                 val metrics = if (metricsList.isNotEmpty()) metricsList[0] else DashboardMetrics(0, 0, 0)
 
@@ -287,6 +297,25 @@ object SupabaseJavaHelper {
                 Handler(Looper.getMainLooper()).post { callback.onSuccess(dataList) }
             } catch (e: Exception) {
                 Handler(Looper.getMainLooper()).post { callback.onError(e.message ?: "Failed to load history") }
+            }
+        }
+    }
+
+    // ⭐ UPDATED: Fetch Tracking now uses the Interface
+    @JvmStatic
+    fun fetchDonationTracking(donationId: Long, callback: TrackingCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = SupabaseManager.client
+                    .from("donation_tracking_view")
+                    .select {
+                        filter { eq("donation_id", donationId) }
+                        limit(1)
+                    }.decodeSingleOrNull<DonationTrackingDTO>()
+
+                Handler(Looper.getMainLooper()).post { callback.onLoaded(result) }
+            } catch (e: Exception) {
+                Handler(Looper.getMainLooper()).post { callback.onLoaded(null) }
             }
         }
     }
@@ -376,9 +405,10 @@ object SupabaseJavaHelper {
 @Serializable data class SuggestionDTO(val user_id: String, val message: String)
 @Serializable data class ChartDataInt(val label: String, val value: Int)
 @Serializable data class ChartDataFloat(val label: String, val value: Float)
-@Serializable data class DashboardMetrics(val total_families: Int, val total_packs: Int, val total_affected: Int)
+@Serializable data class DashboardMetrics(val total_families: Int, val total_packs: Int, val total_affected: Int, val active_users: Int = 0, val total_users: Int = 0)
 @Serializable data class LikeDTO(val user_id: String, val post_id: Long)
 @Serializable data class BookmarkDTO(val user_id: String, val post_id: Long)
 @Serializable data class AddressDTO(val house_number: String, val street: String)
 @Serializable data class NameDTO(val full_name: String)
 @Serializable data class ProfileDTO(val id: String, val email: String, val full_name: String, val contact_number: String, val house_number: String, val street: String, val barangay: String, val city: String, val province: String, val zip_code: String, val face_embedding: String?, val type: String, val avatar_name: String?)
+@Serializable data class DonationTrackingDTO(val donation_id: Long, val donation_status: String?, val donation_date: String?, val inventory_status: String?, val quantity_on_hand: Int?, val date_claimed: String?, val batch_name: String?)

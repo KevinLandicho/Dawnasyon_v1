@@ -12,7 +12,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class DonationReceipt_fragment extends BaseFragment {
 
@@ -42,11 +45,11 @@ public class DonationReceipt_fragment extends BaseFragment {
         TextView tvReceiptNo = view.findViewById(R.id.tv_receipt_no);
         TextView tvDate = view.findViewById(R.id.tv_receipt_date);
         TextView tvDonorName = view.findViewById(R.id.tv_donor_name);
+
         LinearLayout itemsContainer = view.findViewById(R.id.ll_items_container);
 
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // Fetch User Name
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null && isAdded()) {
                 tvDonorName.setText(profile.getFull_name());
@@ -60,31 +63,19 @@ public class DonationReceipt_fragment extends BaseFragment {
             DonationHistoryItem item = (DonationHistoryItem) getArguments().getSerializable(ARG_ITEM);
 
             if (item != null) {
-                // --- A. Set Reference Number ---
                 if (item.getReferenceNumber() != null && !item.getReferenceNumber().isEmpty()) {
                     tvReceiptNo.setText(item.getReferenceNumber());
                 } else {
                     tvReceiptNo.setText(String.format("ID-%d", item.getDonationId()));
                 }
 
-                // --- B. Set Date ---
                 tvDate.setText(item.getFormattedDate());
 
-                // --- C. Populate Items ---
                 if (itemsContainer != null) {
-                    // Clear dummy views
-                    int childCount = itemsContainer.getChildCount();
-                    if (childCount > 2) {
-                        itemsContainer.removeViews(2, childCount - 2);
-                    }
-
                     if (item.getType() != null && item.getType().equalsIgnoreCase("Cash")) {
-                        // Cash
                         addReceiptRow(itemsContainer, "Cash Donation", "₱" + item.getAmount());
                     } else {
-                        // In-Kind: Loop through items
                         List<DonationItem> subItems = item.getDonationItems();
-
                         if (subItems != null && !subItems.isEmpty()) {
                             for (DonationItem sub : subItems) {
                                 addReceiptRow(itemsContainer, sub.getItemName(), sub.getQtyString());
@@ -93,9 +84,94 @@ public class DonationReceipt_fragment extends BaseFragment {
                             addReceiptRow(itemsContainer, "In-Kind Donation", "See details");
                         }
                     }
+
+                    loadTrackingTimeline(itemsContainer, item.getDonationId());
                 }
             }
         }
+    }
+
+    private void loadTrackingTimeline(LinearLayout container, long donationId) {
+        View separator = new View(getContext());
+        separator.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2));
+        separator.setBackgroundColor(Color.parseColor("#E0E0E0"));
+        LinearLayout.LayoutParams sepParams = (LinearLayout.LayoutParams) separator.getLayoutParams();
+        sepParams.setMargins(0, 30, 0, 30);
+        separator.setLayoutParams(sepParams);
+        container.addView(separator);
+
+        TextView header = new TextView(getContext());
+        header.setText("Donation Journey");
+        header.setTextSize(16);
+        header.setTypeface(null, Typeface.BOLD);
+        header.setTextColor(Color.parseColor("#E65100"));
+        container.addView(header);
+
+        TextView tvLoading = new TextView(getContext());
+        tvLoading.setText("Tracking status...");
+        tvLoading.setTextSize(12);
+        tvLoading.setTextColor(Color.GRAY);
+        container.addView(tvLoading);
+
+        SupabaseJavaHelper.fetchDonationTracking(donationId, trackingDTO -> {
+            if (!isAdded()) return; // ⭐ FIXED: removed "return null;"
+            container.removeView(tvLoading);
+
+            if (trackingDTO != null) {
+                addTimelineRow(container, "✅ Received", "Verified by Admin on " + formatDate(trackingDTO.getDonation_date()), true);
+
+                if (trackingDTO.getInventory_status() != null) {
+                    String desc = "Status: " + trackingDTO.getInventory_status();
+                    if (trackingDTO.getQuantity_on_hand() != null) {
+                        desc += " (" + trackingDTO.getQuantity_on_hand() + " items in stock)";
+                    }
+                    addTimelineRow(container, "📦 Inventory", desc, true);
+                }
+
+                if (trackingDTO.getDate_claimed() != null) {
+                    String distDesc = "Given to " + (trackingDTO.getBatch_name() != null ? trackingDTO.getBatch_name() : "recipient");
+                    distDesc += " on " + formatDate(trackingDTO.getDate_claimed());
+                    addTimelineRow(container, "🤝 Distributed", distDesc, true);
+                } else {
+                    addTimelineRow(container, "⏳ Distribution", "Waiting for distribution...", false);
+                }
+
+            } else {
+                addTimelineRow(container, "Processing", "Tracking info pending.", false);
+            }
+            // ⭐ NO RETURN STATEMENT HERE
+        });
+    }
+
+    private void addTimelineRow(LinearLayout container, String title, String description, boolean isActive) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(16, 16, 0, 16);
+
+        TextView tvTitle = new TextView(getContext());
+        tvTitle.setText(title);
+        tvTitle.setTypeface(null, Typeface.BOLD);
+        tvTitle.setTextSize(14);
+        tvTitle.setTextColor(isActive ? Color.parseColor("#2E7D32") : Color.GRAY);
+
+        TextView tvDesc = new TextView(getContext());
+        tvDesc.setText(description);
+        tvDesc.setTextSize(12);
+        tvDesc.setTextColor(Color.DKGRAY);
+
+        row.addView(tvTitle);
+        row.addView(tvDesc);
+        container.addView(row);
+    }
+
+    private String formatDate(String rawDate) {
+        if (rawDate == null) return "";
+        try {
+            SimpleDateFormat input = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            if (rawDate.contains("T")) input = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+            Date d = input.parse(rawDate);
+            return new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(d);
+        } catch (Exception e) { return rawDate; }
     }
 
     private void addReceiptRow(LinearLayout container, String name, String value) {

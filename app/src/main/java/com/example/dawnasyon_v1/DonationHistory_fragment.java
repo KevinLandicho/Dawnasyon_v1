@@ -43,6 +43,8 @@ public class DonationHistory_fragment extends BaseFragment {
 
         if (rvHistory != null) {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
+
+            // ⭐ CLICK LISTENER: Opens the Receipt Fragment (which has the timeline)
             adapter = new DonationHistoryAdapter(historyList, item -> {
                 DonationReceipt_fragment receiptFragment = DonationReceipt_fragment.newInstance(item);
                 getParentFragmentManager().beginTransaction()
@@ -50,21 +52,28 @@ public class DonationHistory_fragment extends BaseFragment {
                         .addToBackStack(null)
                         .commit();
             });
+
             rvHistory.setAdapter(adapter);
             loadDonationHistory();
         }
     }
 
     private void loadDonationHistory() {
+        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
+
         SupabaseJavaHelper.fetchDonationHistory(new SupabaseJavaHelper.DonationHistoryCallback() {
             @Override
             public void onSuccess(List<DonationHistoryItem> data) {
-                if (isAdded()) processAndDisplay(data);
+                if (isAdded()) {
+                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                    processAndDisplay(data);
+                }
             }
 
             @Override
             public void onError(@NonNull String message) {
                 if (isAdded()) {
+                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                     Log.e("HistoryFrag", "Error: " + message);
                     Toast.makeText(getContext(), "Failed to load history", Toast.LENGTH_SHORT).show();
                 }
@@ -102,6 +111,7 @@ public class DonationHistory_fragment extends BaseFragment {
                     item.setDisplayDescription("In-Kind Donation");
                 }
             }
+            // Combine description with status
             item.setDisplayDescription(item.getDisplayDescription() + " (" + (item.getStatus() != null ? item.getStatus() : "Pending") + ")");
             item.setImageResId(R.drawable.ic_profile_avatar);
             historyList.add(item);
