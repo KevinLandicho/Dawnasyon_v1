@@ -18,10 +18,9 @@ import java.util.List;
 public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapter.AnnouncementViewHolder> {
 
     private List<Announcement> announcementList;
-    private OnItemClickListener listener; // ⭐ Changed to generic listener
+    private OnItemClickListener listener;
     private Context context;
 
-    // ⭐ Expanded Interface
     public interface OnItemClickListener {
         void onApplyClick(Announcement announcement);
         void onLikeClick(Announcement announcement, int position);
@@ -46,63 +45,66 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position) {
         Announcement item = announcementList.get(position);
 
+        // 1. Text Data
         holder.title.setText(item.getTitle());
         holder.timestamp.setText(item.getTimestamp());
         holder.description.setText(item.getDescription());
-        holder.tvLikeCount.setText(item.getLikeCount() + " likes"); // ⭐ Show Count
+        holder.tvLikeCount.setText(item.getLikeCount() + " likes");
 
-        // Image Loading
-        if (item.getImageUrl() != null && !item.getImageUrl().isEmpty()) {
+        // 2. Image Logic (Updated: Hide if null/empty)
+        if (item.getImageUrl() != null && !item.getImageUrl().trim().isEmpty()) {
+            holder.image.setVisibility(View.VISIBLE);
             Glide.with(context)
                     .load(item.getImageUrl())
                     .placeholder(R.drawable.ic_image_placeholder)
                     .error(R.drawable.ic_image_placeholder)
                     .into(holder.image);
         } else {
-            holder.image.setImageResource(R.drawable.ic_image_placeholder);
+            holder.image.setVisibility(View.GONE); // Removes the placeholder space entirely
         }
 
-        // ⭐ APPLY BUTTON LOGIC
+        // 3. Apply Button Logic (Updated: Show ONLY for 'Donation drive')
         String type = item.getType();
-        if (type != null && type.equalsIgnoreCase("General")) {
-            holder.btnApply.setVisibility(View.GONE);
-        } else {
+
+        // Check if type is strictly "Donation drive" (case-insensitive)
+        if (type != null && type.equalsIgnoreCase("Donation drive")) {
             holder.btnApply.setVisibility(View.VISIBLE);
 
             if (item.isApplied()) {
-                // Gray out if applied
+                // Gray out if already applied
                 holder.btnApply.setText("Applied");
                 holder.btnApply.setBackgroundColor(Color.GRAY);
                 holder.btnApply.setEnabled(false);
             } else {
-                // Orange if available
+                // Orange if available to apply
                 holder.btnApply.setText("Apply Now");
                 holder.btnApply.setBackgroundColor(Color.parseColor("#F5901A"));
                 holder.btnApply.setEnabled(true);
             }
+        } else {
+            // Hide for "General" or any other type
+            holder.btnApply.setVisibility(View.GONE);
         }
 
-        // ⭐ LIKE BUTTON VISUALS
+        // 4. Like Button Visuals
         if (item.isLiked()) {
-            holder.btnHeart.setImageResource(R.drawable.ic_heart_filled_red); // Ensure you have this drawable
+            holder.btnHeart.setImageResource(R.drawable.ic_heart_filled_red);
             holder.btnHeart.setColorFilter(Color.RED);
         } else {
             holder.btnHeart.clearColorFilter();
             holder.btnHeart.setImageResource(R.drawable.ic_heart_outline);
-
         }
 
-        // ⭐ BOOKMARK BUTTON VISUALS
+        // 5. Bookmark Button Visuals
         if (item.isBookmarked()) {
             holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_filled);
             holder.btnBookmark.setColorFilter(Color.parseColor("#F5901A"));
         } else {
             holder.btnBookmark.clearColorFilter();
             holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_outline);
-
         }
 
-        // Click Listeners
+        // 6. Click Listeners
         holder.btnApply.setOnClickListener(v -> listener.onApplyClick(item));
         holder.btnHeart.setOnClickListener(v -> listener.onLikeClick(item, position));
         holder.btnBookmark.setOnClickListener(v -> listener.onBookmarkClick(item, position));
@@ -129,11 +131,11 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             title = itemView.findViewById(R.id.txtAnnouncementTitle);
             timestamp = itemView.findViewById(R.id.txtAnnouncementTime);
             description = itemView.findViewById(R.id.txtAnnouncementDescription);
-            tvLikeCount = itemView.findViewById(R.id.tv_like_count); // Ensure this ID exists in XML
+            tvLikeCount = itemView.findViewById(R.id.tv_like_count);
 
             btnApply = itemView.findViewById(R.id.btnApply);
-            btnHeart = itemView.findViewById(R.id.btnLike);         // Ensure this ID exists in XML
-            btnBookmark = itemView.findViewById(R.id.btnBookmark);   // Ensure this ID exists in XML
+            btnHeart = itemView.findViewById(R.id.btnLike);
+            btnBookmark = itemView.findViewById(R.id.btnBookmark);
         }
     }
 }

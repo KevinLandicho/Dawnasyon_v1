@@ -37,8 +37,8 @@ public class Home_fragment extends BaseFragment {
 
     private boolean isUserVerified = false;
     private String userType = "Resident";
+    private String currentUserStreet = "";
 
-    // ⭐ NEW: Flag to control loading indicator behavior
     private boolean isFirstLoad = true;
 
     private final Runnable sliderRunnable = new Runnable() {
@@ -69,7 +69,6 @@ public class Home_fragment extends BaseFragment {
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
         tvEmptyPlaceholder = view.findViewById(R.id.tv_empty_placeholder);
 
-        // Setup UI (But DO NOT load data yet)
         setupCarousel();
         setupAnnouncementsList();
         setupSearch();
@@ -77,21 +76,11 @@ public class Home_fragment extends BaseFragment {
         return view;
     }
 
-    // ⭐ MOVED DATA LOADING TO ONRESUME
-    // This ensures that even if Auth takes a second to load,
-    // the fragment refreshes the data as soon as it appears.
     @Override
     public void onResume() {
         super.onResume();
-
-        // 1. Restart Slider
         sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
-
-        // 2. Load User Profile (Fixes "Welcome User" missing)
-        loadUserProfile();
-
-        // 3. Load Announcements (Fixes Likes/Bookmarks missing)
-        fetchAnnouncementsFromSupabase();
+        loadUserProfileAndAnnouncements();
     }
 
     @Override
@@ -106,13 +95,22 @@ public class Home_fragment extends BaseFragment {
         sliderHandler.removeCallbacksAndMessages(null);
     }
 
-    private void loadUserProfile() {
+    private void loadUserProfileAndAnnouncements() {
+        if (isFirstLoad && getActivity() instanceof BaseActivity) {
+            ((BaseActivity) getActivity()).showLoading();
+        }
+
         AuthHelper.fetchUserProfile(profile -> {
-            if (profile != null && isAdded()) {
+            if (!isAdded()) return null;
+
+            if (profile != null) {
                 welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
                 isUserVerified = Boolean.TRUE.equals(profile.getVerified());
                 if (profile.getType() != null) userType = profile.getType();
+                currentUserStreet = (profile.getStreet() != null) ? profile.getStreet().trim() : "";
             }
+
+            fetchAnnouncementsFromSupabase();
             return null;
         });
     }
@@ -217,8 +215,6 @@ public class Home_fragment extends BaseFragment {
     }
 
     private void fetchAnnouncementsFromSupabase() {
-        // ⭐ OPTIMIZATION: Only show blocking loader on the very first load
-        // Subsequent refreshes (tabs) happen silently in background
         if (isFirstLoad && getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
@@ -226,20 +222,42 @@ public class Home_fragment extends BaseFragment {
         SupabaseJavaHelper.fetchAnnouncements(new SupabaseJavaHelper.AnnouncementCallback() {
             @Override
             public void onSuccess(List<Announcement> data) {
-                // Hide loader regardless of first load or not
                 if (isAdded() && getActivity() instanceof BaseActivity) {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
 
                 if (isAdded()) {
+                    List<Announcement> filteredList = new ArrayList<>();
+
+                    for (Announcement item : data) {
+                        boolean showIt = true;
+
+                        // ⭐ KEY LOGIC
+                        if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
+                            String targetStreet = item.getAffected_street();
+
+                            if (targetStreet == null || targetStreet.trim().isEmpty()) {
+                                showIt = true;
+                            } else if (targetStreet.equalsIgnoreCase("All Streets") || targetStreet.equalsIgnoreCase("All")) {
+                                showIt = true;
+                            } else {
+                                showIt = targetStreet.equalsIgnoreCase(currentUserStreet);
+                            }
+                        }
+
+                        if (showIt) {
+                            filteredList.add(item);
+                        }
+                    }
+
                     announcementList.clear();
-                    announcementList.addAll(data);
+                    announcementList.addAll(filteredList);
                     fullAnnouncementList.clear();
-                    fullAnnouncementList.addAll(data);
+                    fullAnnouncementList.addAll(filteredList);
                     announcementAdapter.notifyDataSetChanged();
                     updatePlaceholder(announcementList.isEmpty());
 
-                    isFirstLoad = false; // Mark first load complete
+                    isFirstLoad = false;
                 }
             }
 

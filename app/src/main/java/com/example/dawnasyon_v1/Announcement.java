@@ -1,8 +1,9 @@
 package com.example.dawnasyon_v1;
 
 import com.google.gson.annotations.SerializedName;
+import java.io.Serializable; // Added Serializable just in case
 
-public class Announcement {
+public class Announcement implements Serializable {
 
     @SerializedName("post_id")
     private long postId;
@@ -25,11 +26,14 @@ public class Announcement {
     @SerializedName("type")
     private String type;
 
-    // ⭐ NEW FIELDS (These might be null from API, default to false/0)
+    // ⭐ NEW: This allows filtering by street
+    @SerializedName("affected_street")
+    private String affectedStreet;
+
     @SerializedName("like_count")
     private int likeCount = 0;
 
-    // Local state tracking (Not always from API)
+    // Local state tracking
     private boolean isApplied = false;
     private boolean isLiked = false;
     private boolean isBookmarked = false;
@@ -45,7 +49,9 @@ public class Announcement {
     public Long getLinkedDriveId() { return linkedDriveId; }
     public String getType() { return type; }
 
-    // ⭐ New Getters & Setters
+    // ⭐ NEW GETTER (Matches what Home_fragment expects)
+    public String getAffected_street() { return affectedStreet; }
+
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
 

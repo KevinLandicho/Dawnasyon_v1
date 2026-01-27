@@ -43,7 +43,7 @@ public class Dashboard_fragment extends BaseFragment {
 
     private PieChart chartRelief;
     private PieChart chartAffected;
-    private PieChart chartUserActivity; // New chart
+    private PieChart chartUserActivity;
     private LineChart chartFamilies;
     private LineChart chartDonations;
     private RadarChart chartImpact;
@@ -54,7 +54,6 @@ public class Dashboard_fragment extends BaseFragment {
     private TextView tvImpactCount;
     private ImageView iconFilter;
 
-    // Added back original text views
     private TextView txtPrediction;
     private TextView txtRiskBadge;
     private TextView txtRiskDesc;
@@ -88,7 +87,6 @@ public class Dashboard_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Bind Views
         chartRelief = view.findViewById(R.id.chart_relief_status);
         chartAffected = view.findViewById(R.id.chart_affected_areas);
         chartUserActivity = view.findViewById(R.id.chart_user_activity);
@@ -99,7 +97,6 @@ public class Dashboard_fragment extends BaseFragment {
         tvImpactCount = view.findViewById(R.id.tv_impact_count);
         iconFilter = view.findViewById(R.id.icon_filter);
 
-        // Restore bindings for analytics text views
         txtPrediction = view.findViewById(R.id.txt_prediction);
         txtRiskBadge = view.findViewById(R.id.txt_risk_badge);
         txtRiskDesc = view.findViewById(R.id.txt_risk_desc);
@@ -158,7 +155,7 @@ public class Dashboard_fragment extends BaseFragment {
 
         SupabaseJavaHelper.fetchDashboardData(filterType, new SupabaseJavaHelper.DashboardCallback() {
             @Override
-            public void onDataLoaded(Map<String, Integer> inventory, Map<String, Integer> areas, Map<String, Float> donations, Map<String, Integer> families, DashboardMetrics metrics) {
+            public void onDataLoaded(Map<String, Integer> inventory, Map<String, Integer> areas, Map<String, Float> donations, Map<String, Integer> families, DashboardMetrics metrics, Map<String, Integer> impact) {
                 if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                 if (!isAdded()) return;
 
@@ -177,8 +174,11 @@ public class Dashboard_fragment extends BaseFragment {
 
                 updateListUI(llReliefList, inventory, "Item");
                 updateListUI(llAffectedList, areas, "Street");
+
+                // ⭐ Updates UI based on Affected vs Stock ratio
                 updateAnalyticsUI(view, metrics);
-                updateRadarChart(areas);
+
+                updateRadarChart(impact);
             }
 
             @Override
@@ -202,21 +202,16 @@ public class Dashboard_fragment extends BaseFragment {
         chartUserActivity.setEntryLabelColor(Color.WHITE);
         chartUserActivity.setCenterText("User\nActivity");
         chartUserActivity.setCenterTextSize(10f);
-
-        // ⭐ KEY CHANGE: Hide Entry Labels (Text like "Active", "Inactive" on the pie)
         chartUserActivity.setDrawEntryLabels(false);
-
         Legend l = chartUserActivity.getLegend();
         l.setEnabled(false);
     }
 
     private void updateUserActivityChart(int activeCount, int totalCount) {
         if (chartUserActivity == null) return;
-
         int inactiveCount = Math.max(0, totalCount - activeCount);
         List<PieEntry> entries = new ArrayList<>();
         ArrayList<Integer> colors = new ArrayList<>();
-
         if (activeCount > 0) {
             entries.add(new PieEntry((float) activeCount, "Active"));
             colors.add(COLOR_ACTIVE);
@@ -225,25 +220,19 @@ public class Dashboard_fragment extends BaseFragment {
             entries.add(new PieEntry((float) inactiveCount, "Inactive"));
             colors.add(COLOR_INACTIVE);
         }
-
         if (entries.isEmpty()) {
             entries.add(new PieEntry(1f, "No Data"));
             colors.add(Color.LTGRAY);
         }
-
         PieDataSet dataSet = new PieDataSet(entries, "Activity");
         dataSet.setColors(colors);
         dataSet.setSliceSpace(3f);
         dataSet.setSelectionShift(5f);
-
-        // ⭐ KEY CHANGE: Disable drawing values (The numbers/percentages on the slices)
         dataSet.setDrawValues(false);
-
         PieData data = new PieData(dataSet);
         data.setValueFormatter(new PercentFormatter(chartUserActivity));
         data.setValueTextSize(11f);
         data.setValueTextColor(Color.WHITE);
-
         chartUserActivity.setData(data);
         chartUserActivity.setCenterText("Active:\n" + activeCount);
         chartUserActivity.invalidate();
@@ -264,7 +253,11 @@ public class Dashboard_fragment extends BaseFragment {
     }
 
     private void updateRadarChart(Map<String, Integer> data) {
-        if (data == null || data.isEmpty()) return;
+        if (data == null || data.isEmpty()) {
+            chartImpact.clear();
+            if (tvImpactCount != null) tvImpactCount.setText("0");
+            return;
+        }
         List<RadarEntry> entries = new ArrayList<>();
         List<String> labels = new ArrayList<>();
         int totalHelped = 0;
@@ -307,17 +300,28 @@ public class Dashboard_fragment extends BaseFragment {
         }
     }
 
+    // ⭐ KEY UPDATE: Coverage Ratio = Relief Packs / Total Affected
     private void updateAnalyticsUI(View view, DashboardMetrics metrics) {
-        int totalFamilies = metrics.getTotal_families();
-        int reliefPacks = metrics.getTotal_packs();
-        int totalAffected = metrics.getTotal_affected();
+        int totalPopulation = metrics.getTotal_families(); // Census
+        int reliefPacks = metrics.getTotal_packs();        // Inventory Stock
+        int totalAffected = metrics.getTotal_affected();   // Victims (from Announcements)
 
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
-        if (tvPercentage != null) tvPercentage.setText(String.valueOf(totalFamilies));
+        if (tvPercentage != null) tvPercentage.setText(String.valueOf(totalPopulation));
 
-        if (totalFamilies == 0) totalFamilies = 1;
-        int coveragePercent = (reliefPacks * 100) / totalFamilies;
-        int deficit = Math.max(0, totalFamilies - reliefPacks);
+        // ⭐ CALCULATION LOGIC:
+        // Coverage = How much stock we have versus how many families need help
+        int denominator = (totalAffected == 0) ? 1 : totalAffected; // Avoid div by 0
+        int coveragePercent = 0;
+
+        if (totalAffected > 0) {
+            coveragePercent = (reliefPacks * 100) / totalAffected;
+        } else {
+            coveragePercent = 100; // If no one is affected, coverage is 100% (safe)
+        }
+
+        // Deficit: How many more packs are needed
+        int deficit = Math.max(0, totalAffected - reliefPacks);
 
         ProgressBar progCoverage = view.findViewById(R.id.progress_coverage);
         TextView txtPercent = view.findViewById(R.id.txt_coverage_percent);
@@ -326,29 +330,35 @@ public class Dashboard_fragment extends BaseFragment {
         if (progCoverage != null) {
             progCoverage.setProgress(coveragePercent);
             txtPercent.setText(coveragePercent + "%");
-            if (coveragePercent < 50) {
-                progCoverage.setProgressTintList(ColorStateList.valueOf(Color.RED));
-                txtInsight.setText("CRITICAL: " + deficit + " families have no allocated packs.");
-                txtInsight.setTextColor(Color.RED);
 
-                // Update Prediction Text
+            if (totalAffected == 0) {
+                // Scenario: No disasters currently
+                progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
+                txtInsight.setText("✅ No active disasters reported.");
+                txtInsight.setTextColor(Color.parseColor("#2E7D32"));
+                if(txtPrediction != null) txtPrediction.setText("Status: Normal");
+            } else if (coveragePercent < 50) {
+                // Critical: Less than half covered
+                progCoverage.setProgressTintList(ColorStateList.valueOf(Color.RED));
+                txtInsight.setText("CRITICAL: " + deficit + " affected families have no allocated packs.");
+                txtInsight.setTextColor(Color.RED);
                 if(txtPrediction != null) txtPrediction.setText("High Risk: Immediate resupply needed.");
             } else if (coveragePercent < 100) {
+                // Warning: Some not covered
                 progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DEEP_ORANGE));
-                txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed.");
+                txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed for victims.");
                 txtInsight.setTextColor(COLOR_DEEP_ORANGE);
-
                 if(txtPrediction != null) txtPrediction.setText("Medium Risk: Stock falling below demand.");
             } else {
+                // Good: All covered
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
-                txtInsight.setText("✅ Sufficient Stock.");
+                txtInsight.setText("✅ Sufficient Stock for all " + totalAffected + " affected families.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
-
                 if(txtPrediction != null) txtPrediction.setText("Low Risk: Inventory is healthy.");
             }
         }
 
-        // Update Risk Index Badge
+        // Update Risk Index Badge based on Affected Count
         if (txtRiskBadge != null) {
             if (totalAffected > 50) {
                 txtRiskBadge.setText("HIGH ALERT");
