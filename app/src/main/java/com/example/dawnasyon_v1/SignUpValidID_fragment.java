@@ -6,6 +6,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,10 +27,7 @@ import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
-// Add Face Detection Import (Optional - see note below)
-// import com.google.mlkit.vision.face.FaceDetection;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -67,9 +65,11 @@ public class SignUpValidID_fragment extends BaseFragment {
                             GmsDocumentScanningResult res = GmsDocumentScanningResult.fromActivityResultIntent(result.getData());
                             if (res != null && !res.getPages().isEmpty()) {
                                 capturedImageUri = res.getPages().get(0).getImageUri();
-                                verifyAndProcessImage(capturedImageUri); // CHANGED: Verify first!
+                                verifyAndProcessImage(capturedImageUri);
                             }
-                        } catch (Exception e) {}
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
         );
@@ -80,7 +80,7 @@ public class SignUpValidID_fragment extends BaseFragment {
                 uri -> {
                     if (uri != null) {
                         capturedImageUri = uri;
-                        verifyAndProcessImage(capturedImageUri); // CHANGED: Verify first!
+                        verifyAndProcessImage(capturedImageUri);
                     }
                 }
         );
@@ -134,7 +134,7 @@ public class SignUpValidID_fragment extends BaseFragment {
 
             recognizer.process(image)
                     .addOnSuccessListener(visionText -> {
-                        // 1. RUN SECURITY CHECK
+                        // 1. RUN SECURITY CHECK (STRICT)
                         if (isContentValid(visionText.getText(), selectedIdType)) {
                             // 2. If valid, proceed to extraction
                             processTextResult(visionText, selectedIdType);
@@ -144,7 +144,7 @@ public class SignUpValidID_fragment extends BaseFragment {
                             showInvalidIdDialog();
                             btnStartScan.setText("Start Scan");
                             btnStartScan.setEnabled(true);
-                            capturedImageUri = null; // Discard invalid image
+                            capturedImageUri = null;
                         }
                     })
                     .addOnFailureListener(e -> {
@@ -155,45 +155,54 @@ public class SignUpValidID_fragment extends BaseFragment {
         } catch (Exception e) { e.printStackTrace(); }
     }
 
+    // ⭐ UPDATED: STRICT VALIDATION (No Generic Fallbacks)
     private boolean isContentValid(String rawText, String expectedType) {
         String text = rawText.toUpperCase();
 
-        // GLOBAL CHECKS (Must have at least one of these to be a PH ID)
-        boolean hasGovKeywords = text.contains("REPUBLIC") || text.contains("PILIPINAS") ||
-                text.contains("PHILIPPINES") || text.contains("GOVERNMENT");
-
-        if (!hasGovKeywords && !expectedType.equals("QC_ID")) {
-            // QC ID sometimes has different headers, but generally all PH IDs have "Republic"
-            // If strictly missing 'Republic', we might reject immediately unless it's a very clear view.
-            return false;
-        }
-
-        // SPECIFIC CHECKS based on what button they clicked
         switch (expectedType) {
-            case "NATIONAL_ID":
-                return text.contains("PHILSYS") || text.contains("PAMBANSANG") || text.contains("PCN");
-
             case "QC_ID":
-                return text.contains("QCITIZEN") || text.contains("QUEZON CITY") || text.contains("MAYOR");
-
-            case "BRGY_ID":
-                return text.contains("BARANGAY") || text.contains("BRGY") || text.contains("OFFICE OF THE");
-
-            case "PASSPORT":
-                return text.contains("PASSPORT") || text.contains("PASAPORTE") || text.contains("P<PHL");
+                // Must explicitly contain QC keywords
+                return text.contains("QCITIZEN") ||
+                        text.contains("QUEZON CITY") ||
+                        text.contains("LUNGSOD QUEZON") ||
+                        text.contains("CITIZEN CARD") ||
+                        text.contains("KASAMA KA");
 
             case "LICENSE":
-                return text.contains("DRIVER") && text.contains("LICENSE");
+                // Must explicitly look like a license
+                return (text.contains("DRIVER") && text.contains("LICENSE")) ||
+                        text.contains("LAND TRANSPORTATION") ||
+                        text.contains("LTO") ||
+                        text.contains("PROFESSIONAL") ||
+                        text.contains("NON-PROFESSIONAL");
 
-            default:
-                return hasGovKeywords; // Fallback
+            case "NATIONAL_ID":
+                // Must explicitly be a National ID
+                return text.contains("PHILSYS") ||
+                        text.contains("PAMBANSANG") ||
+                        text.contains("PCN") ||
+                        text.contains("PHILIPPINE IDENTIFICATION");
+
+            case "PASSPORT":
+                // Must explicitly be a Passport
+                return text.contains("PASSPORT") ||
+                        text.contains("PASAPORTE") ||
+                        text.contains("P<PHL");
+
+            case "BRGY_ID":
+                // Must explicitly be Barangay related
+                return text.contains("BARANGAY") ||
+                        text.contains("BRGY") ||
+                        text.contains("OFFICE OF THE PUNONG");
         }
+
+        return false; // Default: If no keywords match the selected type, REJECT.
     }
 
     private void showInvalidIdDialog() {
         new AlertDialog.Builder(getContext())
-                .setTitle("Validation Failed")
-                .setMessage("The image you scanned does not appear to be a valid " + getReadableIdName() + ".\n\nPlease ensure the text is clear and readable.")
+                .setTitle("Incorrect ID Type")
+                .setMessage("The scanned image does not match the selected ID type (" + getReadableIdName() + ").\n\nPlease ensure you selected the correct button and scanned the correct document.")
                 .setPositiveButton("Try Again", null)
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .show();
@@ -204,11 +213,10 @@ public class SignUpValidID_fragment extends BaseFragment {
             case "NATIONAL_ID": return "National ID";
             case "QC_ID": return "Quezon City ID";
             case "PASSPORT": return "Passport";
+            case "LICENSE": return "Driver's License";
             default: return "ID";
         }
     }
-
-    // --- STANDARD METHODS (Unchanged) ---
 
     private void handleIdSelection(String idType, Button selectedButton) {
         selectedIdType = idType;
@@ -250,10 +258,15 @@ public class SignUpValidID_fragment extends BaseFragment {
                 .commit();
     }
 
+    // --- 🔍 TEXT EXTRACTION LOGIC (Same robust logic as before) ---
+
     private void processTextResult(Text text, String type) {
         String[] lines = text.getText().split("\n");
+        extractFName = ""; extractLName = ""; extractMName = "";
+
         switch (type) {
             case "QC_ID": parseQCID(lines); break;
+            case "LICENSE": parseDriversLicense(lines); break;
             case "NATIONAL_ID": parseNationalID(lines); break;
             case "BRGY_ID": parseBarangayID(lines); break;
             case "PASSPORT": parsePassport(lines); break;
@@ -261,27 +274,64 @@ public class SignUpValidID_fragment extends BaseFragment {
         }
     }
 
-    // ... [Include parseQCID, parseNationalID, parseBarangayID, parsePassport, cleanText helpers here] ...
-    // (These are the same as the previous response)
-
     private void parseQCID(String[] lines) {
+        boolean headerFound = false;
+        // Strategy 1: Header
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim().toUpperCase();
+            if (line.contains("LAST NAME") && (line.contains("FIRST NAME") || line.contains("M.I."))) {
+                if (i + 1 < lines.length) {
+                    parseCommaSeparatedName(lines[i + 1].trim());
+                    headerFound = true;
+                    break;
+                }
+            }
+        }
+        // Strategy 2: Fallback
+        if (!headerFound || extractLName.isEmpty()) {
+            for (String line : lines) {
+                String cleanLine = line.trim().toUpperCase();
+                if (cleanLine.contains("LAST NAME") || cleanLine.contains("FIRST NAME")) continue;
+                if (cleanLine.contains(",") && !cleanLine.matches(".*\\d.*") && !cleanLine.contains("QUEZON CITY") && !cleanLine.contains("ADDRESS")) {
+                    parseCommaSeparatedName(cleanLine);
+                    if (!extractLName.isEmpty()) return;
+                }
+            }
+        }
+    }
+
+    private void parseDriversLicense(String[] lines) {
+        // Strategy 1: Header
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim().toUpperCase();
             if (line.contains("LAST NAME") && line.contains("FIRST NAME")) {
                 if (i + 1 < lines.length) {
-                    String val = lines[i + 1].trim();
-                    if (val.contains(",")) {
-                        String[] parts = val.split(",");
-                        if (parts.length >= 2) {
-                            extractLName = cleanText(parts[0]);
-                            splitFirstAndMiddleName(parts[1].trim());
-                        }
-                    } else {
-                        extractLName = cleanText(val);
-                    }
+                    parseCommaSeparatedName(lines[i + 1].trim());
+                    return;
                 }
-                return;
             }
+        }
+        // Strategy 2: Fallback
+        for (String line : lines) {
+            String cleanLine = line.trim().toUpperCase();
+            if (cleanLine.contains("LAST NAME") || cleanLine.contains("FIRST NAME")) continue;
+            if (cleanLine.contains(",") && !cleanLine.contains("ADDRESS") && !cleanLine.contains("NAME")) {
+                parseCommaSeparatedName(cleanLine);
+                if (!extractLName.isEmpty()) return;
+            }
+        }
+    }
+
+    private void parseCommaSeparatedName(String fullText) {
+        if (!fullText.contains(",")) return;
+        String[] parts = fullText.split(",");
+        String lastNameCandidate = cleanText(parts[0]);
+        if (!lastNameCandidate.equalsIgnoreCase("NAME") && !lastNameCandidate.equalsIgnoreCase("LAST")) {
+            extractLName = lastNameCandidate;
+        }
+        if (parts.length > 1) {
+            String firstAndMiddle = parts[1].trim();
+            splitFirstAndMiddleName(firstAndMiddle);
         }
     }
 
