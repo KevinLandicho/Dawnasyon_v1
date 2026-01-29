@@ -6,6 +6,7 @@ import java.util.List;
 public class RegistrationCache {
     public static String tempEmail = "";
     public static String tempPassword = "";
+    public static boolean hasViewedTerms = false;
     public static String tempFullName = ""; // This stores the name from Step 1
     public static String tempContact = "";
     public static String faceEmbedding = "";
