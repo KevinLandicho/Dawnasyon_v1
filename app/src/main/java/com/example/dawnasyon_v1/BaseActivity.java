@@ -5,6 +5,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.content.res.Resources;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -13,11 +15,12 @@ import android.widget.Button;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 
 public class BaseActivity extends AppCompatActivity {
 
     private AlertDialog noInternetDialog;
-    private AlertDialog loadingDialog; // ⭐ NEW VARIABLE
+    private AlertDialog loadingDialog;
     private NetworkReceiver networkReceiver;
 
     @Override
@@ -27,9 +30,24 @@ public class BaseActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        // ⭐ FIX 1: Force Light Mode to prevent UI colors breaking
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+
         super.onCreate(savedInstanceState);
         createNoInternetDialog();
-        createLoadingDialog(); // ⭐ INITIALIZE LOADING DIALOG
+        createLoadingDialog();
+    }
+
+    // ⭐ FIX 2: Force Font Scale to 1.0x to prevent layout rumble
+    @Override
+    public Resources getResources() {
+        Resources res = super.getResources();
+        if (res.getConfiguration().fontScale != 1.0f) {
+            Configuration newConfig = new Configuration(res.getConfiguration());
+            newConfig.fontScale = 1.0f; // Reset to standard size
+            res.updateConfiguration(newConfig, res.getDisplayMetrics());
+        }
+        return res;
     }
 
     @Override
@@ -57,7 +75,7 @@ public class BaseActivity extends AppCompatActivity {
         }
     }
 
-    // --- NO INTERNET LOGIC (EXISTING) ---
+    // --- NO INTERNET LOGIC ---
     private void createNoInternetDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LayoutInflater inflater = getLayoutInflater();
@@ -86,26 +104,16 @@ public class BaseActivity extends AppCompatActivity {
         }
     }
 
-    // --- ⭐ NEW: LOADING DIALOG LOGIC ---
-
+    // --- LOADING DIALOG LOGIC ---
     private void createLoadingDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         LayoutInflater inflater = getLayoutInflater();
         View dialogView = inflater.inflate(R.layout.dialog_loading, null);
         builder.setView(dialogView);
-
-        // Prevent user from clicking outside to close it
         builder.setCancelable(false);
-
-        // Make background transparent if you want the rounded corners to show nicely
-        // (Optional, depends on your theme)
-        // if (builder.getContext() != null) {
-        //     dialogView.setBackgroundResource(android.R.color.transparent);
-        // }
 
         loadingDialog = builder.create();
 
-        // Remove standard dialog background to show our rounded drawable
         if (loadingDialog.getWindow() != null) {
             loadingDialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         }
