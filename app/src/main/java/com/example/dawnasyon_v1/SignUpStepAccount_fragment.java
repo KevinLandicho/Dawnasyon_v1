@@ -1,7 +1,6 @@
 package com.example.dawnasyon_v1;
 
 import android.annotation.SuppressLint;
-import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.text.method.HideReturnsTransformationMethod;
 import android.text.method.PasswordTransformationMethod;
@@ -16,14 +15,11 @@ import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 
 public class SignUpStepAccount_fragment extends BaseFragment {
 
     private EditText etPassword, etConfirm;
     private CheckBox cbTerms;
-    private boolean isPasswordVisible = false;
-    private boolean isConfirmVisible = false;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -42,12 +38,11 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         Button btnPrevious = view.findViewById(R.id.btn_previous);
         TextView tvTermsLink = view.findViewById(R.id.tv_terms_link);
 
-        // ⭐ 1. SETUP SHOW/HIDE PASSWORD TOGGLES
+        // 1. SETUP SHOW/HIDE PASSWORD TOGGLES
         setupPasswordToggle(etPassword);
         setupPasswordToggle(etConfirm);
 
-        // ⭐ 2. TERMS & CONDITIONS LOGIC
-        // Initially disable checkbox if terms haven't been viewed
+        // 2. TERMS & CONDITIONS LOGIC
         if (RegistrationCache.hasViewedTerms) {
             cbTerms.setEnabled(true);
         } else {
@@ -55,20 +50,14 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             cbTerms.setOnClickListener(v -> {
                 if (!cbTerms.isEnabled()) {
                     Toast.makeText(getContext(), "Please read the Terms and Conditions first.", Toast.LENGTH_SHORT).show();
-                    cbTerms.setChecked(false); // Force uncheck just in case
+                    cbTerms.setChecked(false);
                 }
             });
         }
 
-        // Handle clicking the link
         tvTermsLink.setOnClickListener(v -> {
-            // Mark as viewed in cache
             RegistrationCache.hasViewedTerms = true;
-
-            // Enable immediately for UI feedback
             cbTerms.setEnabled(true);
-
-            // Open TermsAndConditions_fragment
             if (getParentFragmentManager() != null) {
                 getParentFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container_signup, new TermsAndConditions_fragment())
@@ -91,19 +80,52 @@ public class SignUpStepAccount_fragment extends BaseFragment {
 
             String password = etPassword.getText().toString().trim();
             String confirm = etConfirm.getText().toString().trim();
+            String email = RegistrationCache.tempEmail != null ? RegistrationCache.tempEmail : "user@example.com";
 
-            // Handle missing email safely
-            String email = RegistrationCache.tempEmail;
-            if (email == null) email = "user@example.com";
+            // ⭐ PASSWORD SECURITY CHECKS START HERE ⭐
 
             if (password.isEmpty()) {
                 Toast.makeText(getContext(), "Please enter a password", Toast.LENGTH_SHORT).show();
                 return;
             }
+
+            // Check Length (Min 8)
+            if (password.length() < 8) {
+                Toast.makeText(getContext(), "Password must be at least 8 characters long.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Check Uppercase
+            if (!password.matches(".*[A-Z].*")) {
+                Toast.makeText(getContext(), "Password must contain at least one Uppercase letter (A-Z).", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Check Lowercase
+            if (!password.matches(".*[a-z].*")) {
+                Toast.makeText(getContext(), "Password must contain at least one Lowercase letter (a-z).", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Check Number
+            if (!password.matches(".*[0-9].*")) {
+                Toast.makeText(getContext(), "Password must contain at least one Number (0-9).", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Check Special Character (@, #, $, %, etc.)
+            if (!password.matches(".*[@#$%^&+=!._-].*")) {
+                Toast.makeText(getContext(), "Password must contain at least one Special Character (e.g., @ # $ %)", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Check if passwords match
             if (!password.equals(confirm)) {
                 Toast.makeText(getContext(), "Passwords do not match", Toast.LENGTH_SHORT).show();
                 return;
             }
+
+            // ⭐ SECURITY CHECKS END ⭐
 
             RegistrationCache.tempPassword = password;
             RegistrationCache.tempEmail = email;
@@ -144,12 +166,8 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ HELPER METHOD: Adds an Eye Icon to the EditText
     @SuppressLint("ClickableViewAccessibility")
     private void setupPasswordToggle(EditText editText) {
-        // Set initial icon (Eye Closed)
-        // Note: android.R.drawable.ic_menu_view is a generic eye icon available in Android
-        // You can replace this with R.drawable.ic_eye_on / ic_eye_off if you have custom icons
         editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_menu_view, 0);
 
         editText.setOnTouchListener((v, event) -> {
@@ -157,23 +175,17 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             if (event.getAction() == MotionEvent.ACTION_UP) {
                 if (event.getRawX() >= (editText.getRight() - editText.getCompoundDrawables()[DRAWABLE_RIGHT].getBounds().width())) {
 
-                    // Toggle Logic
                     int selectionStart = editText.getSelectionStart();
                     int selectionEnd = editText.getSelectionEnd();
 
                     if (editText.getTransformationMethod() instanceof PasswordTransformationMethod) {
-                        // Show Password
                         editText.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
-                        // Change icon to "open eye" state if you have one, or tint it
                         editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_menu_view, 0);
                     } else {
-                        // Hide Password
                         editText.setTransformationMethod(PasswordTransformationMethod.getInstance());
-                        // Change icon back
                         editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_secure, 0);
                     }
 
-                    // Restore cursor position
                     editText.setSelection(selectionStart, selectionEnd);
                     return true;
                 }
@@ -185,7 +197,6 @@ public class SignUpStepAccount_fragment extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Re-check state when returning from Terms fragment
         if (RegistrationCache.hasViewedTerms && cbTerms != null) {
             cbTerms.setEnabled(true);
         }

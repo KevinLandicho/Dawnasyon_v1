@@ -29,6 +29,10 @@ public class SignUpOTP_fragment extends BaseFragment {
     private CountDownTimer countDownTimer;
     private boolean isResendEnabled = false;
 
+    // ⭐ 5 Minutes Timer (300,000 milliseconds)
+    // Supabase/Resend limits are usually strict, so 5 mins is safer than 1 min.
+    private final long TIMER_DURATION = 300000;
+
     private ActivityResultLauncher<Intent> faceScanLauncher;
 
     public SignUpOTP_fragment() {}
@@ -42,7 +46,7 @@ public class SignUpOTP_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Face Scan Launcher
+        // Face Scan Launcher (The next step after OTP)
         faceScanLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -51,6 +55,8 @@ public class SignUpOTP_fragment extends BaseFragment {
                         createProfile();
                     } else {
                         Toast.makeText(getContext(), "Face scan skipped or failed.", Toast.LENGTH_SHORT).show();
+                        // Proceed to profile creation anyway
+                        createProfile();
                     }
                 }
         );
@@ -59,8 +65,9 @@ public class SignUpOTP_fragment extends BaseFragment {
         tvSubtitle = view.findViewById(R.id.tv_subtitle);
         Button btnPrevious = view.findViewById(R.id.btn_previous);
 
+        String email = RegistrationCache.tempEmail;
         if (tvSubtitle != null) {
-            tvSubtitle.setText("We've sent a code to " + RegistrationCache.tempEmail);
+            tvSubtitle.setText("We've sent a code to " + (email != null ? email : "your email"));
         }
 
         otpInputs = new EditText[]{
@@ -70,8 +77,8 @@ public class SignUpOTP_fragment extends BaseFragment {
         };
         setupOTPInputs();
 
-        // Start Timer (60s)
-        startTimer(60 * 1000);
+        // Start the 5-minute timer immediately
+        startTimer(TIMER_DURATION);
 
         // Resend Button Logic
         tvTimer.setOnClickListener(v -> {
@@ -86,27 +93,38 @@ public class SignUpOTP_fragment extends BaseFragment {
     private void performResendOtp() {
         String email = RegistrationCache.tempEmail;
         if (email == null || email.isEmpty()) {
-            Toast.makeText(getContext(), "Email missing. Restart signup.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "Email missing. Please restart signup.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // Disable button immediately to prevent double-clicks
         tvTimer.setText("Sending...");
         tvTimer.setEnabled(false);
+        tvTimer.setTextColor(Color.GRAY);
 
+        // Call Supabase (which now uses Resend)
         AuthHelper.resendOtp(email, new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
                 if (!isAdded()) return;
-                Toast.makeText(getContext(), "Code resent!", Toast.LENGTH_SHORT).show();
-                startTimer(60 * 1000);
+                Toast.makeText(getContext(), "Code resent! Check your inbox.", Toast.LENGTH_LONG).show();
+                // Restart 5 minute timer
+                startTimer(TIMER_DURATION);
             }
 
             @Override
             public void onError(String message) {
                 if (!isAdded()) return;
                 Toast.makeText(getContext(), "Resend failed: " + message, Toast.LENGTH_SHORT).show();
-                tvTimer.setText("Resend Code");
-                tvTimer.setEnabled(true);
+
+                // Allow clicking again after 3 seconds if it failed (so they aren't stuck)
+                tvTimer.postDelayed(() -> {
+                    if (isAdded()) {
+                        tvTimer.setText("Resend Code");
+                        tvTimer.setEnabled(true);
+                        tvTimer.setTextColor(Color.BLUE);
+                    }
+                }, 3000);
             }
         });
     }
@@ -153,6 +171,8 @@ public class SignUpOTP_fragment extends BaseFragment {
         StringBuilder code = new StringBuilder();
         for (EditText et : otpInputs) code.append(et.getText().toString());
 
+        // Disable inputs while verifying to prevent editing
+        for (EditText et : otpInputs) et.setEnabled(false);
         Toast.makeText(getContext(), "Verifying...", Toast.LENGTH_SHORT).show();
 
         AuthHelper.verifyOtp(code.toString(), new AuthHelper.RegistrationCallback() {
@@ -168,7 +188,11 @@ public class SignUpOTP_fragment extends BaseFragment {
             @Override
             public void onError(String message) {
                 if (!isAdded()) return;
-                Toast.makeText(getContext(), "Invalid Code.", Toast.LENGTH_SHORT).show();
+                // Re-enable inputs on failure so user can retry
+                for (EditText et : otpInputs) et.setEnabled(true);
+                Toast.makeText(getContext(), "Invalid Code. Please try again.", Toast.LENGTH_SHORT).show();
+
+                // Clear inputs and focus first box
                 for (EditText et : otpInputs) et.setText("");
                 otpInputs[0].requestFocus();
             }
@@ -176,6 +200,8 @@ public class SignUpOTP_fragment extends BaseFragment {
     }
 
     private void createProfile() {
+        if (getContext() == null) return;
+
         AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
@@ -205,15 +231,18 @@ public class SignUpOTP_fragment extends BaseFragment {
 
         countDownTimer = new CountDownTimer(duration, 1000) {
             public void onTick(long millis) {
-                if (tvTimer != null)
-                    tvTimer.setText(String.format("Resend code in %02d:%02d", (millis/1000)/60, (millis/1000)%60));
+                if (tvTimer != null) {
+                    long minutes = (millis / 1000) / 60;
+                    long seconds = (millis / 1000) % 60;
+                    tvTimer.setText(String.format("Resend code in %02d:%02d", minutes, seconds));
+                }
             }
             public void onFinish() {
                 isResendEnabled = true;
                 if (tvTimer != null) {
                     tvTimer.setText("Resend Code");
                     tvTimer.setEnabled(true);
-                    tvTimer.setTextColor(Color.BLUE);
+                    tvTimer.setTextColor(Color.BLUE); // Set to your app's primary color
                 }
             }
         }.start();

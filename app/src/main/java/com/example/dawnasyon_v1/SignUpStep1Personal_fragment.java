@@ -88,8 +88,24 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             String contact = etContact.getText().toString().trim();
             String email = etEmail.getText().toString().trim();
 
+            // 1. Check for Empty Fields
             if (fName.isEmpty() || lName.isEmpty() || contact.isEmpty() || email.isEmpty()) {
                 Toast.makeText(getContext(), "Please fill in all required fields (Name, Contact, Email)", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // ⭐ 2. VALIDATE CONTACT NUMBER (Must be 11 digits)
+            if (contact.length() != 11) {
+                etContact.setError("Contact number must be exactly 11 digits.");
+                etContact.requestFocus();
+                return;
+            }
+
+            // ⭐ 3. VALIDATE EMAIL (Must contain @gmail.com)
+            // .toLowerCase() ensures "User@Gmail.com" is accepted as "user@gmail.com"
+            if (!email.toLowerCase().endsWith("@gmail.com")) {
+                etEmail.setError("Email must be a valid @gmail.com address.");
+                etEmail.requestFocus();
                 return;
             }
 
@@ -103,7 +119,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            // ⭐ Call SupabaseJavaHelper checkUserExists (Now includes Strict Name Check)
+            // ⭐ Call SupabaseJavaHelper checkUserExists
             SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
                 @Override
                 public void onSuccess() {
