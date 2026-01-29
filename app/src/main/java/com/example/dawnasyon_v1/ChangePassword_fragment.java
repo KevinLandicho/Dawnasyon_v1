@@ -49,33 +49,70 @@ public class ChangePassword_fragment extends BaseFragment {
         String newPass = etNewPass.getText().toString().trim();
         String confirmPass = etConfirmPass.getText().toString().trim();
 
-        // 1. Basic Validations
+        // 1. Basic Empty Checks
         if (oldPass.isEmpty() || newPass.isEmpty() || confirmPass.isEmpty()) {
             Toast.makeText(getContext(), "Please fill in all fields.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // 2. Check Matching
         if (!newPass.equals(confirmPass)) {
             etConfirmPass.setError("Passwords do not match");
-            Toast.makeText(getContext(), "New passwords do not match.", Toast.LENGTH_SHORT).show();
+            etConfirmPass.requestFocus();
             return;
         }
 
-        if (newPass.length() < 6) {
-            etNewPass.setError("Must be at least 6 characters");
-            return;
-        }
-
+        // 3. Check Same as Old
         if (oldPass.equals(newPass)) {
-            etNewPass.setError("New password cannot be the same as old");
+            etNewPass.setError("New password cannot be the same as the old one");
+            etNewPass.requestFocus();
             return;
         }
 
-        // 2. Disable button to prevent double clicks
+        // ⭐ STRICT SECURITY CHECKS START ⭐
+
+        // Check Length (Min 8)
+        if (newPass.length() < 8) {
+            etNewPass.setError("Must be at least 8 characters");
+            etNewPass.requestFocus();
+            return;
+        }
+
+        // Check Uppercase
+        if (!newPass.matches(".*[A-Z].*")) {
+            etNewPass.setError("Must contain at least one Uppercase letter (A-Z)");
+            etNewPass.requestFocus();
+            return;
+        }
+
+        // Check Lowercase
+        if (!newPass.matches(".*[a-z].*")) {
+            etNewPass.setError("Must contain at least one Lowercase letter (a-z)");
+            etNewPass.requestFocus();
+            return;
+        }
+
+        // Check Number
+        if (!newPass.matches(".*[0-9].*")) {
+            etNewPass.setError("Must contain at least one Number (0-9)");
+            etNewPass.requestFocus();
+            return;
+        }
+
+        // Check Special Character
+        if (!newPass.matches(".*[@#$%^&+=!._-].*")) {
+            etNewPass.setError("Must contain at least one Special Character (@, #, $, etc.)");
+            etNewPass.requestFocus();
+            return;
+        }
+
+        // ⭐ SECURITY CHECKS END ⭐
+
+        // 4. Disable button to prevent double clicks
         btnUpdate.setEnabled(false);
         btnUpdate.setText("Updating...");
 
-        // 3. Call AuthHelper
+        // 5. Call AuthHelper
         AuthHelper.changePassword(oldPass, newPass, new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
