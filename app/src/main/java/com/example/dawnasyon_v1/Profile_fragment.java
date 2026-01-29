@@ -127,58 +127,77 @@ public class Profile_fragment extends BaseFragment {
 
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-        AuthHelper.fetchUserProfile(profile -> {
-            if (profile != null && isAdded()) {
-                currentUserId = profile.getId();
+        // ⭐ CHANGE: Use SupabaseJavaHelper with requireContext() for Instant Cache Loading
+        if (getContext() != null) {
+            SupabaseJavaHelper.fetchUserProfile(requireContext(), new SupabaseJavaHelper.ProfileCallback() {
+                @Override
+                public void onLoaded(Profile profile) {
+                    if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                    if (!isAdded() || profile == null) return;
 
-                if (detailName != null) detailName.setText(profile.getFull_name());
-                if (userNameHeader != null) userNameHeader.setText(profile.getFull_name());
-                if (detailContact != null) detailContact.setText(profile.getContact_number());
+                    currentUserId = profile.getId();
 
-                String fullAddress = "";
-                if (profile.getHouse_number() != null) fullAddress += profile.getHouse_number() + " ";
-                if (profile.getStreet() != null) fullAddress += profile.getStreet() + ", ";
-                if (profile.getBarangay() != null) fullAddress += profile.getBarangay() + ", ";
-                if (profile.getCity() != null) fullAddress += profile.getCity();
-                if (detailAddress != null) detailAddress.setText(fullAddress);
+                    if (detailName != null) detailName.setText(profile.getFull_name());
+                    if (userNameHeader != null) userNameHeader.setText(profile.getFull_name());
+                    if (detailContact != null) detailContact.setText(profile.getContact_number());
 
-                String avatarName = profile.getAvatarName();
-                int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
-                if (ivProfilePic != null) ivProfilePic.setImageResource(avatarResId);
+                    String fullAddress = "";
+                    if (profile.getHouse_number() != null) fullAddress += profile.getHouse_number() + " ";
+                    if (profile.getStreet() != null) fullAddress += profile.getStreet() + ", ";
+                    if (profile.getBarangay() != null) fullAddress += profile.getBarangay() + ", ";
+                    if (profile.getCity() != null) fullAddress += profile.getCity();
+                    if (detailAddress != null) detailAddress.setText(fullAddress);
 
-                boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
-                String userType = profile.getType();
+                    // ⭐ FIXED AVATAR LOADING
+                    String avatarName = profile.getAvatarName();
+                    int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
+                    if (ivProfilePic != null) ivProfilePic.setImageResource(avatarResId);
 
-                if (badgeStatus != null) {
-                    badgeStatus.setVisibility(View.VISIBLE);
-                    if (userType != null && (userType.equalsIgnoreCase("Foreign") || userType.equalsIgnoreCase("Overseas"))) {
-                        badgeStatus.setText("🌍 OVERSEAS DONOR");
-                        badgeStatus.setTextColor(Color.parseColor("#0D47A1"));
-                        badgeStatus.setBackgroundColor(Color.parseColor("#E3F2FD"));
-                        if (cardPriority != null) cardPriority.setVisibility(View.GONE);
-                    } else {
-                        if (cardPriority != null) cardPriority.setVisibility(View.VISIBLE);
-                        if (isVerified) {
-                            badgeStatus.setText("✅ VERIFIED RESIDENT");
-                            badgeStatus.setTextColor(Color.parseColor("#2E7D32"));
-                            badgeStatus.setBackgroundColor(Color.parseColor("#E8F5E9"));
+                    boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
+                    String userType = profile.getType();
+                    String currentEvacCenter = profile.getCurrent_evacuation_center(); // Get Evacuation Status
+
+                    if (badgeStatus != null) {
+                        badgeStatus.setVisibility(View.VISIBLE);
+
+                        // ⭐ PRIORITY: Check Evacuation Status First
+                        if (currentEvacCenter != null && !currentEvacCenter.isEmpty() && !currentEvacCenter.equalsIgnoreCase("null")) {
+                            badgeStatus.setText("⛺ IN EVACUATION CENTER");
+                            badgeStatus.setTextColor(Color.WHITE);
+                            badgeStatus.setBackgroundColor(Color.parseColor("#E65100")); // Deep Orange
+                        }
+                        else if (userType != null && (userType.equalsIgnoreCase("Foreign") || userType.equalsIgnoreCase("Overseas"))) {
+                            badgeStatus.setText("🌍 OVERSEAS DONOR");
+                            badgeStatus.setTextColor(Color.parseColor("#0D47A1"));
+                            badgeStatus.setBackgroundColor(Color.parseColor("#E3F2FD"));
+                            if (cardPriority != null) cardPriority.setVisibility(View.GONE);
                         } else {
-                            badgeStatus.setText("⚠️ NOT VERIFIED");
-                            badgeStatus.setTextColor(Color.parseColor("#C62828"));
-                            badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE"));
-                            disableFeature(btnViewQR, "QR Code");
-                            disableFeature(btnPinLocation, "Map Pinning");
-                            disableFeature(menuSuggestion, "Suggestion Form");
-                            disableFeature(menuHistory, "Donation History");
+                            if (cardPriority != null) cardPriority.setVisibility(View.VISIBLE);
+                            if (isVerified) {
+                                badgeStatus.setText("✅ VERIFIED RESIDENT");
+                                badgeStatus.setTextColor(Color.parseColor("#2E7D32"));
+                                badgeStatus.setBackgroundColor(Color.parseColor("#E8F5E9"));
+                            } else {
+                                badgeStatus.setText("⚠️ NOT VERIFIED");
+                                badgeStatus.setTextColor(Color.parseColor("#C62828"));
+                                badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE"));
+                                disableFeature(btnViewQR, "QR Code");
+                                disableFeature(btnPinLocation, "Map Pinning");
+                                disableFeature(menuSuggestion, "Suggestion Form");
+                                disableFeature(menuHistory, "Donation History");
+                            }
                         }
                     }
+                    loadFamilyMembers(isVerified, profile, fullAddress);
                 }
-                loadFamilyMembers(isVerified, profile, fullAddress);
-            } else {
-                if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-            }
-            return null;
-        });
+
+                @Override
+                public void onError(String message) {
+                    if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                    Log.e("ProfileFragment", "Error loading profile: " + message);
+                }
+            });
+        }
     }
 
     private void toggleBreakdown() {
@@ -195,7 +214,7 @@ public class Profile_fragment extends BaseFragment {
 
     private void loadFamilyMembers(boolean isVerified, Profile profile, String fullAddress) {
         AuthHelper.fetchHouseholdMembers(kotlinMembers -> {
-            if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+            // Keep AuthHelper here as we haven't optimized family fetching yet (it's fast enough usually)
 
             if (isAdded()) {
                 if (familyContainer != null) {
@@ -255,6 +274,14 @@ public class Profile_fragment extends BaseFragment {
         if(familySize > 0) breakdown.append("• Family Size (").append(familySize).append("): +").append(famPoints).append(" pts\n");
         if(familySize > 4) { score[0] += 20; breakdown.append("• Large Household Bonus: +20 pts\n"); }
         if(isVerified) { score[0] += 10; breakdown.append("• Verified Status: +10 pts\n"); }
+
+        // Check Evacuation Status
+        String evacCenter = profile.getCurrent_evacuation_center();
+        if (evacCenter != null && !evacCenter.isEmpty() && !evacCenter.equalsIgnoreCase("null")) {
+            score[0] += 40;
+            breakdown.append("• In Evacuation Center: +40 pts\n");
+        }
+
         if (addressStr.toLowerCase().contains("creek") || addressStr.toLowerCase().contains("river") || addressStr.toLowerCase().contains("flood")) {
             score[0] += 10; breakdown.append("• Address Risk Keyword: +10 pts\n");
         }
@@ -273,12 +300,33 @@ public class Profile_fragment extends BaseFragment {
                     if (checkRecentEarthquake(userLat, userLon)) { score[0] += 20; breakdown.append("• Recent Earthquake Nearby: +20 pts\n"); }
                 } else { breakdown.append("• Location check failed (Address not found)\n"); }
             } catch (Exception e) { e.printStackTrace(); }
-            new Handler(Looper.getMainLooper()).post(() -> updatePriorityUI(score[0], breakdown.toString()));
+
+            int finalScore = Math.min(score[0], 100);
+
+            // Save Score to Database
+            if (!currentUserId.isEmpty()) {
+                saveScoreToDatabase(finalScore);
+            }
+
+            new Handler(Looper.getMainLooper()).post(() -> updatePriorityUI(finalScore, breakdown.toString()));
         }).start();
     }
 
-    private void updatePriorityUI(int rawScore, String breakdownText) {
-        int score = Math.min(rawScore, 100);
+    private void saveScoreToDatabase(int finalScore) {
+        SupabaseJavaHelper.updatePriorityScore(currentUserId, finalScore, new SupabaseJavaHelper.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                Log.d("Profile_fragment", "Priority score updated in DB: " + finalScore);
+            }
+
+            @Override
+            public void onError(String message) {
+                Log.e("Profile_fragment", "Failed to update priority score: " + message);
+            }
+        });
+    }
+
+    private void updatePriorityUI(int score, String breakdownText) {
         tvPriorityScore.setText("Score: " + score + "/100");
         tvPriorityReason.setText(breakdownText.trim());
         if (score >= 80) { tvPriorityLevel.setText("CRITICAL PRIORITY"); tvPriorityLevel.setTextColor(Color.RED); cardPriority.setCardBackgroundColor(Color.parseColor("#FFEBEE")); }
@@ -359,7 +407,6 @@ public class Profile_fragment extends BaseFragment {
             tvProxy.setPadding(12, 4, 12, 4);
             row.addView(tvProxy);
         } else {
-            // ⭐ CHANGED: Only add "Assign Proxy" button if relation is NOT "Head"
             if (!"Head".equalsIgnoreCase(member.getRelation())) {
                 TextView btnAssign = new TextView(getContext());
                 btnAssign.setText("Assign Proxy");
@@ -380,10 +427,13 @@ public class Profile_fragment extends BaseFragment {
                                 SupabaseJavaHelper.assignHouseholdProxy(currentUserId, member.getMember_id(), new SupabaseJavaHelper.SimpleCallback() {
                                     @Override
                                     public void onSuccess() {
-                                        AuthHelper.fetchUserProfile(profile -> {
-                                            if(profile != null) loadFamilyMembers(true, profile, "");
-                                            return null;
-                                        });
+                                        // Refetch profile to refresh the list
+                                        if(getContext() != null) {
+                                            SupabaseJavaHelper.fetchUserProfile(requireContext(), new SupabaseJavaHelper.ProfileCallback() {
+                                                @Override public void onLoaded(Profile profile) { if(profile != null) loadFamilyMembers(true, profile, ""); }
+                                                @Override public void onError(String msg) {}
+                                            });
+                                        }
                                     }
                                     @Override
                                     public void onError(String message) {

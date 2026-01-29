@@ -10,6 +10,9 @@ data class Profile(
     val contact_number: String? = null,
     val email: String? = null,
 
+    // ⭐ CRITICAL: This generates 'getCurrent_evacuation_center()' for Java
+    val current_evacuation_center: String? = null,
+
     // Address Fields
     val house_number: String? = null,
     val street: String? = null,
@@ -23,16 +26,18 @@ data class Profile(
     val qr_code_url: String? = null,
     val face_embedding: String? = null,
 
-    // ⭐ FIX: Map 'is_verified' JSON field to 'verified' Kotlin variable
+    // ⭐ Mapped Fields
     @SerialName("is_verified")
     val verified: Boolean? = false,
 
-    // ⭐ NEW: Store User Type (Resident / Non-Resident)
+    @SerialName("avatar_name")
+    val avatarName: String? = "avatar1",
+
     val type: String? = "Resident",
 
-    // ⭐ NEW: Avatar Field
-    // This maps the DB column "avatar_name" to the Java/Kotlin variable "avatarName"
-    // It creates the profile.getAvatarName() method automatically.
-    @SerialName("avatar_name")
-    val avatarName: String? = "avatar1"
+    // ⭐ NEW FIELDS (Matches your Database Table)
+    val priority_score: Int? = 0,
+    val risk_zone: String? = null,
+    val account_status: String? = "Pending",
+    val rejection_reason: String? = null
 )
