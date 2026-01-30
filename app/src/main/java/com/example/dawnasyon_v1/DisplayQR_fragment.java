@@ -3,6 +3,7 @@ package com.example.dawnasyon_v1;
 import android.content.ContentValues;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,8 +22,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
-import com.google.zxing.BarcodeFormat;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
+import com.google.zxing.BarcodeFormat;
 
 import java.io.OutputStream;
 
@@ -63,7 +68,7 @@ public class DisplayQR_fragment extends BaseFragment {
             }
         });
 
-        // 2. Fetch & Display QR Code
+        // 2. Fetch & Display QR Code (Offline Ready)
         loadRealQrCode();
 
         // 3. Save to Gallery Button
@@ -71,34 +76,65 @@ public class DisplayQR_fragment extends BaseFragment {
     }
 
     private void loadRealQrCode() {
-        // ⭐ UPDATED: Changed SupabaseRegistrationHelper -> AuthHelper
-        AuthHelper.fetchUserProfile(profile -> {
-            if (profile != null && isAdded()) {
-                String qrUrl = profile.getQr_code_url();
+        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-                if (qrUrl != null && !qrUrl.isEmpty()) {
-                    // A. If URL exists in Supabase, load it with Glide
-                    Glide.with(this)
-                            .load(qrUrl)
-                            .placeholder(R.drawable.ic_qrsample)
-                            .error(R.drawable.ic_warning)
-                            .into(imgQrCode);
-                } else {
-                    // B. Fallback: If no URL, generate one using ID
-                    generateLocalQr(profile.getId());
+        // ⭐ UPDATED: Use SupabaseJavaHelper to utilize the Offline Cache
+        SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() {
+            @Override
+            public void onLoaded(Profile profile) {
+                if (!isAdded()) return;
+                if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                if (profile != null) {
+                    String qrUrl = profile.getQr_code_url();
+                    String userId = profile.getId();
+
+                    if (qrUrl != null && !qrUrl.isEmpty()) {
+                        // A. Try to load the official QR Image
+                        Glide.with(DisplayQR_fragment.this)
+                                .load(qrUrl)
+                                .placeholder(R.drawable.ic_qrsample) // Show sample while loading
+                                .listener(new RequestListener<Drawable>() {
+                                    @Override
+                                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                                        // ⭐ FALLBACK: If Offline and Image fails to load, GENERATE IT LOCALLY
+                                        // This ensures the user always has a QR code
+                                        generateLocalQr(userId);
+                                        return true; // Return true to indicate we handled the error
+                                    }
+
+                                    @Override
+                                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                                        return false;
+                                    }
+                                })
+                                .into(imgQrCode);
+                    } else {
+                        // B. If no URL in database, generate one immediately
+                        generateLocalQr(userId);
+                    }
                 }
-            } else if (isAdded()) {
-                Toast.makeText(getContext(), "Failed to load profile", Toast.LENGTH_SHORT).show();
             }
-            return null;
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                // Even if fetching fails (rare with cache), try to generate if we have a cached user ID elsewhere
+                // For now, just show error
+                Toast.makeText(getContext(), "Could not load QR Profile", Toast.LENGTH_SHORT).show();
+            }
         });
     }
 
     private void generateLocalQr(String userId) {
         try {
+            // This works 100% Offline because it just encodes text to image
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.encodeBitmap(userId, BarcodeFormat.QR_CODE, 400, 400);
             imgQrCode.setImageBitmap(bitmap);
+            // Log.d("DisplayQR", "Generated Local QR for Offline Mode");
         } catch (Exception e) {
             Log.e("DisplayQR", "Error generating local QR: " + e.getMessage());
         }
@@ -106,7 +142,13 @@ public class DisplayQR_fragment extends BaseFragment {
 
     private void saveImageToGallery() {
         imgQrCode.setDrawingCacheEnabled(true);
-        Bitmap bitmap = ((BitmapDrawable) imgQrCode.getDrawable()).getBitmap();
+        Bitmap bitmap = null;
+
+        try {
+            bitmap = ((BitmapDrawable) imgQrCode.getDrawable()).getBitmap();
+        } catch (Exception e) {
+            // If drawable is not a bitmap (e.g. vector placeholder), ignore
+        }
 
         if (bitmap == null) {
             Toast.makeText(getContext(), "QR Code not ready yet", Toast.LENGTH_SHORT).show();

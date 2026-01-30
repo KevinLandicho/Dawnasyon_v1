@@ -153,7 +153,8 @@ public class Dashboard_fragment extends BaseFragment {
     private void loadRealData(View view, String filterType) {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-        SupabaseJavaHelper.fetchDashboardData(filterType, new SupabaseJavaHelper.DashboardCallback() {
+        // ⭐ FIXED: Added requireContext() as the first argument
+        SupabaseJavaHelper.fetchDashboardData(getContext(), filterType, new SupabaseJavaHelper.DashboardCallback() {
             @Override
             public void onDataLoaded(Map<String, Integer> inventory, Map<String, Integer> areas, Map<String, Float> donations, Map<String, Integer> families, DashboardMetrics metrics, Map<String, Integer> impact) {
                 if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
@@ -175,7 +176,7 @@ public class Dashboard_fragment extends BaseFragment {
                 updateListUI(llReliefList, inventory, "Item");
                 updateListUI(llAffectedList, areas, "Street");
 
-                // ⭐ Updates UI based on Affected vs Stock ratio
+                // Updates UI based on Affected vs Stock ratio
                 updateAnalyticsUI(view, metrics);
 
                 updateRadarChart(impact);
@@ -300,7 +301,6 @@ public class Dashboard_fragment extends BaseFragment {
         }
     }
 
-    // ⭐ KEY UPDATE: Coverage Ratio = Relief Packs / Total Affected
     private void updateAnalyticsUI(View view, DashboardMetrics metrics) {
         int totalPopulation = metrics.getTotal_families(); // Census
         int reliefPacks = metrics.getTotal_packs();        // Inventory Stock
@@ -309,8 +309,6 @@ public class Dashboard_fragment extends BaseFragment {
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
         if (tvPercentage != null) tvPercentage.setText(String.valueOf(totalPopulation));
 
-        // ⭐ CALCULATION LOGIC:
-        // Coverage = How much stock we have versus how many families need help
         int denominator = (totalAffected == 0) ? 1 : totalAffected; // Avoid div by 0
         int coveragePercent = 0;
 
