@@ -11,27 +11,24 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 public class CashInfo_fragment extends BaseFragment {
 
-    // Argument Keys
     private static final String ARG_TITLE = "arg_title";
     private static final String ARG_DESCRIPTION = "arg_description";
     private static final String ARG_STATUS = "arg_status";
     private static final String ARG_IMAGE = "arg_image";
 
-    // Data Variables
     private String fTitle, fDescription, fStatus;
     private int fImageRes;
 
     private EditText etOtherAmount;
     private Button btnConfirmOther;
 
-    public CashInfo_fragment() {
-        // Required empty public constructor
-    }
+    public CashInfo_fragment() {}
 
     public static CashInfo_fragment newInstance(String title, String description, String status, int imageRes) {
         CashInfo_fragment fragment = new CashInfo_fragment();
@@ -64,27 +61,27 @@ public class CashInfo_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 1. Setup Header
+        // ⭐ 1. SYSTEM BACK BUTTON: Forces navigation to DonationOption_fragment
+        requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                goBackToOptions();
+            }
+        });
+
         setupHeader(view);
 
-        // 2. REMOVE DONATION OPTIONS (Hide them programmatically)
         View methodLabel = view.findViewById(R.id.txt_method_label);
         View methodContainer = view.findViewById(R.id.payment_methods_container);
-
         if (methodLabel != null) methodLabel.setVisibility(View.GONE);
         if (methodContainer != null) methodContainer.setVisibility(View.GONE);
 
-        // 3. Setup Amount Grid
         GridLayout amountGrid = view.findViewById(R.id.amount_grid);
-        if (amountGrid != null) {
-            setupAmountGrid(amountGrid);
-        }
+        if (amountGrid != null) setupAmountGrid(amountGrid);
 
-        // 4. Setup "Other" Input
         etOtherAmount = view.findViewById(R.id.et_other_amount);
         btnConfirmOther = view.findViewById(R.id.btn_confirm_other);
-
-        btnConfirmOther.setText("Review"); // Button now leads to summary
+        btnConfirmOther.setText("Review");
 
         btnConfirmOther.setOnClickListener(v -> {
             String otherAmountStr = etOtherAmount.getText().toString().trim();
@@ -100,19 +97,26 @@ public class CashInfo_fragment extends BaseFragment {
             }
         });
 
-        // 5. Back Button
+        // ⭐ 2. UI BACK BUTTON: Also goes to DonationOption_fragment
         View btnBack = view.findViewById(R.id.btnBack);
-        if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> goBackToOptions());
+        }
     }
 
-    // --- NAVIGATION LOGIC ---
+    // ⭐ HELPER: Navigate explicitly to DonationOption_fragment
+    private void goBackToOptions() {
+        getParentFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, new DonationOptions_fragments())
+                .commit();
+    }
+
     private void goToSummary(int amount) {
         if (amount < 100) {
             Toast.makeText(getContext(), "Minimum donation is PHP 100.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Pass amount to Summary. ID is "PENDING" until they click Confirm there.
         CashSummary_fragment summaryFragment = CashSummary_fragment.newInstance(amount, "PENDING");
 
         getParentFragmentManager().beginTransaction()
@@ -121,7 +125,6 @@ public class CashInfo_fragment extends BaseFragment {
                 .commit();
     }
 
-    // --- UI HELPERS ---
     private void setupHeader(View view) {
         TextView tvTitle = view.findViewById(R.id.detailsTitle);
         TextView tvDesc = view.findViewById(R.id.detailsDescription);
@@ -130,7 +133,6 @@ public class CashInfo_fragment extends BaseFragment {
 
         if (tvTitle != null) tvTitle.setText(fTitle);
         if (tvDesc != null) tvDesc.setText(fDescription);
-
         if (tvStatus != null) {
             tvStatus.setText(fStatus);
             if ("Critical".equalsIgnoreCase(fStatus)) {
