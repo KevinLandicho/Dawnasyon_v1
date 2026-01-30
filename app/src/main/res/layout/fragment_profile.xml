@@ -335,6 +335,8 @@
                 android:orientation="vertical"
                 android:padding="8dp">
 
+                <include layout="@layout/item_profile_menu" android:id="@+id/menu_tracker" />
+
                 <include layout="@layout/item_profile_menu" android:id="@+id/menu_history" />
                 <include layout="@layout/item_profile_menu" android:id="@+id/menu_suggestion" />
                 <include layout="@layout/item_profile_menu" android:id="@+id/menu_password" />
