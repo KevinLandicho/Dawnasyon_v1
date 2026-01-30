@@ -9,13 +9,16 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
@@ -46,6 +49,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private PreviewView previewView;
     private FaceOverlayView faceOverlay;
     private TextView tvStatus;
+    private Button btnRetry; // ⭐ NEW: Retry Button for Errors
     private ImageCapture imageCapture;
     private FaceHelper faceHelper;
     private ExecutorService cameraExecutor;
@@ -69,14 +73,14 @@ public class FaceVerifyActivity extends AppCompatActivity {
         faceOverlay = findViewById(R.id.faceOverlay);
         tvStatus = findViewById(R.id.tvStatus);
 
-        // ⭐ SET VERIFICATION MODE (Dynamic Box)
-        // Ensures we don't see the static hole punch here
-        faceOverlay.setRegistrationMode(false);
+        // You need to add this button to your XML layout or create it dynamically if missing
+        // For now, I'll assume you might add it or we use logic to show dialogs.
+        // Let's use a dialog for retrying if layout changes are hard.
 
+        faceOverlay.setRegistrationMode(false);
         faceHelper = new FaceHelper(this);
         cameraExecutor = Executors.newSingleThreadExecutor();
 
-        // Initialize Face Detector
         FaceDetectorOptions options = new FaceDetectorOptions.Builder()
                 .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
                 .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
@@ -84,8 +88,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 .build();
         detector = FaceDetection.getClient(options);
 
-        // ⭐ KEY CHANGE: DO NOT START CAMERA HERE.
-        // We strictly check permissions first, then check the User Type.
         if (allPermissionsGranted()) {
             checkUserTypeAndStart();
         } else {
@@ -93,58 +95,91 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
-    // ⭐ STEP 1: CHECK DATABASE BEFORE OPENING CAMERA
+    // ⭐ STRICT SYNC: NO CACHE FALLBACK IF EMPTY
     private void checkUserTypeAndStart() {
         runOnUiThread(() -> {
-            tvStatus.setText("Checking profile...");
-            // Hide camera preview while checking to avoid confusion
+            tvStatus.setText("Connecting to database...");
             previewView.setVisibility(View.INVISIBLE);
         });
 
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null) {
-                String type = profile.getType(); // Should return "Foreign" or "Resident"
+                // 1. Save User Type
+                SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+                prefs.edit().putString("user_type", profile.getType()).apply();
 
-                // Save to cache for future speed
-                getSharedPreferences("UserSession", MODE_PRIVATE)
-                        .edit().putString("user_type", type).apply();
+                // 2. Check for Face Data
+                Object rawEmbedding = profile.getFace_embedding();
 
-                handleUserType(type);
+                if (rawEmbedding != null) {
+                    // Convert Object/Array to String for storage
+                    String embeddingString = rawEmbedding.toString();
+                    saveFaceDataLocally(embeddingString);
+                    handleUserType(profile.getType());
+                } else {
+                    // ⭐ STRICT FAIL: Profile loaded, but no Face ID found
+                    Log.e("FaceVerify", "Face data is NULL in database.");
+                    showErrorDialog("Account Issue", "Your account does not have Face ID set up. Please contact admin or register again.");
+                }
             } else {
-                // If fetch fails (offline?), check local cache
-                String cachedType = getSharedPreferences("UserSession", MODE_PRIVATE)
-                        .getString("user_type", "Resident");
-                handleUserType(cachedType);
+                // ⭐ STRICT FAIL: Internet Error
+                Log.e("FaceVerify", "Failed to fetch profile (Internet/Server error).");
+                showErrorDialog("Connection Failed", "Cannot verify identity without internet. Please check your connection and try again.");
             }
             return null;
         });
     }
 
-    // ⭐ STEP 2: DECIDE - SKIP OR START
+    private void showErrorDialog(String title, String message) {
+        runOnUiThread(() -> {
+            new AlertDialog.Builder(this)
+                    .setTitle(title)
+                    .setMessage(message)
+                    .setCancelable(false)
+                    .setPositiveButton("Retry", (dialog, which) -> checkUserTypeAndStart())
+                    .setNegativeButton("Exit", (dialog, which) -> finishAffinity())
+                    .show();
+        });
+    }
+
+    private void saveFaceDataLocally(String embedding) {
+        getSharedPreferences("UserSession", MODE_PRIVATE)
+                .edit()
+                .putString("face_embedding", embedding)
+                .apply();
+        Log.d("FaceVerify", "✅ Face data downloaded & saved.");
+    }
+
     private void handleUserType(String type) {
         userType = type;
-
         boolean isForeign = (type != null && (type.equalsIgnoreCase("Foreign") || type.equalsIgnoreCase("Overseas")));
 
         if (isForeign) {
-            // ⭐ BYPASS: Go directly to Main Activity
-            runOnUiThread(() -> {
-                Toast.makeText(FaceVerifyActivity.this, "Welcome Foreign Donor!", Toast.LENGTH_SHORT).show();
-
-                // Mark Verified
-                getSharedPreferences("UserSession", MODE_PRIVATE)
-                        .edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
-
-                startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
-                finish();
-            });
+            bypassFaceScan();
         } else {
-            // ⭐ RESIDENT: Now we can start the camera
-            runOnUiThread(() -> {
-                previewView.setVisibility(View.VISIBLE); // Show camera again
-                startCamera();
-            });
+            // Double Check Local Storage
+            SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+            String savedData = prefs.getString("face_embedding", "");
+
+            if (savedData.isEmpty()) {
+                showErrorDialog("Critical Error", "Face data failed to save. Please try again.");
+            } else {
+                runOnUiThread(() -> {
+                    previewView.setVisibility(View.VISIBLE);
+                    startCamera();
+                });
+            }
         }
+    }
+
+    private void bypassFaceScan() {
+        runOnUiThread(() -> {
+            Toast.makeText(FaceVerifyActivity.this, "Welcome Foreign Donor!", Toast.LENGTH_SHORT).show();
+            getSharedPreferences("UserSession", MODE_PRIVATE)
+                    .edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
+            startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
+            finish();
+        });
     }
 
     private void startCamera() {
@@ -155,20 +190,15 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 imageCapture = new ImageCapture.Builder().build();
-
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .setTargetResolution(new Size(640, 480))
                         .build();
-
                 imageAnalysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
-
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
-
                 runOnUiThread(() -> tvStatus.setText("Center Your Face"));
-
             } catch (Exception e) { e.printStackTrace(); }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -179,12 +209,10 @@ public class FaceVerifyActivity extends AppCompatActivity {
             imageProxy.close();
             return;
         }
-
         android.media.Image mediaImage = imageProxy.getImage();
         if (mediaImage != null) {
             isAnalyzing = true;
             InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
-
             detector.process(image)
                     .addOnSuccessListener(faces -> {
                         if (faces.size() == 1) {
@@ -229,11 +257,9 @@ public class FaceVerifyActivity extends AppCompatActivity {
     }
 
     private void processGestures(Face face, int w, int h) {
-        // Redundant safety check (Main logic is in handleUserType)
         if (userType != null && userType.equalsIgnoreCase("Foreign")) {
             currentStep = SecurityStep.VERIFYING;
         }
-
         float rotY = calculateYaw(face);
         float rotX = calculatePitch(face);
         String debug = String.format("\nY: %.1f | X: %.1f", rotY, rotX);
@@ -252,7 +278,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     stabilityCounter = 0;
                 }
                 break;
-
             case LOOK_LEFT:
                 if (rotY > 12) {
                     updateStatus("Good! Hold Left..." + stabilityCounter, Color.GREEN);
@@ -267,7 +292,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     updateStatus("Turn Head LEFT ⬅️" + debug, Color.CYAN);
                 }
                 break;
-
             case LOOK_RIGHT:
                 if (rotY < -12) {
                     updateStatus("Good! Hold Right..." + stabilityCounter, Color.GREEN);
@@ -282,7 +306,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     updateStatus("Turn Head RIGHT ➡️" + debug, Color.CYAN);
                 }
                 break;
-
             case LOOK_UP:
                 if (rotX > 4) {
                     updateStatus("Good! Hold Up...", Color.GREEN);
@@ -296,7 +319,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     updateStatus("Look UP ⬆️" + debug, Color.CYAN);
                 }
                 break;
-
             case VERIFYING:
                 updateStatus("Look Straight!", Color.GREEN);
                 if (Math.abs(rotY) < 10) {
@@ -327,7 +349,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
         if (isCapturing) return;
         isCapturing = true;
         runOnUiThread(() -> tvStatus.setText("Verifying Identity..."));
-
         if (imageCapture == null) return;
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
             @Override
@@ -364,20 +385,27 @@ public class FaceVerifyActivity extends AppCompatActivity {
             return;
         }
 
-        String[] split = savedData.split(",");
-        float[] savedEmbedding = new float[split.length];
-        for (int i = 0; i < split.length; i++) savedEmbedding[i] = Float.parseFloat(split[i]);
+        try {
+            String cleanData = savedData.replace("[", "").replace("]", "").trim();
+            String[] split = cleanData.split(",");
+            float[] savedEmbedding = new float[split.length];
+            for (int i = 0; i < split.length; i++) savedEmbedding[i] = Float.parseFloat(split[i].trim());
 
-        float score = FaceHelper.compareFaces(newEmbedding, savedEmbedding);
+            float score = FaceHelper.compareFaces(newEmbedding, savedEmbedding);
 
-        if (score > 0.60f) {
-            Toast.makeText(this, "✅ Welcome!", Toast.LENGTH_SHORT).show();
-            prefs.edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
-            startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
-            finish();
-        } else {
+            if (score > 0.60f) {
+                Toast.makeText(this, "✅ Welcome!", Toast.LENGTH_SHORT).show();
+                prefs.edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
+                startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
+                finish();
+            } else {
+                isCapturing = false;
+                resetToStart("❌ Face Mismatch");
+            }
+        } catch (Exception e) {
             isCapturing = false;
-            resetToStart("❌ Face Mismatch");
+            resetToStart("Data Error");
+            e.printStackTrace();
         }
     }
 
@@ -395,7 +423,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
             if (allPermissionsGranted()) {
                 checkUserTypeAndStart();
             } else {
-                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Permissions not granted.", Toast.LENGTH_SHORT).show();
                 finish();
             }
         }

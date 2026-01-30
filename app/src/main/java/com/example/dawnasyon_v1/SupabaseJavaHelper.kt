@@ -65,7 +65,7 @@ object SupabaseJavaHelper {
     interface ApplicationHistoryCallback { fun onLoaded(data: List<ApplicationHistoryDTO>); fun onError(message: String) }
 
     // ====================================================
-    // ⭐ LOGIN FUNCTION
+    // ⭐ LOGIN FUNCTION (Added)
     // ====================================================
     @JvmStatic
     fun loginUser(email: String, pass: String, callback: RegistrationCallback) {
@@ -135,12 +135,18 @@ object SupabaseJavaHelper {
             val cacheKey = "cache_profile_${currentUser.id}"
 
             try {
-                withTimeout(5000L) {
+                // Try cache first
+                val cachedProfile = loadFromCache<Profile>(context, cacheKey, Profile::class.java)
+                if (cachedProfile != null) { runOnUi { callback.onLoaded(cachedProfile) } }
+            } catch (e: Exception) { }
+
+            try {
+                withTimeout(15000L) {
                     val result = SupabaseManager.client.from("profiles").select { filter { eq("id", currentUser.id) } }.decodeSingleOrNull<Profile>()
                     if (result != null) { saveToCache(context, cacheKey, result); runOnUi { callback.onLoaded(result) } }
                     else { runOnUi { callback.onError("Profile not found") } }
                 }
-            } catch (e: Exception) { runOnUi { callback.onError("Network error") } }
+            } catch (e: Exception) { runOnUi { callback.onError("Sync failed: ${e.message}") } }
         }
     }
 
@@ -222,7 +228,6 @@ object SupabaseJavaHelper {
                 val profile = SupabaseManager.client.from("profiles").select { filter { eq("id", currentUser.id) } }.decodeSingleOrNull<Profile>()
                 if (profile == null) { runOnUi { callback.onError("Profile error") }; return@launch }
 
-                // ⭐ FIXED KOTLIN SYNTAX (Use property access)
                 val params = mapOf(
                     "check_drive_id" to driveId,
                     "check_house_no" to (profile.house_number ?: ""),
