@@ -118,7 +118,7 @@ public class MainActivity extends BaseActivity {
         // 💡 TIP: Change this to 60000 (1 min) to test it quickly!
         long timeLimit = 86400000;
         long timelim = 10000;
-
+//for
         // 4. Check if expired
         if (currentTime - lastTime > timeLimit) {
             Intent intent = new Intent(this, FaceVerifyActivity.class);
