@@ -65,7 +65,7 @@ object SupabaseJavaHelper {
     interface ApplicationHistoryCallback { fun onLoaded(data: List<ApplicationHistoryDTO>); fun onError(message: String) }
 
     // ====================================================
-    // ⭐ LOGIN FUNCTION (Added)
+    // ⭐ LOGIN FUNCTION
     // ====================================================
     @JvmStatic
     fun loginUser(email: String, pass: String, callback: RegistrationCallback) {
@@ -78,6 +78,26 @@ object SupabaseJavaHelper {
                 runOnUi { callback.onSuccess() }
             } catch (e: Exception) {
                 val msg = if (e.message?.contains("Invalid login") == true) "Invalid email or password" else e.message ?: "Login failed"
+                runOnUi { callback.onError(msg) }
+            }
+        }
+    }
+
+    // ====================================================
+    // ⭐ FORGOT PASSWORD (Added)
+    // ====================================================
+    @JvmStatic
+    fun sendPasswordResetEmail(email: String, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // ⭐ CRITICAL FIX: We add the redirectUrl here so the link opens the app
+                SupabaseManager.client.auth.resetPasswordForEmail(
+                    email = email,
+                    redirectUrl = "dawnasyon://reset-callback"
+                )
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) {
+                val msg = e.message ?: "Failed to send reset email"
                 runOnUi { callback.onError(msg) }
             }
         }

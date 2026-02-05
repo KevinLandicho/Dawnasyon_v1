@@ -1,23 +1,30 @@
 package com.example.dawnasyon_v1
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.handleDeeplinks
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.OtpType
-import io.github.jan.supabase.auth.*
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.storage.storage
 
 object AuthHelper {
 
     interface RegistrationCallback {
+        fun onSuccess()
+        fun onError(message: String)
+    }
+
+    interface SimpleCallback {
         fun onSuccess()
         fun onError(message: String)
     }
@@ -39,7 +46,7 @@ object AuthHelper {
         }
     }
 
-    // --- 2. FETCH PROFILE (REVERTED TO LAMBDA FOR JAVA COMPATIBILITY) ---
+    // --- 2. FETCH PROFILE ---
     @JvmStatic
     fun fetchUserProfile(callback: (Profile?) -> Unit) {
         val client = SupabaseManager.client
@@ -64,7 +71,7 @@ object AuthHelper {
         }
     }
 
-    // --- 3. CREATE PROFILE (REVERTED TYPE MISMATCH FIX) ---
+    // --- 3. CREATE PROFILE ---
     @JvmStatic
     fun createProfileAfterVerification(context: Context, callback: RegistrationCallback) {
         val client = SupabaseManager.client
@@ -98,8 +105,6 @@ object AuthHelper {
                 var qrCodeUrl: String? = null
                 try { qrCodeUrl = QrCodeHelper.generateAndUploadQrCode(userId) } catch (e: Exception) {}
 
-                // ⭐ REVERTED: Just pass the String directly. No complex parsing.
-                // Profile.kt now expects String?, so this works.
                 val faceData = RegistrationCache.faceEmbedding
                 val userType = RegistrationCache.userType ?: "Resident"
 
@@ -234,6 +239,72 @@ object AuthHelper {
                 client.auth.signOut()
                 withContext(Dispatchers.Main) { callback.onSuccess() }
             } catch (e: Exception) { withContext(Dispatchers.Main) { callback.onError(e.message ?: "Failed to delete account") } }
+        }
+    }
+
+    // ⭐ 10. FIXED: DEEP LINK HANDLER (Increased Polling Time)
+    @JvmStatic
+    fun handleDeepLink(intent: android.content.Intent, onRecovery: () -> Unit) {
+        val client = SupabaseManager.client
+        val uri = intent.data ?: return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. Let Supabase handle the intent
+                client.handleDeeplinks(intent)
+
+                // 2. WAIT for session (Increased to 20 checks = 10 seconds)
+                // This gives slow networks enough time to log in before we check
+                var sessionFound = false
+                for (i in 1..1) {
+                    if (client.auth.currentSessionOrNull() != null) {
+                        sessionFound = true
+                        break
+                    }
+                    delay(500)
+                }
+
+                // 3. Trigger popup if we have a session OR it looks like a recovery link
+                val urlString = uri.toString()
+                val fragment = uri.fragment ?: ""
+                val isRecoveryLink = urlString.contains("type=recovery") ||
+                        fragment.contains("type=recovery") ||
+                        urlString.contains("reset-callback")
+
+                if (sessionFound && isRecoveryLink) {
+                    withContext(Dispatchers.Main) {
+                        onRecovery()
+                    }
+                } else if (isRecoveryLink) {
+                    // Fallback: Show popup anyway so user doesn't think it failed silently
+                    withContext(Dispatchers.Main) {
+                        onRecovery()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AuthHelper", "Deep Link Error: ${e.message}")
+            }
+        }
+    }
+
+    // ⭐ 11. UPDATE PASSWORD (Safe Check)
+    @JvmStatic
+    fun updateUserPassword(newPass: String, callback: SimpleCallback) {
+        val client = SupabaseManager.client
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                if (client.auth.currentSessionOrNull() == null) {
+                    withContext(Dispatchers.Main) { callback.onError("Session expired. Please click the email link again.") }
+                    return@launch
+                }
+
+                client.auth.updateUser {
+                    password = newPass
+                }
+                withContext(Dispatchers.Main) { callback.onSuccess() }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { callback.onError(e.message ?: "Update failed") }
+            }
         }
     }
 }

@@ -5,20 +5,27 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Handler;
+import android.text.InputType;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.textfield.TextInputEditText;
+
+import java.util.List;
 
 import kotlin.Unit;
 
@@ -33,10 +40,18 @@ public class LoginActivity extends AppCompatActivity {
     private static final long LOCKOUT_DURATION_MS = 30000;
     private boolean isLockedOut = false;
 
+    // Retry System for Slow Internet
+    private int fetchRetries = 0;
+    private static final int MAX_RETRIES = 3;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // ⭐ 1. FIX: Check Deep Link Immediately
+        checkDeepLink(getIntent());
+
+        // 2. Check if user is already logged in
         SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         boolean isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false);
 
@@ -49,12 +64,14 @@ public class LoginActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
 
+        // Initialize Views
         etEmail = findViewById(R.id.editTextText);
         etPassword = findViewById(R.id.editTextTextPassword);
         btnSignin = findViewById(R.id.btnSignin);
         btnSignup = findViewById(R.id.btnSignup);
         btnForgot = findViewById(R.id.btnForgot);
 
+        // Sign In Button Listener
         btnSignin.setOnClickListener(v -> {
             hideKeyboard();
             if (isLockedOut) {
@@ -69,15 +86,110 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
+        // Sign Up Button Listener
         btnSignup.setOnClickListener(v -> startActivity(new Intent(LoginActivity.this, SignUpActivity.class)));
-        btnForgot.setOnClickListener(v -> Toast.makeText(this, "Forgot Password feature coming soon!", Toast.LENGTH_SHORT).show());
 
+        // Forgot Password Listener
+        btnForgot.setOnClickListener(v -> {
+            String email = etEmail.getText().toString().trim();
+            if (TextUtils.isEmpty(email)) {
+                etEmail.setError("Enter your email first");
+                etEmail.requestFocus();
+                Toast.makeText(this, "Please enter your email to reset password.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Disable button to prevent spamming
+            btnForgot.setEnabled(false);
+            btnForgot.setText("Sending...");
+
+            SupabaseJavaHelper.sendPasswordResetEmail(email, new SupabaseJavaHelper.SimpleCallback() {
+                @Override
+                public void onSuccess() {
+                    btnForgot.setEnabled(true);
+                    btnForgot.setText("Forgot Password?");
+                    Toast.makeText(LoginActivity.this, "Reset link sent! Check your email.", Toast.LENGTH_LONG).show();
+                }
+
+                @Override
+                public void onError(String message) {
+                    btnForgot.setEnabled(true);
+                    btnForgot.setText("Forgot Password?");
+                    Toast.makeText(LoginActivity.this, "Error: " + message, Toast.LENGTH_LONG).show();
+                }
+            });
+        });
+
+        // Window Insets
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
     }
+
+    // ⭐ FIX: Handle New Intents (If app was already open in background)
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        checkDeepLink(intent);
+    }
+
+    // ⭐ FIX: Logic to Catch the Reset Link and Open Dialog
+    private void checkDeepLink(Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+
+        // UPDATED: Now uses only 1 callback (Success/Recovery).
+        // AuthHelper handles the fallback internally.
+        AuthHelper.handleDeepLink(intent, () -> {
+            runOnUiThread(this::showResetPasswordDialog);
+            return Unit.INSTANCE; // Required for Kotlin interop
+        });
+    }
+
+    // ⭐ FIX: Show Popup to Enter New Password
+    private void showResetPasswordDialog() {
+        if (isFinishing()) return;
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Set New Password");
+        builder.setMessage("Enter your new password below:");
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        builder.setView(input);
+
+        builder.setPositiveButton("Update", (dialog, which) -> {
+            String newPass = input.getText().toString().trim();
+            if (newPass.length() < 6) {
+                Toast.makeText(this, "Password too short! Must be 6+ chars.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            updateUserPassword(newPass);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+        builder.setCancelable(false);
+        builder.show();
+    }
+
+    // ⭐ FIX: Update Password Helper Call
+    private void updateUserPassword(String newPass) {
+        AuthHelper.updateUserPassword(newPass, new AuthHelper.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                Toast.makeText(LoginActivity.this, "Password Updated! Please Login.", Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(LoginActivity.this, "Update Failed: " + message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    // --- NORMAL LOGIN LOGIC ---
 
     private boolean validateInputs(String email, String password) {
         if (TextUtils.isEmpty(email)) { etEmail.setError("Email is required"); return false; }
@@ -88,13 +200,14 @@ public class LoginActivity extends AppCompatActivity {
     private void performSupabaseLogin(String email, String password) {
         btnSignin.setEnabled(false);
         btnSignin.setText("Verifying...");
+        fetchRetries = 0; // Reset retries
 
-        AuthHelper.loginUser(email, password, new AuthHelper.RegistrationCallback() {
+        SupabaseJavaHelper.loginUser(email, password, new SupabaseJavaHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
-                fetchProfileAndSave(email);
+                btnSignin.setText("Syncing Profile...");
+                fetchProfileWithRetry(email);
             }
-
             @Override
             public void onError(String message) {
                 handleLoginFailure(message);
@@ -102,46 +215,92 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    private void fetchProfileAndSave(String email) {
-        // ⭐ Simple Lambda Callback (Matches AuthHelper Revert)
-        AuthHelper.fetchUserProfile(profile -> {
-            if (profile != null) {
-                SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-
-                editor.putBoolean("isLoggedIn", true);
-                editor.putString("email", email);
-                editor.putString("user_id", profile.getId());
-                editor.putString("user_type", profile.getType());
-
-                // ⭐ Simple String Check
-                String faceData = profile.getFace_embedding();
-                if (faceData != null && !faceData.isEmpty()) {
-                    editor.putString("face_embedding", faceData);
-                    editor.putLong("last_verified_timestamp", System.currentTimeMillis());
+    // Retry Logic for Slow Internet
+    private void fetchProfileWithRetry(String email) {
+        SupabaseJavaHelper.fetchUserProfile(this, new SupabaseJavaHelper.ProfileCallback() {
+            @Override
+            public void onLoaded(Profile profile) {
+                if (profile != null) {
+                    processProfileAndSave(profile, email);
+                } else {
+                    handleFetchError(email, "Empty Profile Data");
                 }
-
-                editor.apply();
-
-                runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
-                    loginAttempts = 0;
-                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
-                });
-            } else {
-                runOnUiThread(() -> {
-                    Toast.makeText(LoginActivity.this, "Welcome! (Could not load profile)", Toast.LENGTH_SHORT).show();
-                    saveLoginSession(email);
-                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                    startActivity(intent);
-                    finish();
-                });
             }
-            return Unit.INSTANCE;
+
+            @Override
+            public void onError(String message) {
+                handleFetchError(email, message);
+            }
         });
+    }
+
+    private void handleFetchError(String email, String message) {
+        if (fetchRetries < MAX_RETRIES) {
+            fetchRetries++;
+            runOnUiThread(() -> {
+                btnSignin.setText("Retrying (" + fetchRetries + "/" + MAX_RETRIES + ")...");
+                new Handler().postDelayed(() -> fetchProfileWithRetry(email), 2000); // Wait 2s then retry
+            });
+        } else {
+            runOnUiThread(() -> {
+                btnSignin.setEnabled(true);
+                btnSignin.setText("Sign In");
+                showErrorDialog("Connection Failed", "Could not download profile. Please check your internet and try again.\n\nError: " + message);
+            });
+        }
+    }
+
+    private void processProfileAndSave(Profile profile, String email) {
+        SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+
+        editor.putBoolean("isLoggedIn", true);
+        editor.putString("email", email);
+        editor.putString("user_id", profile.getId());
+        editor.putString("user_type", profile.getType());
+
+        // ⭐ SAFE FACE DATA CHECK (Handles List/Object/String)
+        // We use toString() to safely convert whatever format (List or String) came from Supabase
+        Object faceDataObj = profile.getFace_embedding();
+        String faceData = (faceDataObj != null) ? faceDataObj.toString() : null;
+
+        // Check if Resident + No Face Data
+        if (profile.getType() != null && profile.getType().equalsIgnoreCase("Resident")) {
+            if (faceData == null || faceData.length() < 5) {
+                runOnUiThread(() -> {
+                    btnSignin.setEnabled(true);
+                    btnSignin.setText("Sign In");
+                    showErrorDialog("Face Data Missing", "Your Resident account is missing face data. Please contact admin.");
+                });
+                return; // 🛑 BLOCK LOGIN
+            }
+        }
+
+        if (faceData != null && !faceData.isEmpty()) {
+            editor.putString("face_embedding", faceData);
+            editor.putLong("last_verified_timestamp", System.currentTimeMillis());
+            Log.d("LOGIN", "Face Data Saved: " + faceData);
+        }
+
+        editor.apply();
+
+        runOnUiThread(() -> {
+            Toast.makeText(LoginActivity.this, "Login Successful!", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+        });
+    }
+
+    // --- UI HELPERS ---
+
+    private void showErrorDialog(String title, String message) {
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
     }
 
     private void handleLoginFailure(String errorMessage) {
@@ -163,14 +322,6 @@ public class LoginActivity extends AppCompatActivity {
             public void onTick(long millisUntilFinished) { btnSignin.setText("Locked (" + millisUntilFinished / 1000 + "s)"); }
             public void onFinish() { isLockedOut = false; loginAttempts = 0; btnSignin.setEnabled(true); btnSignin.setAlpha(1.0f); btnSignin.setText("Sign In"); }
         }.start();
-    }
-
-    private void saveLoginSession(String email) {
-        SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putBoolean("isLoggedIn", true);
-        editor.putString("email", email);
-        editor.apply();
     }
 
     private void hideKeyboard() {
