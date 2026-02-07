@@ -31,7 +31,7 @@ public class AvatarHelper {
         if (resourceId == R.drawable.avatar6) return "avatar6";
         if (resourceId == R.drawable.avatar7) return "avatar7";
         if (resourceId == R.drawable.avatar8) return "avatar8";
-        if (resourceId == R.drawable.avatar111) return "avatar11";
+        if (resourceId == R.drawable.avatar11) return "avatar11";
 
         return "avatar1"; // Default fallback
     }
