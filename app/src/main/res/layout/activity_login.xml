@@ -50,22 +50,28 @@
         android:layout_width="270dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="64dp"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        app:boxBackgroundColor="@android:color/white"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeColor="#F5901A"
+        app:hintTextColor="#F5901A"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/txtTitle"
-        >
+        app:layout_constraintTop_toBottomOf="@+id/txtTitle">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/editTextText"
             android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:paddingLeft="16dp"
+            android:layout_height="wrap_content"
             android:fontFamily="@font/dongle"
             android:hint="@string/email"
             android:inputType="textEmailAddress"
-            android:textSize="24sp"
-            android:background="@drawable/rounded_text_input"
-        />
+            android:maxLines="1"
+            android:singleLine="true"
+            android:textSize="24sp" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
@@ -73,25 +79,32 @@
         android:layout_width="270dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        app:boxBackgroundColor="@android:color/white"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeColor="#F5901A"
+        app:hintTextColor="#F5901A"
+        app:endIconMode="password_toggle"
+        app:endIconTint="#F5901A"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/editTextText1"
-
-        app:endIconMode="password_toggle">
+        app:layout_constraintTop_toBottomOf="@+id/editTextText1">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/editTextTextPassword"
             android:layout_width="match_parent"
-            android:layout_height="55dp"
-            android:paddingLeft="16dp"
-            android:background="@drawable/rounded_text_input"
+            android:layout_height="wrap_content"
             android:fontFamily="@font/dongle"
             android:hint="@string/password"
             android:inputType="textPassword"
+            android:maxLines="1"
+            android:singleLine="true"
             android:textSize="24sp" />
 
     </com.google.android.material.textfield.TextInputLayout>
-
 
     <androidx.cardview.widget.CardView
         android:layout_width="300dp"
@@ -155,6 +168,5 @@
         app:layout_constraintHorizontal_bias="0.12"
         app:layout_constraintStart_toEndOf="@+id/txtSignup"
         app:layout_constraintTop_toBottomOf="@+id/btnSignin" />
-
 
 </androidx.constraintlayout.widget.ConstraintLayout>
