@@ -18,6 +18,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
@@ -72,6 +74,21 @@ public class LiveMap_fragment extends BaseFragment {
     // API KEYS
     private static final String OPENWEATHER_API_KEY = "00572d4c95d6813ee92167727a796fab";
 
+    // ⭐ 1. Define Permission Launcher
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
+                Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
+                Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false);
+
+                if (fineLocationGranted != null && fineLocationGranted) {
+                    setupCurrentLocation(); // Retry setup
+                } else if (coarseLocationGranted != null && coarseLocationGranted) {
+                    setupCurrentLocation(); // Retry setup
+                } else {
+                    Toast.makeText(getContext(), "Location permission denied. Current location unavailable.", Toast.LENGTH_SHORT).show();
+                }
+            });
+
     public LiveMap_fragment() {}
 
     public static LiveMap_fragment newInstance(String address) {
@@ -112,11 +129,11 @@ public class LiveMap_fragment extends BaseFragment {
         // ⭐ VISUAL LAYERS
         // =========================================================
 
-        // 1. WIND ONLY (Typhoon Swirls) - Rain layer removed to clear the "green field"
+        // 1. WIND ONLY (Typhoon Swirls)
         setupWindTiles();
 
-        // 2. SETUP LOCATION
-        setupCurrentLocation();
+        // 2. SETUP LOCATION (With Permission Check)
+        checkAndRequestLocation();
 
         if (targetAddress != null && !targetAddress.isEmpty()) {
             locateAddressOnMap(targetAddress, startPoint);
@@ -124,7 +141,7 @@ public class LiveMap_fragment extends BaseFragment {
             fetchRegisteredAddress(startPoint);
         }
 
-        // 3. SCANNERS (Green < 4.0, Purple >= 4.0)
+        // 3. SCANNERS
         fetchUSGSData();
         fetchPhivolcsData();
         fetchTyphoonTextAlert();
@@ -133,10 +150,25 @@ public class LiveMap_fragment extends BaseFragment {
         if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
     }
 
+    // ⭐ 2. Permission Check Logic
+    private void checkAndRequestLocation() {
+        if (getContext() == null) return;
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            setupCurrentLocation();
+        } else {
+            locationPermissionLauncher.launch(new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+            });
+        }
+    }
+
     // =========================================================
     // ⭐ WIND LAYER (The Typhoon Visual)
     // =========================================================
     private void setupWindTiles() {
+        if (getContext() == null) return;
         final MapTileProviderBasic provider = new MapTileProviderBasic(requireContext());
         final OnlineTileSourceBase windSource = new OnlineTileSourceBase(
                 "OpenWeatherMap Wind",
@@ -256,7 +288,7 @@ public class LiveMap_fragment extends BaseFragment {
     }
 
     // =========================================================
-    // EARTHQUAKE SCANNERS (Updated: GREEN for < 4.0)
+    // EARTHQUAKE SCANNERS
     // =========================================================
     private void fetchPhivolcsData() {
         new Thread(() -> {
@@ -282,8 +314,6 @@ public class LiveMap_fragment extends BaseFragment {
                             double lon = Double.parseDouble(cols.get(2).text().trim());
                             double mag = Double.parseDouble(cols.get(4).text().trim());
 
-                            // ⭐ RESTORED: Shows ALL quakes.
-                            // Green = Weak (< 4.0), Purple/Magenta = Strong (>= 4.0)
                             addQuakeMarker(lat, lon, "PHIVOLCS: Mag " + mag, dateStr, mag >= 4.0 ? 0xFFFF00FF : 0xFF2E7D32);
 
                         } catch (Exception e) {}
@@ -315,7 +345,6 @@ public class LiveMap_fragment extends BaseFragment {
                                 double mag = p.getDouble("mag");
 
                                 if(lat > 4 && lat < 22 && lon > 116 && lon < 127) {
-                                    // ⭐ RESTORED: Color logic for USGS
                                     addQuakeMarker(lat, lon, "USGS: Mag " + mag, p.getString("place"), mag >= 4.0 ? 0xFFFF00FF : 0xFF2E7D32);
                                 }
                             }
@@ -330,8 +359,11 @@ public class LiveMap_fragment extends BaseFragment {
     // MAP & LOCATION HELPERS
     // =========================================================
     private void setupCurrentLocation() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
+        if (getContext() == null) return;
+        // Double check permission before enabling
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+
             locationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(requireContext()), map);
             locationOverlay.enableMyLocation();
             locationOverlay.runOnFirstFix(() -> {
