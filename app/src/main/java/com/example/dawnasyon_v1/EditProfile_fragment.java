@@ -24,7 +24,7 @@ public class EditProfile_fragment extends BaseFragment {
     // Default avatar
     private int currentProfileAvatarResId = R.drawable.avatar1;
 
-    // ⭐ NEW FLAG: Tracks if user manually changed the avatar in this session
+    // Flag: Tracks if user manually changed the avatar in this session
     private boolean isAvatarUpdated = false;
 
     public EditProfile_fragment() {
@@ -38,16 +38,13 @@ public class EditProfile_fragment extends BaseFragment {
         // Listen for result from AvatarPicker
         getParentFragmentManager().setFragmentResultListener("requestKey_avatar", this, (requestKey, bundle) -> {
             int selectedId = bundle.getInt("selected_avatar_id");
-
             Log.d("EditProfile", "Avatar updated locally to ID: " + selectedId);
 
             // 1. Update variable
             this.currentProfileAvatarResId = selectedId;
-
-            // ⭐ 2. MARK AS UPDATED so the database fetch doesn't overwrite it
+            // 2. Mark as updated
             this.isAvatarUpdated = true;
-
-            // 3. Update UI immediately
+            // 3. Update UI
             if (profilePic != null) {
                 profilePic.setImageResource(selectedId);
             }
@@ -76,7 +73,6 @@ public class EditProfile_fragment extends BaseFragment {
         btnEditImage = view.findViewById(R.id.btn_edit_image);
         btnSaveProfile = view.findViewById(R.id.btn_save_profile);
 
-        // ⭐ Set the image immediately (In case listener fired before view creation)
         if (profilePic != null) {
             profilePic.setImageResource(currentProfileAvatarResId);
         }
@@ -109,19 +105,45 @@ public class EditProfile_fragment extends BaseFragment {
                 if (editBarangay != null) editBarangay.setText(profile.getBarangay());
                 if (editStreet != null) editStreet.setText(profile.getStreet());
 
-                // ⭐ CRITICAL FIX: Only overwrite the avatar if the user HAS NOT picked a new one yet
+                // ⭐ NEW: Apply Locking Logic based on User Type
+                applyLockingLogic(profile.getType());
+
+                // Avatar Logic
                 if (!isAvatarUpdated) {
                     String dbAvatarName = profile.getAvatarName();
                     currentProfileAvatarResId = AvatarHelper.getDrawableId(getContext(), dbAvatarName);
                     if (profilePic != null) {
                         profilePic.setImageResource(currentProfileAvatarResId);
                     }
-                } else {
-                    Log.d("EditProfile", "Skipping DB avatar load because user selected a new one.");
                 }
             }
             return null;
         });
+    }
+
+    // ⭐ NEW METHOD: Handles the locking logic
+    private void applyLockingLogic(String userType) {
+        boolean isResident = userType != null && userType.equalsIgnoreCase("Resident");
+
+        // 1. Name is ALWAYS locked for everyone (as per request)
+        editName.setEnabled(false);
+
+        // 2. Contact Number is ALWAYS editable
+        editContact.setEnabled(true);
+
+        if (isResident) {
+            // RESIDENT: Lock Address Fields
+            editProvince.setEnabled(false);
+            editCity.setEnabled(false);
+            editBarangay.setEnabled(false);
+            editStreet.setEnabled(false);
+        } else {
+            // NON-RESIDENT: Allow editing Address
+            editProvince.setEnabled(true);
+            editCity.setEnabled(true);
+            editBarangay.setEnabled(true);
+            editStreet.setEnabled(true);
+        }
     }
 
     private void saveUserData() {
@@ -137,10 +159,8 @@ public class EditProfile_fragment extends BaseFragment {
             return;
         }
 
-        // Get String Name using Helper
         String avatarName = AvatarHelper.getResourceName(getContext(), currentProfileAvatarResId);
 
-        // Show loading
         if (getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
