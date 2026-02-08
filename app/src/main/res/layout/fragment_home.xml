@@ -85,7 +85,8 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
                 <Button
                     android:id="@+id/btn_filter_all"
@@ -115,19 +116,38 @@
                     android:insetBottom="0dp"
                     app:cornerRadius="20dp"/>
 
-                <Button
-                    android:id="@+id/btn_filter_drive"
+                <FrameLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="40dp"
-                    android:text="Ayuda application"
-                    android:textSize="11sp"
-                    android:textColor="#757575"
-                    android:backgroundTint="#E0E0E0"
-                    android:layout_marginEnd="8dp"
-                    android:textAllCaps="false"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    app:cornerRadius="20dp"/>
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="8dp">
+
+                    <Button
+                        android:id="@+id/btn_filter_drive"
+                        android:layout_width="wrap_content"
+                        android:layout_height="40dp"
+                        android:text="Ayuda application"
+                        android:textSize="11sp"
+                        android:textColor="#757575"
+                        android:backgroundTint="#E0E0E0"
+                        android:textAllCaps="false"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        app:cornerRadius="20dp"/>
+
+                    <TextView
+                        android:id="@+id/tv_drive_badge"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:text="1"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:textColor="#FFFFFF"
+                        android:gravity="center"
+                        android:background="@drawable/bg_circle_red"
+                        android:layout_gravity="top|end"
+                        android:visibility="gone"
+                        android:elevation="6dp"/>
+                </FrameLayout>
 
             </LinearLayout>
         </HorizontalScrollView>

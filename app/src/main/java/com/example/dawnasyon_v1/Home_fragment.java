@@ -1,10 +1,11 @@
 package com.example.dawnasyon_v1;
 
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,8 +24,11 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class Home_fragment extends BaseFragment {
 
@@ -32,10 +36,13 @@ public class Home_fragment extends BaseFragment {
     private TextView welcomeText;
     private ImageView userAvatar;
     private SearchView searchView;
-    private ImageView iconFilter; // Bookmark Icon
+    private ImageView iconFilter;
 
     // Filter Buttons
     private Button btnFilterAll, btnFilterGeneral, btnFilterDrive;
+
+    // Badge TextView
+    private TextView tvDriveBadge;
 
     // Carousel Components
     private ViewPager2 imageCarouselViewPager;
@@ -60,7 +67,11 @@ public class Home_fragment extends BaseFragment {
 
     // Filter State Variables
     private boolean showBookmarksOnly = false;
-    private String currentCategoryFilter = "ALL"; // Options: "ALL", "General", "Donation drive"
+    private String currentCategoryFilter = "ALL";
+
+    // ⭐ NEW: Preference Key for "Last Checked"
+    private static final String PREF_NAME = "UserPrefs";
+    private static final String KEY_LAST_CHECKED_DRIVE = "last_checked_drive_time";
 
     // Carousel Runnable
     private final Runnable sliderRunnable = new Runnable() {
@@ -97,6 +108,8 @@ public class Home_fragment extends BaseFragment {
         btnFilterGeneral = view.findViewById(R.id.btn_filter_general);
         btnFilterDrive = view.findViewById(R.id.btn_filter_drive);
 
+        tvDriveBadge = view.findViewById(R.id.tv_drive_badge);
+
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
         tvEmptyPlaceholder = view.findViewById(R.id.tv_empty_placeholder);
@@ -113,7 +126,12 @@ public class Home_fragment extends BaseFragment {
 
         btnFilterAll.setOnClickListener(v -> setCategoryFilter("ALL"));
         btnFilterGeneral.setOnClickListener(v -> setCategoryFilter("General"));
-        btnFilterDrive.setOnClickListener(v -> setCategoryFilter("Donation drive"));
+
+        // ⭐ UPDATED: When clicking "Ayuda Application", mark all as read!
+        btnFilterDrive.setOnClickListener(v -> {
+            setCategoryFilter("Donation drive");
+            markDrivesAsRead(); // Logic to clear badge
+        });
 
         // 3. Setup Components
         setupCarousel();
@@ -127,7 +145,6 @@ public class Home_fragment extends BaseFragment {
     public void onResume() {
         super.onResume();
         sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
-        // Load data every time we come back (ensures cache is fresh)
         loadUserProfileAndAnnouncements();
     }
 
@@ -144,61 +161,42 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // ⭐ DATA LOADING (CRASH PROOF)
+    // ⭐ DATA LOADING & BADGE LOGIC
     // ====================================================
 
     private void loadUserProfileAndAnnouncements() {
         if (isFirstLoad && getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
-
-        // Use getContext() safely
         if (getContext() == null) return;
 
-        // 1. Fetch Profile First
         SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() {
             @Override
             public void onLoaded(Profile profile) {
-                // Safety check: Is fragment still alive?
                 if (!isAdded() || getActivity() == null) return;
 
                 if (profile != null) {
-                    welcomeText.setText("Welcome, " + profile.getFull_name() + "!"); // Use First Name for cleaner UI
+                    welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
                     isUserVerified = Boolean.TRUE.equals(profile.getVerified());
                     if (profile.getType() != null) userType = profile.getType();
                     currentUserStreet = (profile.getStreet() != null) ? profile.getStreet().trim() : "";
 
-                    // Avatar Logic
+                    // Load Avatar logic (omitted for brevity, same as before)
                     String avatarName = profile.getAvatarName();
-                    int avatarResId = R.drawable.ic_profile_avatar; // Default
-
+                    int avatarResId = R.drawable.ic_profile_avatar;
                     if (avatarName != null && !avatarName.isEmpty()) {
                         int resId = getResources().getIdentifier(avatarName, "drawable", getContext().getPackageName());
-                        if (resId != 0) {
-                            avatarResId = resId;
-                        }
+                        if (resId != 0) avatarResId = resId;
                     }
-
-                    // Safe Glide Loading
                     try {
-                        Glide.with(Home_fragment.this)
-                                .load(avatarResId)
-                                .placeholder(R.drawable.ic_profile_avatar)
-                                .circleCrop()
-                                .diskCacheStrategy(DiskCacheStrategy.ALL)
-                                .into(userAvatar);
-                    } catch (Exception e) {
-                        // Ignore offline image errors
-                    }
+                        Glide.with(Home_fragment.this).load(avatarResId).placeholder(R.drawable.ic_profile_avatar).circleCrop().into(userAvatar);
+                    } catch (Exception e) {}
                 }
-
-                // 2. Fetch Announcements (Chained)
                 fetchAnnouncementsFromSupabase();
             }
 
             @Override
             public void onError(String message) {
-                // If profile fails, still try to load announcements (maybe we have them cached)
                 if (!isAdded()) return;
                 fetchAnnouncementsFromSupabase();
             }
@@ -211,29 +209,35 @@ public class Home_fragment extends BaseFragment {
         SupabaseJavaHelper.fetchAnnouncements(getContext(), new SupabaseJavaHelper.AnnouncementCallback() {
             @Override
             public void onSuccess(List<Announcement> data) {
-                // Check Fragment Life
                 if (!isAdded() || getActivity() == null) return;
-
-                if (getActivity() instanceof BaseActivity) {
-                    ((BaseActivity) getActivity()).hideLoading();
-                }
+                if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
                 List<Announcement> visibleList = new ArrayList<>();
+                int newDriveCount = 0;
 
-                // Street Filtering Logic
+                // ⭐ Get Last Checked Time
+                SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                long lastCheckedTime = prefs.getLong(KEY_LAST_CHECKED_DRIVE, 0);
+
                 for (Announcement item : data) {
                     boolean showIt = true;
 
-                    // Only filter "Donation drives" by street
                     if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
                         String targetStreet = item.getAffected_street();
-                        if (targetStreet == null || targetStreet.trim().isEmpty()) {
-                            showIt = true; // No specific street, show to all
-                        } else if (targetStreet.equalsIgnoreCase("All Streets") || targetStreet.equalsIgnoreCase("All")) {
-                            showIt = true; // Targeted to all
+                        if (targetStreet == null || targetStreet.trim().isEmpty() ||
+                                targetStreet.equalsIgnoreCase("All Streets") ||
+                                targetStreet.equalsIgnoreCase("All")) {
+                            showIt = true;
                         } else {
-                            // Compare user street vs target street (Case Insensitive)
                             showIt = targetStreet.equalsIgnoreCase(currentUserStreet);
+                        }
+
+                        // ⭐ CHECK IF NEW (Created After Last Check)
+                        if (showIt) {
+                            long itemTime = parseDateToMillis(item.getCreated_at());
+                            if (itemTime > lastCheckedTime) {
+                                newDriveCount++;
+                            }
                         }
                     }
 
@@ -245,7 +249,8 @@ public class Home_fragment extends BaseFragment {
                 fullAnnouncementList.clear();
                 fullAnnouncementList.addAll(visibleList);
 
-                // Re-apply current UI filters (Search/Category)
+                updateDriveBadge(newDriveCount); // Only show count of NEW items
+
                 applyFilters(searchView.getQuery().toString());
                 isFirstLoad = false;
             }
@@ -253,32 +258,61 @@ public class Home_fragment extends BaseFragment {
             @Override
             public void onError(String message) {
                 if (!isAdded() || getActivity() == null) return;
-
-                if (getActivity() instanceof BaseActivity) {
-                    ((BaseActivity) getActivity()).hideLoading();
-                }
-
-                // If list is empty and we got an error, show empty state
-                if (fullAnnouncementList.isEmpty()) {
-                    updatePlaceholder(true);
-                }
+                if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                if (fullAnnouncementList.isEmpty()) updatePlaceholder(true);
             }
         });
     }
 
+    // ⭐ HELPER: Parse Supabase Date to Milliseconds
+    private long parseDateToMillis(String dateStr) {
+        if (dateStr == null) return 0;
+        try {
+            // Supabase format: 2026-02-08T10:00:00 or similar
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+            Date date = sdf.parse(dateStr);
+            return (date != null) ? date.getTime() : 0;
+        } catch (Exception e) {
+            return 0; // If parsing fails, treat as old
+        }
+    }
+
+    // ⭐ HELPER: Mark as Read (Clear Badge)
+    private void markDrivesAsRead() {
+        if (getContext() == null) return;
+
+        // Save CURRENT time as the new "Last Checked" time
+        SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putLong(KEY_LAST_CHECKED_DRIVE, System.currentTimeMillis());
+        editor.apply();
+
+        // Hide Badge immediately
+        updateDriveBadge(0);
+    }
+
+    private void updateDriveBadge(int count) {
+        if (tvDriveBadge == null) return;
+        if (count > 0) {
+            tvDriveBadge.setVisibility(View.VISIBLE);
+            tvDriveBadge.setText(String.valueOf(count));
+        } else {
+            tvDriveBadge.setVisibility(View.GONE);
+        }
+    }
+
     // ====================================================
-    // ⭐ FILTERING LOGIC
+    // FILTERING LOGIC
     // ====================================================
 
     private void toggleBookmarkFilter() {
         showBookmarksOnly = !showBookmarksOnly;
-
         if (showBookmarksOnly) {
-            iconFilter.setColorFilter(Color.parseColor("#F5901A")); // Orange
+            iconFilter.setColorFilter(Color.parseColor("#F5901A"));
             iconFilter.setImageResource(R.drawable.ic_bookmark_filled);
             Toast.makeText(getContext(), "Showing Saved Items", Toast.LENGTH_SHORT).show();
         } else {
-            iconFilter.setColorFilter(Color.parseColor("#757575")); // Gray
+            iconFilter.setColorFilter(Color.parseColor("#757575"));
             iconFilter.setImageResource(R.drawable.ic_bookmark_outline);
             Toast.makeText(getContext(), "Showing All", Toast.LENGTH_SHORT).show();
         }
@@ -288,12 +322,10 @@ public class Home_fragment extends BaseFragment {
     private void setCategoryFilter(String category) {
         currentCategoryFilter = category;
 
-        // Reset Buttons
         updateButtonState(btnFilterAll, false);
         updateButtonState(btnFilterGeneral, false);
         updateButtonState(btnFilterDrive, false);
 
-        // Highlight Active
         if (category.equals("ALL")) updateButtonState(btnFilterAll, true);
         else if (category.equals("General")) updateButtonState(btnFilterGeneral, true);
         else if (category.equals("Donation drive")) updateButtonState(btnFilterDrive, true);
@@ -320,25 +352,17 @@ public class Home_fragment extends BaseFragment {
             boolean matchesBookmark = true;
             boolean matchesCategory = true;
 
-            // 1. Search Check
             if (!lowerCaseQuery.isEmpty()) {
                 boolean titleMatch = item.getTitle() != null && item.getTitle().toLowerCase().contains(lowerCaseQuery);
                 boolean descMatch = item.getDescription() != null && item.getDescription().toLowerCase().contains(lowerCaseQuery);
                 matchesSearch = titleMatch || descMatch;
             }
 
-            // 2. Bookmark Check
-            if (showBookmarksOnly) {
-                matchesBookmark = item.isBookmarked();
-            }
+            if (showBookmarksOnly) matchesBookmark = item.isBookmarked();
 
-            // 3. Category Check
             if (!currentCategoryFilter.equals("ALL")) {
-                if (item.getType() != null) {
-                    matchesCategory = item.getType().equalsIgnoreCase(currentCategoryFilter);
-                } else {
-                    matchesCategory = false;
-                }
+                if (item.getType() != null) matchesCategory = item.getType().equalsIgnoreCase(currentCategoryFilter);
+                else matchesCategory = false;
             }
 
             if (matchesSearch && matchesBookmark && matchesCategory) {
@@ -363,24 +387,18 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // ⭐ INTERACTIONS (LIKE, BOOKMARK, APPLY)
+    // INTERACTIONS
     // ====================================================
 
     private void setupAnnouncementsList() {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         announcementAdapter = new AnnouncementAdapter(announcementList, new AnnouncementAdapter.OnItemClickListener() {
             @Override
-            public void onApplyClick(Announcement announcement) {
-                showApplyDialog(announcement);
-            }
+            public void onApplyClick(Announcement announcement) { showApplyDialog(announcement); }
             @Override
-            public void onLikeClick(Announcement announcement, int position) {
-                handleLike(announcement, position);
-            }
+            public void onLikeClick(Announcement announcement, int position) { handleLike(announcement, position); }
             @Override
-            public void onBookmarkClick(Announcement announcement, int position) {
-                handleBookmark(announcement, position);
-            }
+            public void onBookmarkClick(Announcement announcement, int position) { handleBookmark(announcement, position); }
         });
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
@@ -388,8 +406,6 @@ public class Home_fragment extends BaseFragment {
     private void handleLike(Announcement item, int position) {
         boolean currentState = item.isLiked();
         boolean newState = !currentState;
-
-        // Optimistic UI Update (Update instantly)
         item.setLiked(newState);
         int currentCount = item.getLikeCount();
         item.setLikeCount(newState ? currentCount + 1 : Math.max(0, currentCount - 1));
@@ -397,11 +413,10 @@ public class Home_fragment extends BaseFragment {
 
         SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SupabaseJavaHelper.SimpleCallback() {
             @Override
-            public void onSuccess() { /* Synced with server */ }
+            public void onSuccess() { }
             @Override
             public void onError(String msg) {
                 if (isAdded()) {
-                    // Revert on failure
                     item.setLiked(currentState);
                     item.setLikeCount(currentCount);
                     announcementAdapter.notifyItemChanged(position);
@@ -417,7 +432,6 @@ public class Home_fragment extends BaseFragment {
         item.setBookmarked(newState);
 
         if (showBookmarksOnly && !newState) {
-            // Remove instantly if in bookmark mode
             announcementList.remove(position);
             announcementAdapter.notifyItemRemoved(position);
             updatePlaceholder(announcementList.isEmpty());
@@ -431,13 +445,9 @@ public class Home_fragment extends BaseFragment {
             @Override
             public void onError(String msg) {
                 if (isAdded()) {
-                    // Revert
                     item.setBookmarked(currentState);
-                    if (showBookmarksOnly && !newState) {
-                        loadUserProfileAndAnnouncements(); // Reload to fix list
-                    } else {
-                        announcementAdapter.notifyItemChanged(position);
-                    }
+                    if (showBookmarksOnly && !newState) loadUserProfileAndAnnouncements();
+                    else announcementAdapter.notifyItemChanged(position);
                 }
             }
         });
@@ -448,13 +458,10 @@ public class Home_fragment extends BaseFragment {
             Toast.makeText(getContext(), "You have already applied to this drive!", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // Validate User Type
         if (userType != null && (userType.equalsIgnoreCase("Overseas") || userType.equalsIgnoreCase("Non-Resident"))) {
             Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
             return;
         }
-        // Validate Verification
         if (!isUserVerified) {
             Toast.makeText(getContext(), "🔒 You must be a VERIFIED Resident to apply.", Toast.LENGTH_LONG).show();
             return;
@@ -489,10 +496,6 @@ public class Home_fragment extends BaseFragment {
         });
         dialog.show(getParentFragmentManager(), "ApplyDialog");
     }
-
-    // ====================================================
-    // ⭐ SETUP UTILS
-    // ====================================================
 
     private void setupCarousel() {
         List<Integer> imageList = new ArrayList<>();

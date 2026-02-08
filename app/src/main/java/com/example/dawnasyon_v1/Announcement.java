@@ -1,7 +1,7 @@
 package com.example.dawnasyon_v1;
 
 import com.google.gson.annotations.SerializedName;
-import java.io.Serializable; // Added Serializable just in case
+import java.io.Serializable;
 
 public class Announcement implements Serializable {
 
@@ -11,6 +11,7 @@ public class Announcement implements Serializable {
     @SerializedName("title")
     private String title;
 
+    // This field holds the 'created_at' data from Supabase
     @SerializedName("created_at")
     private String timestamp;
 
@@ -26,7 +27,6 @@ public class Announcement implements Serializable {
     @SerializedName("type")
     private String type;
 
-    // ⭐ NEW: This allows filtering by street
     @SerializedName("affected_street")
     private String affectedStreet;
 
@@ -40,16 +40,21 @@ public class Announcement implements Serializable {
 
     public Announcement() {}
 
-    // Getters
+    // --- GETTERS ---
     public long getPostId() { return postId; }
     public String getTitle() { return title; }
+
+    // Existing getter
     public String getTimestamp() { return timestamp; }
+
+    // ⭐ NEW: This fixes the error in Home_fragment!
+    public String getCreated_at() { return timestamp; }
+
     public String getDescription() { return description; }
     public String getImageUrl() { return imageUrl; }
     public Long getLinkedDriveId() { return linkedDriveId; }
     public String getType() { return type; }
 
-    // ⭐ NEW GETTER (Matches what Home_fragment expects)
     public String getAffected_street() { return affectedStreet; }
 
     public int getLikeCount() { return likeCount; }
