@@ -69,6 +69,37 @@
             app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementTime"
             tools:text="Lorem ipsum description text..." />
 
+        <LinearLayout
+            android:id="@+id/layout_dates"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:layout_marginTop="8dp"
+            app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementDescription"
+            app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
+            app:layout_constraintEnd_toEndOf="@+id/txtAnnouncementTitle">
+
+            <TextView
+                android:id="@+id/tvStartDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Start: 2026-02-08"
+                android:textSize="13sp"
+                android:textColor="#F57C00"
+                android:textStyle="bold"
+                android:layout_marginBottom="2dp"/>
+
+            <TextView
+                android:id="@+id/tvEndDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="End: 2026-02-10"
+                android:textSize="13sp"
+                android:textColor="#D32F2F"
+                android:textStyle="bold"/>
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnApply"
             style="@style/Widget.MaterialComponents.Button"
@@ -84,7 +115,7 @@
             android:textSize="16sp"
             app:cornerRadius="5dp"
             app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
-            app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementDescription" />
+            app:layout_constraintTop_toBottomOf="@+id/layout_dates" />
 
         <ImageButton
             android:id="@+id/btnLike"

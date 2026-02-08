@@ -84,13 +84,12 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FORGOT PASSWORD (Added)
+    // ⭐ FORGOT PASSWORD
     // ====================================================
     @JvmStatic
     fun sendPasswordResetEmail(email: String, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // ⭐ CRITICAL FIX: We add the redirectUrl here so the link opens the app
                 SupabaseManager.client.auth.resetPasswordForEmail(
                     email = email,
                     redirectUrl = "dawnasyon://reset-callback"
@@ -171,20 +170,32 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FETCH ANNOUNCEMENTS
+    // ⭐ FETCH ANNOUNCEMENTS (UPDATED FOR JOIN)
     // ====================================================
     @JvmStatic
     fun fetchAnnouncements(context: Context?, callback: AnnouncementCallback) {
         if (context == null) return
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // Try load from cache first
                 val type = object : TypeToken<MutableList<Announcement>>() {}.type
                 val cachedData: MutableList<Announcement>? = loadFromCache(context, "cache_announcements", type)
                 if (cachedData != null && cachedData.isNotEmpty()) { runOnUi { callback.onSuccess(cachedData) } }
             } catch (e: Exception) { }
+
             try {
                 withTimeout(5000L) {
-                    val announcementsDeferred = async { SupabaseManager.client.from("announcements").select { order("created_at", order = Order.DESCENDING) }.data }
+                    // ⭐ UPDATED QUERY: We select EVERYTHING from announcements,
+                    // PLUS we join 'relief_drives' to get start_date and end_date.
+                    // This populates the 'relief_drives' nested object in JSON.
+                    val announcementsDeferred = async {
+                        SupabaseManager.client.from("announcements").select(
+                            columns = Columns.raw("*, relief_drives(start_date, end_date)")
+                        ) {
+                            order("created_at", order = Order.DESCENDING)
+                        }.data
+                    }
+
                     val currentUser = SupabaseManager.client.auth.currentUserOrNull()
                     val likesDeferred = if (currentUser != null) async { SupabaseManager.client.from("post_likes").select(columns = Columns.list("post_id")) { filter { eq("user_id", currentUser.id) } }.data } else null
                     val bookmarksDeferred = if (currentUser != null) async { SupabaseManager.client.from("bookmarks").select(columns = Columns.list("post_id")) { filter { eq("user_id", currentUser.id) } }.data } else null
@@ -197,10 +208,12 @@ object SupabaseJavaHelper {
 
                     val type = object : TypeToken<MutableList<Announcement>>() {}.type
                     val dataList = gson.fromJson<MutableList<Announcement>>(jsonResponse, type) ?: mutableListOf()
+
                     if (currentUser != null) {
                         val likedIds = if (likesJson != null) gson.fromJson<List<LikeDTO>>(likesJson, object : TypeToken<List<LikeDTO>>() {}.type).map { it.post_id }.toSet() else emptySet()
                         val bookmarkedIds = if (bookmarksJson != null) gson.fromJson<List<BookmarkDTO>>(bookmarksJson, object : TypeToken<List<BookmarkDTO>>() {}.type).map { it.post_id }.toSet() else emptySet()
                         val appliedDriveIds = if (appsJson != null) gson.fromJson<List<ApplicationDTO>>(appsJson, object : TypeToken<List<ApplicationDTO>>() {}.type).map { it.drive_id }.toSet() else emptySet()
+
                         for (item in dataList) {
                             if (likedIds.contains(item.getPostId())) item.setLiked(true)
                             if (bookmarkedIds.contains(item.getPostId())) item.setBookmarked(true)

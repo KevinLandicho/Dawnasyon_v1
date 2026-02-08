@@ -11,7 +11,6 @@ public class Announcement implements Serializable {
     @SerializedName("title")
     private String title;
 
-    // This field holds the 'created_at' data from Supabase
     @SerializedName("created_at")
     private String timestamp;
 
@@ -33,6 +32,10 @@ public class Announcement implements Serializable {
     @SerializedName("like_count")
     private int likeCount = 0;
 
+    // ⭐ NEW: Capture the nested "relief_drives" data from Supabase join
+    @SerializedName("relief_drives")
+    private ReliefDriveInfo driveInfo;
+
     // Local state tracking
     private boolean isApplied = false;
     private boolean isLiked = false;
@@ -43,19 +46,22 @@ public class Announcement implements Serializable {
     // --- GETTERS ---
     public long getPostId() { return postId; }
     public String getTitle() { return title; }
-
-    // Existing getter
     public String getTimestamp() { return timestamp; }
-
-    // ⭐ NEW: This fixes the error in Home_fragment!
-    public String getCreated_at() { return timestamp; }
-
+    public String getCreated_at() { return timestamp; } // Alias for Home_fragment
     public String getDescription() { return description; }
     public String getImageUrl() { return imageUrl; }
     public Long getLinkedDriveId() { return linkedDriveId; }
     public String getType() { return type; }
-
     public String getAffected_street() { return affectedStreet; }
+
+    // ⭐ NEW Helper Methods for Dates
+    public String getDriveStartDate() {
+        return (driveInfo != null) ? driveInfo.startDate : null;
+    }
+
+    public String getDriveEndDate() {
+        return (driveInfo != null) ? driveInfo.endDate : null;
+    }
 
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
@@ -68,4 +74,13 @@ public class Announcement implements Serializable {
 
     public boolean isBookmarked() { return isBookmarked; }
     public void setBookmarked(boolean bookmarked) { isBookmarked = bookmarked; }
+
+    // ⭐ Inner Class to match Supabase structure
+    public static class ReliefDriveInfo implements Serializable {
+        @SerializedName("start_date")
+        public String startDate;
+
+        @SerializedName("end_date")
+        public String endDate;
+    }
 }

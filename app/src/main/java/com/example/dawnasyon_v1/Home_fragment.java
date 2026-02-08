@@ -24,8 +24,10 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -69,7 +71,7 @@ public class Home_fragment extends BaseFragment {
     private boolean showBookmarksOnly = false;
     private String currentCategoryFilter = "ALL";
 
-    // ⭐ NEW: Preference Key for "Last Checked"
+    // Preference Key for "Last Checked"
     private static final String PREF_NAME = "UserPrefs";
     private static final String KEY_LAST_CHECKED_DRIVE = "last_checked_drive_time";
 
@@ -125,12 +127,12 @@ public class Home_fragment extends BaseFragment {
         iconFilter.setOnClickListener(v -> toggleBookmarkFilter());
 
         btnFilterAll.setOnClickListener(v -> setCategoryFilter("ALL"));
-        btnFilterGeneral.setOnClickListener(v -> setCategoryFilter("General"));
+        btnFilterGeneral.setOnClickListener(v -> setCategoryFilter("General")); // Maps to "Not Donation drive"
 
-        // ⭐ UPDATED: When clicking "Ayuda Application", mark all as read!
+        // Mark as read when clicked
         btnFilterDrive.setOnClickListener(v -> {
             setCategoryFilter("Donation drive");
-            markDrivesAsRead(); // Logic to clear badge
+            markDrivesAsRead();
         });
 
         // 3. Setup Components
@@ -161,7 +163,7 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // ⭐ DATA LOADING & BADGE LOGIC
+    // ⭐ DATA LOADING & FILTER LOGIC
     // ====================================================
 
     private void loadUserProfileAndAnnouncements() {
@@ -181,7 +183,6 @@ public class Home_fragment extends BaseFragment {
                     if (profile.getType() != null) userType = profile.getType();
                     currentUserStreet = (profile.getStreet() != null) ? profile.getStreet().trim() : "";
 
-                    // Load Avatar logic (omitted for brevity, same as before)
                     String avatarName = profile.getAvatarName();
                     int avatarResId = R.drawable.ic_profile_avatar;
                     if (avatarName != null && !avatarName.isEmpty()) {
@@ -215,29 +216,70 @@ public class Home_fragment extends BaseFragment {
                 List<Announcement> visibleList = new ArrayList<>();
                 int newDriveCount = 0;
 
-                // ⭐ Get Last Checked Time
                 SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
                 long lastCheckedTime = prefs.getLong(KEY_LAST_CHECKED_DRIVE, 0);
 
+                // ⭐ DATE CHECK: Get Today (Time zeroed out)
+                Calendar cal = Calendar.getInstance();
+                cal.set(Calendar.HOUR_OF_DAY, 0);
+                cal.set(Calendar.MINUTE, 0);
+                cal.set(Calendar.SECOND, 0);
+                cal.set(Calendar.MILLISECOND, 0);
+                Date todayZero = cal.getTime();
+
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
                 for (Announcement item : data) {
                     boolean showIt = true;
+                    boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
 
-                    if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
+                    // 1. Street Filter (Only strictly applies to Drives)
+                    if (isDrive) {
                         String targetStreet = item.getAffected_street();
                         if (targetStreet == null || targetStreet.trim().isEmpty() ||
                                 targetStreet.equalsIgnoreCase("All Streets") ||
                                 targetStreet.equalsIgnoreCase("All")) {
-                            showIt = true;
+                            // Keep true
                         } else {
-                            showIt = targetStreet.equalsIgnoreCase(currentUserStreet);
-                        }
-
-                        // ⭐ CHECK IF NEW (Created After Last Check)
-                        if (showIt) {
-                            long itemTime = parseDateToMillis(item.getCreated_at());
-                            if (itemTime > lastCheckedTime) {
-                                newDriveCount++;
+                            // If street doesn't match, hide it
+                            if (!targetStreet.equalsIgnoreCase(currentUserStreet)) {
+                                showIt = false;
                             }
+                        }
+                    }
+
+                    // ⭐ 2. END DATE CHECK (Strict: If date exists and passed, remove from Home)
+                    String endDateStr = item.getDriveEndDate();
+                    if (showIt && endDateStr != null && !endDateStr.isEmpty()) {
+                        try {
+                            Date endDate = sdf.parse(endDateStr);
+                            // If Today is AFTER End Date -> HIDE IT
+                            if (endDate != null && todayZero.after(endDate)) {
+                                showIt = false;
+                            }
+                        } catch (ParseException e) { e.printStackTrace(); }
+                    }
+
+                    // ⭐ 3. START DATE CHECK (Hide Advance Posts)
+                    String startDateStr = item.getDriveStartDate();
+                    if (showIt && startDateStr != null && !startDateStr.isEmpty()) {
+                        try {
+                            Date startDate = sdf.parse(startDateStr);
+                            // If Today is BEFORE Start Date -> HIDE IT
+                            if (startDate != null && todayZero.before(startDate)) {
+                                showIt = false;
+                            }
+                        } catch (ParseException e) { e.printStackTrace(); }
+                    }
+
+                    // NOTE: If Start/End dates are NULL/Empty, code skips the checks above
+                    // and 'showIt' remains TRUE. (This covers your requirement to show items with empty dates)
+
+                    // 4. Badge Count (Only count active Drives)
+                    if (showIt && isDrive) {
+                        long itemTime = parseDateToMillis(item.getCreated_at());
+                        if (itemTime > lastCheckedTime) {
+                            newDriveCount++;
                         }
                     }
 
@@ -249,7 +291,7 @@ public class Home_fragment extends BaseFragment {
                 fullAnnouncementList.clear();
                 fullAnnouncementList.addAll(visibleList);
 
-                updateDriveBadge(newDriveCount); // Only show count of NEW items
+                updateDriveBadge(newDriveCount);
 
                 applyFilters(searchView.getQuery().toString());
                 isFirstLoad = false;
@@ -264,30 +306,21 @@ public class Home_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ HELPER: Parse Supabase Date to Milliseconds
     private long parseDateToMillis(String dateStr) {
         if (dateStr == null) return 0;
         try {
-            // Supabase format: 2026-02-08T10:00:00 or similar
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
             Date date = sdf.parse(dateStr);
             return (date != null) ? date.getTime() : 0;
-        } catch (Exception e) {
-            return 0; // If parsing fails, treat as old
-        }
+        } catch (Exception e) { return 0; }
     }
 
-    // ⭐ HELPER: Mark as Read (Clear Badge)
     private void markDrivesAsRead() {
         if (getContext() == null) return;
-
-        // Save CURRENT time as the new "Last Checked" time
         SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putLong(KEY_LAST_CHECKED_DRIVE, System.currentTimeMillis());
         editor.apply();
-
-        // Hide Badge immediately
         updateDriveBadge(0);
     }
 
@@ -321,15 +354,12 @@ public class Home_fragment extends BaseFragment {
 
     private void setCategoryFilter(String category) {
         currentCategoryFilter = category;
-
         updateButtonState(btnFilterAll, false);
         updateButtonState(btnFilterGeneral, false);
         updateButtonState(btnFilterDrive, false);
-
         if (category.equals("ALL")) updateButtonState(btnFilterAll, true);
         else if (category.equals("General")) updateButtonState(btnFilterGeneral, true);
         else if (category.equals("Donation drive")) updateButtonState(btnFilterDrive, true);
-
         applyFilters(searchView.getQuery().toString());
     }
 
@@ -352,17 +382,33 @@ public class Home_fragment extends BaseFragment {
             boolean matchesBookmark = true;
             boolean matchesCategory = true;
 
+            // 1. Search Logic
             if (!lowerCaseQuery.isEmpty()) {
                 boolean titleMatch = item.getTitle() != null && item.getTitle().toLowerCase().contains(lowerCaseQuery);
                 boolean descMatch = item.getDescription() != null && item.getDescription().toLowerCase().contains(lowerCaseQuery);
                 matchesSearch = titleMatch || descMatch;
             }
 
+            // 2. Bookmark Logic
             if (showBookmarksOnly) matchesBookmark = item.isBookmarked();
 
+            // ⭐ 3. Category Logic (UPDATED)
             if (!currentCategoryFilter.equals("ALL")) {
-                if (item.getType() != null) matchesCategory = item.getType().equalsIgnoreCase(currentCategoryFilter);
-                else matchesCategory = false;
+                if (currentCategoryFilter.equals("General")) {
+                    // Logic: Show everything that is NOT a Donation drive
+                    if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
+                        matchesCategory = false;
+                    } else {
+                        matchesCategory = true;
+                    }
+                } else if (currentCategoryFilter.equals("Donation drive")) {
+                    // Logic: Show ONLY Donation drives
+                    if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
+                        matchesCategory = true;
+                    } else {
+                        matchesCategory = false;
+                    }
+                }
             }
 
             if (matchesSearch && matchesBookmark && matchesCategory) {
