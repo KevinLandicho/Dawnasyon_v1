@@ -84,7 +84,7 @@ public class SignUpResident_fragment extends BaseFragment {
         } else {
             // Action for Non-Resident (You can implement this later)
             // For now, it goes to the same flow as you requested
-            nextFragment = new SignUpValidID_fragment();
+            nextFragment = new SignUpStep1Personal_fragment();
         }
 
         // Perform the transition

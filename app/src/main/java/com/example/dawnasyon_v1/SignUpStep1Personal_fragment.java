@@ -153,7 +153,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
         Fragment nextFragment;
         if ("Overseas".equals(RegistrationCache.userType)) {
-            nextFragment = new SignUpStep3Location_fragment();
+            nextFragment = new SignUpStepAccount_fragment();
         } else {
             nextFragment = new SignUpStep2Household_fragment();
         }
