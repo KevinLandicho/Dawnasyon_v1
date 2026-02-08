@@ -65,9 +65,15 @@ public class DonationOptions_fragments extends BaseFragment {
         requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                getParentFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, new AddDonation_Fragment())
-                        .commit();
+                // If coming from AddDonation, go back there
+                if (getParentFragmentManager().getBackStackEntryCount() > 0) {
+                    getParentFragmentManager().popBackStack();
+                } else {
+                    // Default fallback
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.fragment_container, new Home_fragment())
+                            .commit();
+                }
             }
         });
 
@@ -103,7 +109,6 @@ public class DonationOptions_fragments extends BaseFragment {
                 if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
                 // Timeout or Error: Load Default Menu (Safe Mode)
-                // This prevents the user from being stuck on a blank screen
                 Toast.makeText(getContext(), "Slow connection: Showing default list", Toast.LENGTH_SHORT).show();
                 loadCategories(null);
             }
@@ -136,14 +141,16 @@ public class DonationOptions_fragments extends BaseFragment {
         }
 
         // --- ADD CATEGORIES ---
-        addCategory(inflater, "CASH", "Funds for supplies and relief support.", "Always Needed", R.drawable.ic_money);
+        // ⭐ Pass "Hidden" as status for Cash so we can detect it
+        addCategory(inflater, "CASH", "Funds for supplies and relief support.", "Hidden", R.drawable.ic_money);
+
         addCategory(inflater, "FOOD", "Rice, noodles, and canned goods.", foodStatus, R.drawable.ic_food);
         addCategory(inflater, "HYGIENE KITS", "Soap, toothpaste, and essentials.", hygieneStatus, R.drawable.ic_hygiene);
         addCategory(inflater, "MEDICINE", "Vitamins and first aid.", medStatus, R.drawable.ic_health);
         addCategory(inflater, "RELIEF PACKS", "Packed goods for distribution.", packStatus, R.drawable.ic_packs);
     }
 
-    // Helper: Logic for status text
+    // Helper: Logic for status text based on count
     private String calculateStatus(int count) {
         if (count < THRESHOLD_CRITICAL) {
             return "Critical (" + count + " left)";
@@ -186,15 +193,25 @@ public class DonationOptions_fragments extends BaseFragment {
         imgIcon.setImageResource(imageRes);
         txtTitle.setText(title);
         txtDescription.setText(description);
-        txtStatus.setText(status);
 
-        // ⭐ DYNAMIC BADGE COLOR
-        if (status.toLowerCase().contains("critical") || status.toLowerCase().contains("always")) {
-            txtStatus.setBackgroundResource(R.drawable.status_red);
-        } else if (status.toLowerCase().contains("low") || status.toLowerCase().contains("high")) {
-            txtStatus.setBackgroundResource(R.drawable.status_orange);
+        // ⭐ HIDE TAG IF CASH
+        if (title.equalsIgnoreCase("CASH") || status.equalsIgnoreCase("Hidden")) {
+            txtStatus.setVisibility(View.GONE);
         } else {
-            txtStatus.setBackgroundResource(R.drawable.status_green);
+            txtStatus.setVisibility(View.VISIBLE);
+            txtStatus.setText(status);
+
+            // Dynamic Color Logic
+            if (status.toLowerCase().contains("critical")) {
+                txtStatus.setBackgroundResource(R.drawable.status_red);
+                txtStatus.setTextColor(android.graphics.Color.WHITE);
+            } else if (status.toLowerCase().contains("low") || status.toLowerCase().contains("high")) {
+                txtStatus.setBackgroundResource(R.drawable.status_orange);
+                txtStatus.setTextColor(android.graphics.Color.BLACK);
+            } else {
+                txtStatus.setBackgroundResource(R.drawable.status_green);
+                txtStatus.setTextColor(android.graphics.Color.WHITE);
+            }
         }
 
         // 2. CHECK RESTRICTION (Overseas User Check)
