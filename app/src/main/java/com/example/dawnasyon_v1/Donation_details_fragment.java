@@ -1,8 +1,6 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
-import android.text.InputType;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -45,25 +43,28 @@ public class Donation_details_fragment extends BaseFragment {
   private String fStatus;
   private int fImageRes;
 
-  // --- Unit Definitions ---
-  private static final String[] FOOD_UNITS = {"PCS", "Kilo", "Liter", "Pack"};
-  private static final String[] MEDICINE_UNITS = {"Pack", "Bottles", "Set"};
-  private static final String[] RELIEF_PACKS_UNITS = {"Set"};
-  private static final String[] DEFAULT_UNITS = {"PCS", "Pack", "Set"};
+  // --- ⭐ NEW: Specific Unit Arrays ---
+  private static final String[] UNITS_WEIGHT = {"Kilo", "Sack", "Grams", "Tons"};
+  private static final String[] UNITS_PIECES = {"PCS", "Box", "Case", "Tray"};
+  private static final String[] UNITS_LIQUID = {"Liter", "Bottle", "Gallon", "Box"};
+  private static final String[] UNITS_PACKS  = {"Pack", "Set", "Box"};
+  private static final String[] UNITS_GENERIC = {"PCS", "Set", "Box"}; // Fallback
 
   // --- Data Structure ---
   private static class ItemData {
     String name;
-    String defaultUnit;
+    String[] specificUnits; // ⭐ Changed from String defaultUnit to String[] specificUnits
     String description;
     int layoutType; // 1 = Standard (Spinner), 2 = Description (No Spinner)
 
-    ItemData(String name, String defaultUnit) {
+    // Constructor for Items with Spinner
+    ItemData(String name, String[] specificUnits) {
       this.name = name;
-      this.defaultUnit = defaultUnit;
+      this.specificUnits = specificUnits;
       this.layoutType = 1;
     }
 
+    // Constructor for Description Items (No Spinner)
     ItemData(String name, String description, int layoutType) {
       this.name = name;
       this.description = description;
@@ -74,11 +75,13 @@ public class Donation_details_fragment extends BaseFragment {
   private static final Map<String, List<ItemData>> PRESET_ITEMS = new HashMap<>();
 
   static {
+    // ⭐ ASSIGN SPECIFIC UNITS PER ITEM HERE
     PRESET_ITEMS.put("FOOD", Arrays.asList(
-            new ItemData("Rice", "Kilo"),
-            new ItemData("Instant noodles", "PCS"),
-            new ItemData("Canned Goods", "PCS"),
-            new ItemData("Biscuits", "PCS")
+            new ItemData("Rice", UNITS_WEIGHT),           // Uses Kilo/Sack
+            new ItemData("Instant noodles", UNITS_PIECES),// Uses PCS/Box
+            new ItemData("Canned Goods", UNITS_PIECES),   // Uses PCS/Box
+            new ItemData("Biscuits", UNITS_PACKS),        // Uses Pack/Set
+            new ItemData("Water", UNITS_LIQUID)           // Uses Liter/Bottle
     ));
 
     PRESET_ITEMS.put("HYGIENE KITS", Arrays.asList(
@@ -89,14 +92,14 @@ public class Donation_details_fragment extends BaseFragment {
     ));
 
     PRESET_ITEMS.put("MEDICINE", Arrays.asList(
-            new ItemData("Pain Relievers", "Pack"),
-            new ItemData("Vitamins", "Bottles"),
-            new ItemData("Cough Syrup", "Bottles"),
-            new ItemData("First Aid Kit", "Set")
+            new ItemData("Pain Relievers", UNITS_PACKS),
+            new ItemData("Vitamins", UNITS_LIQUID),
+            new ItemData("Cough Syrup", UNITS_LIQUID),
+            new ItemData("First Aid Kit", UNITS_PACKS)
     ));
 
     PRESET_ITEMS.put("RELIEF PACKS", Arrays.asList(
-            new ItemData("Relief Pack", "Set")
+            new ItemData("Relief Pack", UNITS_PACKS)
     ));
   }
 
@@ -136,7 +139,6 @@ public class Donation_details_fragment extends BaseFragment {
 
     final String categoryKey = fTitle != null ? fTitle : "FOOD";
 
-    // 1. CASH LOGIC - Redirect Immediately
     if (categoryKey.equals("CASH")) {
       if (getActivity() != null) {
         Fragment cashFragment = CashInfo_fragment.newInstance(fTitle, fDescription, fStatus, fImageRes);
@@ -148,7 +150,6 @@ public class Donation_details_fragment extends BaseFragment {
       }
     }
 
-    // 2. Setup Views
     View btnBack = view.findViewById(R.id.btnBack);
     itemInputsContainer = view.findViewById(R.id.itemInputsContainer);
     btnAddCustomItem = view.findViewById(R.id.btnAddCustomItem);
@@ -167,15 +168,13 @@ public class Donation_details_fragment extends BaseFragment {
     if(txtStatus != null) txtStatus.setText(fStatus);
     if(imgIcon != null) imgIcon.setImageResource(fImageRes);
 
-    // 3. Load Presets
     List<ItemData> items = PRESET_ITEMS.get(categoryKey);
     if (items != null) {
       for (ItemData item : items) {
-        addPresetItem(item, categoryKey);
+        addPresetItem(item);
       }
     }
 
-    // 4. Custom Item Button Logic
     if (categoryKey.equals("HYGIENE KITS")) {
       if(btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
     } else {
@@ -188,12 +187,10 @@ public class Donation_details_fragment extends BaseFragment {
       }
     }
 
-    // 5. Next Button Logic
     if(btnStep3 != null) {
       btnStep3.setOnClickListener(v -> {
         ArrayList<ItemForSummary> collectedItems = collectAllInputs();
 
-        // ⭐ FIX: Now requires at least one item for ALL categories
         if (collectedItems.isEmpty()) {
           Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
           return;
@@ -204,7 +201,7 @@ public class Donation_details_fragment extends BaseFragment {
     }
   }
 
-  private void addPresetItem(ItemData item, String categoryKey) {
+  private void addPresetItem(ItemData item) {
     if(itemInputsContainer == null) return;
 
     View itemView;
@@ -221,7 +218,9 @@ public class Donation_details_fragment extends BaseFragment {
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       Spinner spinner = itemView.findViewById(R.id.spinnerUnit);
       if (txtName != null) txtName.setText(item.name);
-      setupUnitSpinner(spinner, item.defaultUnit, categoryKey);
+
+      // ⭐ Pass the specific units for this item
+      setupUnitSpinner(spinner, item.specificUnits);
     }
     setupQuantityControls(itemView);
     itemInputsContainer.addView(itemView);
@@ -245,7 +244,6 @@ public class Donation_details_fragment extends BaseFragment {
       editName.setLayoutParams(originalName.getLayoutParams());
       parent.addView(editName, 0);
 
-      // Close Button
       TextView btnPlus = customView.findViewById(R.id.btnPlus);
       TextView closeBtn = new TextView(requireContext());
       closeBtn.setText("X");
@@ -266,7 +264,8 @@ public class Donation_details_fragment extends BaseFragment {
     }
 
     Spinner spinner = customView.findViewById(R.id.spinnerUnit);
-    setupUnitSpinner(spinner, "PCS", "FOOD");
+    // ⭐ Custom items get a generic list (since we don't know what they are)
+    setupUnitSpinner(spinner, UNITS_GENERIC);
     setupQuantityControls(customView);
 
     customItemInputLayout.addView(customView);
@@ -277,10 +276,8 @@ public class Donation_details_fragment extends BaseFragment {
     View vQty = itemView.findViewById(R.id.txtQty);
     View vPlus = itemView.findViewById(R.id.btnPlus);
 
-    // Safe Check: If controls don't exist in this layout, skip setup
     if (vMinus == null || vQty == null || vPlus == null) return;
 
-    // ⭐ FIX: Treat as TextView to support both EditText (Food) and TextView (Hygiene)
     TextView txtQty = (TextView) vQty;
 
     if (txtQty.getText().toString().isEmpty()) txtQty.setText("0");
@@ -300,19 +297,12 @@ public class Donation_details_fragment extends BaseFragment {
     });
   }
 
-  private void setupUnitSpinner(Spinner spinner, String defaultUnit, String categoryKey) {
-    if (spinner == null) return;
-    String[] units;
-    switch (categoryKey) {
-      case "FOOD": units = FOOD_UNITS; break;
-      case "MEDICINE": units = MEDICINE_UNITS; break;
-      case "RELIEF PACKS": units = RELIEF_PACKS_UNITS; break;
-      default: units = DEFAULT_UNITS; break;
-    }
+  // ⭐ UPDATED: Now accepts a specific String array
+  private void setupUnitSpinner(Spinner spinner, String[] units) {
+    if (spinner == null || units == null) return;
+
     ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, units);
     spinner.setAdapter(adapter);
-    int pos = adapter.getPosition(defaultUnit);
-    if (pos >= 0) spinner.setSelection(pos);
   }
 
   private ArrayList<ItemForSummary> collectAllInputs() {
@@ -326,8 +316,6 @@ public class Donation_details_fragment extends BaseFragment {
     if (container == null) return;
     for (int i = 0; i < container.getChildCount(); i++) {
       View view = container.getChildAt(i);
-
-      // ⭐ FIX: Use TextView here too to prevent ClassCastException
       TextView txtQty = view.findViewById(R.id.txtQty);
       if (txtQty == null) continue;
 
