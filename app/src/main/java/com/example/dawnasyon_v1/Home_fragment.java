@@ -545,11 +545,11 @@ public class Home_fragment extends BaseFragment {
 
     private void setupCarousel() {
         List<Integer> imageList = new ArrayList<>();
-        imageList.add(R.drawable.una);
-        imageList.add(R.drawable.pangalawa);
-        imageList.add(R.drawable.pangatlo);
-        imageList.add(R.drawable.pangapat);
-        imageList.add(R.drawable.panglima);
+        imageList.add(R.drawable.img1);
+        imageList.add(R.drawable.img2);
+        imageList.add(R.drawable.img3);
+        imageList.add(R.drawable.img4);
+        imageList.add(R.drawable.img5);
         carouselAdapter = new ImageCarouselAdapter(imageList);
         imageCarouselViewPager.setAdapter(carouselAdapter);
     }
