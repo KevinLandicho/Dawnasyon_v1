@@ -84,6 +84,39 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
+    // ⭐ LOGOUT FUNCTION (With Token Cleanup)
+    // ====================================================
+    @JvmStatic
+    fun logoutUser(callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull()
+
+                // 1. If a user is found, ERASE their FCM token in the DB first
+                if (currentUser != null) {
+                    try {
+                        val updateData = mapOf("fcm_token" to null) // Set to null
+                        SupabaseManager.client.from("profiles").update(updateData) {
+                            filter { eq("id", currentUser.id) }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("SupabaseLogout", "Failed to clear token: ${e.message}")
+                        // Continue logout even if token clear fails
+                    }
+                }
+
+                // 2. Perform the actual Sign Out
+                SupabaseManager.client.auth.signOut()
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) {
+                // If DB update fails (e.g., offline), force sign out anyway
+                try { SupabaseManager.client.auth.signOut() } catch (e2: Exception) {}
+                runOnUi { callback.onSuccess() } // Treat as success to let user leave
+            }
+        }
+    }
+
+    // ====================================================
     // ⭐ FORGOT PASSWORD
     // ====================================================
     @JvmStatic

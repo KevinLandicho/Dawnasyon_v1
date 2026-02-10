@@ -26,16 +26,11 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
+import okhttp3.OkHttpClient;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
 
 public class Profile_fragment extends BaseFragment {
 
@@ -75,8 +70,8 @@ public class Profile_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ⭐ 1. Bind Views (Including the new Tracker Menu)
-        LinearLayout menuTracker = view.findViewById(R.id.menu_tracker); // Make sure this ID exists in XML
+        // ⭐ 1. Bind Views
+        LinearLayout menuTracker = view.findViewById(R.id.menu_tracker);
         LinearLayout menuHistory = view.findViewById(R.id.menu_history);
         LinearLayout menuSuggestion = view.findViewById(R.id.menu_suggestion);
         LinearLayout menuPassword = view.findViewById(R.id.menu_password);
@@ -106,7 +101,7 @@ public class Profile_fragment extends BaseFragment {
         if (cardPriority != null) cardPriority.setOnClickListener(v -> toggleBreakdown());
 
         // ⭐ 2. Setup Menu Icons & Titles
-        setupMenuItem(menuTracker, R.drawable.ic_assignment, "Application tracker"); // Use an icon like 'ic_assignment' or 'ic_list'
+        setupMenuItem(menuTracker, R.drawable.ic_assignment, "Application tracker");
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
@@ -125,7 +120,7 @@ public class Profile_fragment extends BaseFragment {
             });
         }
 
-        // ⭐ Navigation Logic
+        // Navigation Logic
         if (menuTracker != null) {
             menuTracker.setOnClickListener(v -> navigateToFragment(new ApplicationTracker_fragment()));
         }
@@ -133,6 +128,8 @@ public class Profile_fragment extends BaseFragment {
         menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
         menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
+
+        // ⭐ LOGOUT CLICK
         menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
 
         // ⭐ 4. Load Data
@@ -167,7 +164,6 @@ public class Profile_fragment extends BaseFragment {
                     String userType = profile.getType();
                     String currentEvacCenter = profile.getCurrent_evacuation_center();
 
-                    // ⭐ 5. HIDE TRACKER IF INELIGIBLE (Overseas/Non-Resident/Unverified)
                     boolean isOverseas = userType != null && (userType.equalsIgnoreCase("Foreign") || userType.equalsIgnoreCase("Overseas") || userType.equalsIgnoreCase("Non-Resident"));
 
                     if (menuTracker != null) {
@@ -178,14 +174,13 @@ public class Profile_fragment extends BaseFragment {
                         }
                     }
 
-                    // Badge Logic
                     if (badgeStatus != null) {
                         badgeStatus.setVisibility(View.VISIBLE);
 
                         if (currentEvacCenter != null && !currentEvacCenter.isEmpty() && !currentEvacCenter.equalsIgnoreCase("null")) {
                             badgeStatus.setText("⛺ IN EVACUATION CENTER");
                             badgeStatus.setTextColor(Color.WHITE);
-                            badgeStatus.setBackgroundColor(Color.parseColor("#E65100")); // Deep Orange
+                            badgeStatus.setBackgroundColor(Color.parseColor("#E65100"));
                         }
                         else if (isOverseas) {
                             badgeStatus.setText("🌍 " + (userType != null ? userType.toUpperCase() : "OVERSEAS") + " DONOR");
@@ -203,7 +198,6 @@ public class Profile_fragment extends BaseFragment {
                                 badgeStatus.setTextColor(Color.parseColor("#C62828"));
                                 badgeStatus.setBackgroundColor(Color.parseColor("#FFEBEE"));
 
-                                // Lock features for unverified
                                 disableFeature(btnViewQR, "QR Code");
                                 disableFeature(btnPinLocation, "Map Pinning");
                                 disableFeature(menuSuggestion, "Suggestion Form");
@@ -222,10 +216,6 @@ public class Profile_fragment extends BaseFragment {
             });
         }
     }
-
-    // ... (Keep toggleBreakdown, loadFamilyMembers, calculatePriority, etc. exactly as they were) ...
-    // Note: I am keeping the helper methods concise here to save space,
-    // but you should keep the full logic you had for calculating priority and family loading.
 
     private void toggleBreakdown() {
         if (llBreakdownContainer == null) return;
@@ -347,7 +337,6 @@ public class Profile_fragment extends BaseFragment {
     }
 
     private boolean checkRecentEarthquake(double userLat, double userLon) {
-        // ... (Keep existing earthquake logic) ...
         return false;
     }
 
@@ -432,12 +421,35 @@ public class Profile_fragment extends BaseFragment {
         new AlertDialog.Builder(getContext()).setTitle("Log Out").setMessage("Are you sure?").setPositiveButton("Yes", (d, w) -> performLogout()).setNegativeButton("Cancel", null).show();
     }
 
+    // ⭐ UPDATED LOGOUT METHOD (Uses the clean logout)
     private void performLogout() {
-        AuthHelper.logoutUser();
-        if(getActivity() != null) {
-            getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE).edit().clear().apply();
-            startActivity(new Intent(getActivity(), LoginActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
-        }
+        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
+
+        SupabaseJavaHelper.logoutUser(new SupabaseJavaHelper.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                if (getActivity() != null) {
+                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                    // Clear Session Prefs
+                    getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE).edit().clear().apply();
+
+                    // Go to Login
+                    Intent intent = new Intent(getActivity(), LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                // Force logout anyway
+                if (getActivity() != null) {
+                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                    startActivity(new Intent(getActivity(), LoginActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                }
+            }
+        });
     }
 
     private void setupMenuItem(View view, int icon, String title) {
