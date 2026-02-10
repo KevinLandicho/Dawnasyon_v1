@@ -48,6 +48,9 @@ public class DeleteConfirmation_fragment extends BaseFragment {
 
         // Delete Now Button: Skip timer and delete immediately
         btnDeleteNow.setOnClickListener(v -> performAccountDeletion());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void startDeleteTimer() {
@@ -73,12 +76,15 @@ public class DeleteConfirmation_fragment extends BaseFragment {
         isDeleting = true;
 
         // UI Feedback
-        btnDeleteNow.setText("Deleting...");
         btnDeleteNow.setEnabled(false);
         btnCancel.setEnabled(false);
 
+        // ⭐ TRANSLATE LOADING STATE
+        String deletingText = "Deleting...";
+        btnDeleteNow.setText(deletingText);
+        TranslationHelper.autoTranslate(getContext(), btnDeleteNow, deletingText);
+
         // 2. Call the Archive Function
-        // We use AuthHelper (or SupabaseJavaHelper depending on where you put the code)
         SupabaseJavaHelper.archiveAccount(new SupabaseJavaHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
@@ -96,9 +102,14 @@ public class DeleteConfirmation_fragment extends BaseFragment {
             public void onError(String message) {
                 if (getContext() != null) {
                     isDeleting = false;
-                    btnDeleteNow.setText("Delete Now");
                     btnDeleteNow.setEnabled(true);
                     btnCancel.setEnabled(true);
+
+                    // ⭐ TRANSLATE RESET STATE
+                    String deleteNowText = "Delete Now";
+                    btnDeleteNow.setText(deleteNowText);
+                    TranslationHelper.autoTranslate(getContext(), btnDeleteNow, deleteNowText);
+
                     Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
                 }
             }

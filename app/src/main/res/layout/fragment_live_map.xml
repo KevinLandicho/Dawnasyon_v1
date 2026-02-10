@@ -101,12 +101,13 @@
                     android:layout_height="16dp"
                     android:background="#2E7D32"
                     android:layout_marginEnd="10dp"/>
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp"
+                    android:text="Earthquake (Weak)"
                     android:textColor="#000000"
-                    android:text="Quake (Minor)"/>
+                    android:textSize="13sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -119,12 +120,13 @@
                     android:layout_height="16dp"
                     android:background="#FF00FF"
                     android:layout_marginEnd="10dp"/>
+
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp"
+                    android:text="Earthquake (Strong)"
                     android:textColor="#000000"
-                    android:text="Quake (Strong)"/>
+                    android:textSize="13sp" />
             </LinearLayout>
 
         </LinearLayout>
@@ -134,12 +136,12 @@
         android:id="@+id/btnBack"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Back to Dashboard"
         android:layout_margin="20dp"
-        app:cornerRadius="20dp"
         android:backgroundTint="@color/white"
+        android:text="back"
         android:textColor="#F5901A"
+        app:cornerRadius="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"/>
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

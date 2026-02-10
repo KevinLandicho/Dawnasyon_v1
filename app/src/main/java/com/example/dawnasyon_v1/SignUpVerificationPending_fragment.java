@@ -37,5 +37,8 @@ public class SignUpVerificationPending_fragment extends BaseFragment {
                 startActivity(intent);
             }
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 }

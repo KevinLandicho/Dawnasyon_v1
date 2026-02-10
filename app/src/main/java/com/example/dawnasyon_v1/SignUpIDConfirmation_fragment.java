@@ -30,6 +30,7 @@ public class SignUpIDConfirmation_fragment extends BaseFragment {
     private ImageView imgPreviewArea;
     private TextView tvInstructions;
     private Button btnScan;
+    private Button btnRetake, btnSubmit; // Promoted to field level for translation access
     private LinearLayout layoutConfirmButtons;
 
     // Camera Launcher
@@ -38,9 +39,9 @@ public class SignUpIDConfirmation_fragment extends BaseFragment {
             result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     Bundle extras = result.getData().getExtras();
-                    Bitmap imageBitmap = (Bitmap) extras.get("data");
-                    if (imageBitmap != null) {
-                        showCapturedImage(imageBitmap);
+                    Object data = extras.get("data");
+                    if (data instanceof Bitmap) {
+                        showCapturedImage((Bitmap) data);
                     }
                 }
             }
@@ -50,8 +51,11 @@ public class SignUpIDConfirmation_fragment extends BaseFragment {
     private final ActivityResultLauncher<String> requestPermissionLauncher = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(),
             isGranted -> {
-                if (isGranted) openCamera();
-                else Toast.makeText(getContext(), "Camera permission required", Toast.LENGTH_SHORT).show();
+                if (isGranted) {
+                    openCamera();
+                } else {
+                    Toast.makeText(getContext(), "Camera permission required", Toast.LENGTH_SHORT).show();
+                }
             }
     );
 
@@ -74,8 +78,8 @@ public class SignUpIDConfirmation_fragment extends BaseFragment {
         btnScan = view.findViewById(R.id.btn_scan_action);
         layoutConfirmButtons = view.findViewById(R.id.layout_confirm_buttons);
 
-        Button btnRetake = view.findViewById(R.id.btn_retake);
-        Button btnSubmit = view.findViewById(R.id.btn_submit_final);
+        btnRetake = view.findViewById(R.id.btn_retake);
+        btnSubmit = view.findViewById(R.id.btn_submit_final);
 
         // Check if we already have an image (e.g. passed from previous screen or retained)
         if (capturedImage != null) {
@@ -104,6 +108,9 @@ public class SignUpIDConfirmation_fragment extends BaseFragment {
                     .addToBackStack(null)
                     .commit();
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void openCamera() {
@@ -125,14 +132,26 @@ public class SignUpIDConfirmation_fragment extends BaseFragment {
         tvInstructions.setVisibility(View.GONE); // Hide instructions
         btnScan.setVisibility(View.GONE); // Hide scan button
         layoutConfirmButtons.setVisibility(View.VISIBLE); // Show Retake/Submit
+
+        // ⭐ RE-APPLY TRANSLATION TO BUTTONS THAT JUST APPEARED
+        if(isAdded()) {
+            applyTagalogTranslation(layoutConfirmButtons);
+        }
     }
 
     private void resetToInstructionMode() {
         // Update UI back to "Instruction" State
         imgPreviewArea.setImageResource(R.drawable.ic_id_scan_illustration); // Reset to icon
+        imgPreviewArea.setScaleType(ImageView.ScaleType.FIT_CENTER);
 
         tvInstructions.setVisibility(View.VISIBLE);
         btnScan.setVisibility(View.VISIBLE);
         layoutConfirmButtons.setVisibility(View.GONE);
+
+        // ⭐ RE-APPLY TRANSLATION TO INSTRUCTIONS/SCAN BUTTON
+        if(isAdded()) {
+            applyTagalogTranslation(tvInstructions);
+            applyTagalogTranslation(btnScan);
+        }
     }
 }

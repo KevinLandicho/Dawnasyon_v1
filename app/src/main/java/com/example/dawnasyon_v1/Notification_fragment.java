@@ -27,10 +27,13 @@ public class Notification_fragment extends BaseFragment {
 
     private RecyclerView rvNew;
     private RecyclerView rvOld;
-    private Button btnSeePrevious, btnRefreshEmpty;
+    private Button btnSeePrevious;
     private TextView tvHeaderNew, tvHeaderOld;
     private NestedScrollView contentLayout;
+
+    // Empty State Views
     private LinearLayout emptyStateLayout;
+    private Button btnRefreshEmpty;
 
     public Notification_fragment() {}
 
@@ -59,16 +62,22 @@ public class Notification_fragment extends BaseFragment {
         rvOld.setLayoutManager(new LinearLayoutManager(getContext()));
 
         // Setup Refresh Button Action
-        btnRefreshEmpty.setOnClickListener(v -> {
-            Toast.makeText(getContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
-            loadNotifications();
-        });
+        if (btnRefreshEmpty != null) {
+            btnRefreshEmpty.setOnClickListener(v -> {
+                Toast.makeText(getContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
+                loadNotifications();
+            });
+        }
 
         loadNotifications();
+
+        // ⭐ ENABLE AUTO-TRANSLATION (Translates Headers & Empty State Text)
+        applyTagalogTranslation(view);
     }
 
     private void loadNotifications() {
-        // ⭐ FIX: Updated to SupabaseJavaHelper.NotificationCallback
+        if (getContext() == null) return;
+
         SupabaseJavaHelper.fetchNotifications(new SupabaseJavaHelper.NotificationCallback() {
             @Override
             public void onSuccess(List<NotificationItem> data) {
@@ -81,8 +90,7 @@ public class Notification_fragment extends BaseFragment {
             public void onError(@NonNull String message) {
                 if (isAdded()) {
                     Log.e("NotifFrag", "Error: " + message);
-                    Toast.makeText(getContext(), "Failed to load notifications", Toast.LENGTH_SHORT).show();
-
+                    // Don't toast error immediately on load, just show empty state if list is null
                     if (rvNew.getAdapter() == null || rvNew.getAdapter().getItemCount() == 0) {
                         showEmptyState(true);
                     }
@@ -117,21 +125,22 @@ public class Notification_fragment extends BaseFragment {
             try {
                 if (item.getCreatedAt() != null) {
                     Date date = parser.parse(item.getCreatedAt());
+                    if (date != null) {
+                        // Set formatted time (e.g., "1:28 PM")
+                        item.setTime(timeFormatter.format(date));
 
-                    // Set formatted time (e.g., "1:28 PM")
-                    item.setTime(timeFormatter.format(date));
+                        // Check Date Logic
+                        String itemDateStr = dateFormatter.format(date);
 
-                    // Check Date Logic
-                    String itemDateStr = dateFormatter.format(date);
-
-                    if (itemDateStr.equals(todayStr)) {
-                        // If date is TODAY -> New List
-                        item.setDateCategory("New");
-                        newList.add(item);
-                    } else {
-                        // If date is Yesterday or older -> Old List
-                        item.setDateCategory("Old");
-                        oldList.add(item);
+                        if (itemDateStr.equals(todayStr)) {
+                            // If date is TODAY -> New List
+                            item.setDateCategory("New");
+                            newList.add(item);
+                        } else {
+                            // If date is Yesterday or older -> Old List
+                            item.setDateCategory("Old");
+                            oldList.add(item);
+                        }
                     }
                 }
 
@@ -163,6 +172,7 @@ public class Notification_fragment extends BaseFragment {
             btnSeePrevious.setVisibility(View.GONE);
         } else {
             tvHeaderOld.setVisibility(View.VISIBLE);
+            // Only show "See Previous" if there are many items
             if (oldList.size() > 5) {
                 btnSeePrevious.setVisibility(View.VISIBLE);
             } else {
@@ -173,6 +183,8 @@ public class Notification_fragment extends BaseFragment {
 
     // Helper to toggle views
     private void showEmptyState(boolean isEmpty) {
+        if (emptyStateLayout == null || contentLayout == null) return;
+
         if (isEmpty) {
             emptyStateLayout.setVisibility(View.VISIBLE);
             contentLayout.setVisibility(View.GONE);

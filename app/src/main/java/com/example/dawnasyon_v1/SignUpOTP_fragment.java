@@ -30,7 +30,6 @@ public class SignUpOTP_fragment extends BaseFragment {
     private boolean isResendEnabled = false;
 
     // ⭐ 5 Minutes Timer (300,000 milliseconds)
-    // Supabase/Resend limits are usually strict, so 5 mins is safer than 1 min.
     private final long TIMER_DURATION = 300000;
 
     private ActivityResultLauncher<Intent> faceScanLauncher;
@@ -67,7 +66,10 @@ public class SignUpOTP_fragment extends BaseFragment {
 
         String email = RegistrationCache.tempEmail;
         if (tvSubtitle != null) {
-            tvSubtitle.setText("We've sent a code to " + (email != null ? email : "your email"));
+            String subText = "We've sent a code to " + (email != null ? email : "your email");
+            tvSubtitle.setText(subText);
+            // Translate dynamic subtitle
+            TranslationHelper.autoTranslate(getContext(), tvSubtitle, subText);
         }
 
         otpInputs = new EditText[]{
@@ -88,6 +90,9 @@ public class SignUpOTP_fragment extends BaseFragment {
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void performResendOtp() {
@@ -98,7 +103,10 @@ public class SignUpOTP_fragment extends BaseFragment {
         }
 
         // Disable button immediately to prevent double-clicks
-        tvTimer.setText("Sending...");
+        String sendingText = "Sending...";
+        tvTimer.setText(sendingText);
+        TranslationHelper.autoTranslate(getContext(), tvTimer, sendingText);
+
         tvTimer.setEnabled(false);
         tvTimer.setTextColor(Color.GRAY);
 
@@ -120,7 +128,10 @@ public class SignUpOTP_fragment extends BaseFragment {
                 // Allow clicking again after 3 seconds if it failed (so they aren't stuck)
                 tvTimer.postDelayed(() -> {
                     if (isAdded()) {
-                        tvTimer.setText("Resend Code");
+                        String resendText = "Resend Code";
+                        tvTimer.setText(resendText);
+                        TranslationHelper.autoTranslate(getContext(), tvTimer, resendText);
+
                         tvTimer.setEnabled(true);
                         tvTimer.setTextColor(Color.BLUE);
                     }
@@ -234,15 +245,23 @@ public class SignUpOTP_fragment extends BaseFragment {
                 if (tvTimer != null) {
                     long minutes = (millis / 1000) / 60;
                     long seconds = (millis / 1000) % 60;
-                    tvTimer.setText(String.format("Resend code in %02d:%02d", minutes, seconds));
+
+                    String timerText = String.format("Resend code in %02d:%02d", minutes, seconds);
+                    tvTimer.setText(timerText);
+
+                    // ⭐ TRANSLATE DYNAMIC TIMER
+                    TranslationHelper.autoTranslate(getContext(), tvTimer, timerText);
                 }
             }
             public void onFinish() {
                 isResendEnabled = true;
                 if (tvTimer != null) {
-                    tvTimer.setText("Resend Code");
+                    String resendText = "Resend Code";
+                    tvTimer.setText(resendText);
+                    TranslationHelper.autoTranslate(getContext(), tvTimer, resendText);
+
                     tvTimer.setEnabled(true);
-                    tvTimer.setTextColor(Color.BLUE); // Set to your app's primary color
+                    tvTimer.setTextColor(Color.BLUE);
                 }
             }
         }.start();

@@ -128,6 +128,9 @@ public class Dashboard_fragment extends BaseFragment {
         }
 
         loadRealData(view, currentFilter);
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR DASHBOARD
+        applyTagalogTranslation(view);
     }
 
     private void showFilterMenu(View v) {
@@ -153,7 +156,6 @@ public class Dashboard_fragment extends BaseFragment {
     private void loadRealData(View view, String filterType) {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-        // ⭐ FIXED: Added requireContext() as the first argument
         SupabaseJavaHelper.fetchDashboardData(getContext(), filterType, new SupabaseJavaHelper.DashboardCallback() {
             @Override
             public void onDataLoaded(Map<String, Integer> inventory, Map<String, Integer> areas, Map<String, Float> donations, Map<String, Integer> families, DashboardMetrics metrics, Map<String, Integer> impact) {
@@ -176,7 +178,6 @@ public class Dashboard_fragment extends BaseFragment {
                 updateListUI(llReliefList, inventory, "Item");
                 updateListUI(llAffectedList, areas, "Street");
 
-                // Updates UI based on Affected vs Stock ratio
                 updateAnalyticsUI(view, metrics);
 
                 updateRadarChart(impact);
@@ -302,23 +303,22 @@ public class Dashboard_fragment extends BaseFragment {
     }
 
     private void updateAnalyticsUI(View view, DashboardMetrics metrics) {
-        int totalPopulation = metrics.getTotal_families(); // Census
-        int reliefPacks = metrics.getTotal_packs();        // Inventory Stock
-        int totalAffected = metrics.getTotal_affected();   // Victims (from Announcements)
+        int totalPopulation = metrics.getTotal_families();
+        int reliefPacks = metrics.getTotal_packs();
+        int totalAffected = metrics.getTotal_affected();
 
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
         if (tvPercentage != null) tvPercentage.setText(String.valueOf(totalPopulation));
 
-        int denominator = (totalAffected == 0) ? 1 : totalAffected; // Avoid div by 0
+        int denominator = (totalAffected == 0) ? 1 : totalAffected;
         int coveragePercent = 0;
 
         if (totalAffected > 0) {
             coveragePercent = (reliefPacks * 100) / totalAffected;
         } else {
-            coveragePercent = 100; // If no one is affected, coverage is 100% (safe)
+            coveragePercent = 100;
         }
 
-        // Deficit: How many more packs are needed
         int deficit = Math.max(0, totalAffected - reliefPacks);
 
         ProgressBar progCoverage = view.findViewById(R.id.progress_coverage);
@@ -330,25 +330,21 @@ public class Dashboard_fragment extends BaseFragment {
             txtPercent.setText(coveragePercent + "%");
 
             if (totalAffected == 0) {
-                // Scenario: No disasters currently
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
                 txtInsight.setText("✅ No active disasters reported.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
                 if(txtPrediction != null) txtPrediction.setText("Status: Normal");
             } else if (coveragePercent < 50) {
-                // Critical: Less than half covered
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.RED));
                 txtInsight.setText("CRITICAL: " + deficit + " affected families have no allocated packs.");
                 txtInsight.setTextColor(Color.RED);
                 if(txtPrediction != null) txtPrediction.setText("High Risk: Immediate resupply needed.");
             } else if (coveragePercent < 100) {
-                // Warning: Some not covered
                 progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DEEP_ORANGE));
                 txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed for victims.");
                 txtInsight.setTextColor(COLOR_DEEP_ORANGE);
                 if(txtPrediction != null) txtPrediction.setText("Medium Risk: Stock falling below demand.");
             } else {
-                // Good: All covered
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
                 txtInsight.setText("✅ Sufficient Stock for all " + totalAffected + " affected families.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
@@ -356,7 +352,6 @@ public class Dashboard_fragment extends BaseFragment {
             }
         }
 
-        // Update Risk Index Badge based on Affected Count
         if (txtRiskBadge != null) {
             if (totalAffected > 50) {
                 txtRiskBadge.setText("HIGH ALERT");
@@ -375,6 +370,11 @@ public class Dashboard_fragment extends BaseFragment {
 
         if(txtAffectedFamilies != null) txtAffectedFamilies.setText(totalAffected + " Families Affected");
         if(txtRiskDesc != null) txtRiskDesc.setText("Based on recent reports");
+
+        // ⭐ TRANSLATE DYNAMIC TEXT
+        if(txtRiskDesc != null) TranslationHelper.autoTranslate(getContext(), txtRiskDesc, txtRiskDesc.getText().toString());
+        if(txtPrediction != null) TranslationHelper.autoTranslate(getContext(), txtPrediction, txtPrediction.getText().toString());
+        if(txtInsight != null) TranslationHelper.autoTranslate(getContext(), txtInsight, txtInsight.getText().toString());
     }
 
     private void updatePieChart(PieChart chart, Map<String, Integer> data) {

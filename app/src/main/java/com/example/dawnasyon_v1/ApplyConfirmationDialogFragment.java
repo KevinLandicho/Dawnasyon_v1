@@ -1,6 +1,8 @@
 package com.example.dawnasyon_v1;
 
 import android.app.Dialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -47,6 +49,17 @@ public class ApplyConfirmationDialogFragment extends DialogFragment {
             // Note: We DO NOT dismiss() here. We wait for Home_fragment
             // to tell us if the application was successful.
         });
+
+        // ⭐ MANUAL TRANSLATION CHECK
+        // Since DialogFragment doesn't extend BaseFragment, we check manually here.
+        if (getContext() != null) {
+            SharedPreferences prefs = getContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+            boolean isTagalog = prefs.getBoolean("is_tagalog", false);
+
+            if (isTagalog) {
+                TranslationHelper.translateViewHierarchy(getContext(), view);
+            }
+        }
 
         return view;
     }

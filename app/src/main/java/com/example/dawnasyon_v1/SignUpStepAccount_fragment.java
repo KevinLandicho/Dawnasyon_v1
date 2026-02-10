@@ -132,7 +132,11 @@ public class SignUpStepAccount_fragment extends BaseFragment {
 
             // 4. Initiate Signup
             btnNext.setEnabled(false);
-            btnNext.setText("Sending OTP...");
+
+            // ⭐ TRANSLATE LOADING STATE
+            String loadingText = "Sending OTP...";
+            btnNext.setText(loadingText);
+            TranslationHelper.autoTranslate(getContext(), btnNext, loadingText);
 
             String finalEmail = email;
             AuthHelper.initiateSignUp(new AuthHelper.RegistrationCallback() {
@@ -140,7 +144,12 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                 public void onSuccess() {
                     if (getContext() == null) return;
                     btnNext.setEnabled(true);
-                    btnNext.setText("Next");
+
+                    // ⭐ TRANSLATE RESET STATE
+                    String nextText = "Next";
+                    btnNext.setText(nextText);
+                    TranslationHelper.autoTranslate(getContext(), btnNext, nextText);
+
                     Toast.makeText(getContext(), "OTP Sent to " + finalEmail, Toast.LENGTH_SHORT).show();
 
                     if (getParentFragmentManager() != null) {
@@ -155,7 +164,12 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                 public void onError(String message) {
                     if (getContext() == null) return;
                     btnNext.setEnabled(true);
-                    btnNext.setText("Next");
+
+                    // ⭐ TRANSLATE RESET STATE
+                    String nextText = "Next";
+                    btnNext.setText(nextText);
+                    TranslationHelper.autoTranslate(getContext(), btnNext, nextText);
+
                     Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_LONG).show();
                 }
             });
@@ -164,6 +178,9 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         btnPrevious.setOnClickListener(v -> {
             if (getParentFragmentManager() != null) getParentFragmentManager().popBackStack();
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     @SuppressLint("ClickableViewAccessibility")

@@ -93,6 +93,9 @@ public class EditProfile_fragment extends BaseFragment {
 
         // Save
         btnSaveProfile.setOnClickListener(v -> saveUserData());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT (Hints & Buttons)
+        applyTagalogTranslation(view);
     }
 
     private void loadCurrentUserProfile() {

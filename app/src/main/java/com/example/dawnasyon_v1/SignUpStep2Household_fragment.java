@@ -66,6 +66,9 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private boolean saveMembersToCache() {
@@ -101,11 +104,10 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
             int age = Integer.parseInt(ageStr);
 
-            // ⭐ FIXED CONSTRUCTOR CALL HERE
-            // Added '0L' as the first argument for member_id (Kotlin default param handling in Java is tricky, explicit is safer)
+            // Create Member Object
             HouseholdMember member = new HouseholdMember(
-                    0L,    // member_id (DB handles auto-increment, just send 0)
-                    null,  // head_id (set later during save)
+                    0L,    // member_id
+                    null,  // head_id
                     name,
                     relation,
                     age,
@@ -200,5 +202,8 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         });
 
         membersContainer.addView(row);
+
+        // ⭐ TRANSLATE THE NEW DYNAMIC ROW IMMEDIATELY
+        TranslationHelper.translateViewHierarchy(getContext(), row);
     }
 }

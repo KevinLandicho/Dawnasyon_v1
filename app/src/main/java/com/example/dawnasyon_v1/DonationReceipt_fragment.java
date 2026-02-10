@@ -89,6 +89,9 @@ public class DonationReceipt_fragment extends BaseFragment {
                 }
             }
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
+        applyTagalogTranslation(view);
     }
 
     private void loadTrackingTimeline(LinearLayout container, long donationId) {
@@ -107,14 +110,20 @@ public class DonationReceipt_fragment extends BaseFragment {
         header.setTextColor(Color.parseColor("#E65100"));
         container.addView(header);
 
+        // Translate Header
+        TranslationHelper.autoTranslate(getContext(), header, "Donation Journey");
+
         TextView tvLoading = new TextView(getContext());
         tvLoading.setText("Tracking status...");
         tvLoading.setTextSize(12);
         tvLoading.setTextColor(Color.GRAY);
         container.addView(tvLoading);
 
+        // Translate Loading Text
+        TranslationHelper.autoTranslate(getContext(), tvLoading, "Tracking status...");
+
         SupabaseJavaHelper.fetchDonationTracking(donationId, trackingDTO -> {
-            if (!isAdded()) return; // ⭐ FIXED: removed "return null;"
+            if (!isAdded()) return;
             container.removeView(tvLoading);
 
             if (trackingDTO != null) {
@@ -139,7 +148,6 @@ public class DonationReceipt_fragment extends BaseFragment {
             } else {
                 addTimelineRow(container, "Processing", "Tracking info pending.", false);
             }
-            // ⭐ NO RETURN STATEMENT HERE
         });
     }
 
@@ -158,6 +166,10 @@ public class DonationReceipt_fragment extends BaseFragment {
         tvDesc.setText(description);
         tvDesc.setTextSize(12);
         tvDesc.setTextColor(Color.DKGRAY);
+
+        // ⭐ TRANSLATE DYNAMIC ROWS
+        TranslationHelper.autoTranslate(getContext(), tvTitle, title);
+        TranslationHelper.autoTranslate(getContext(), tvDesc, description);
 
         row.addView(tvTitle);
         row.addView(tvDesc);
@@ -195,6 +207,10 @@ public class DonationReceipt_fragment extends BaseFragment {
         tvValue.setTypeface(null, Typeface.BOLD);
         tvValue.setTextSize(14);
         tvValue.setGravity(Gravity.END);
+
+        // ⭐ TRANSLATE RECEIPT ITEMS
+        TranslationHelper.autoTranslate(getContext(), tvName, name);
+        // Note: tvValue is usually numbers/prices, so we skip translating it to keep format correct
 
         row.addView(tvName);
         row.addView(tvValue);

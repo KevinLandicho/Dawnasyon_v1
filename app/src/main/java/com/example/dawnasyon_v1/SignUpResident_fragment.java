@@ -53,6 +53,9 @@ public class SignUpResident_fragment extends BaseFragment {
                 handleSelection(btnResident, btnNonResident, "Resident");
             });
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void handleSelection(Button selectedButton, Button otherButton, String selection) {
@@ -82,8 +85,7 @@ public class SignUpResident_fragment extends BaseFragment {
             // --- ACTION: Go to Step 1 (Personal Info) ---
             nextFragment = new SignUpValidID_fragment();
         } else {
-            // Action for Non-Resident (You can implement this later)
-            // For now, it goes to the same flow as you requested
+            // Action for Non-Resident
             nextFragment = new SignUpStep1Personal_fragment();
         }
 

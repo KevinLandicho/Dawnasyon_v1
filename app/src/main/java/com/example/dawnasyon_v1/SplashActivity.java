@@ -2,28 +2,32 @@ package com.example.dawnasyon_v1;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
+
 import com.google.android.material.button.MaterialButton;
 
-// ⭐ CHANGE: Extend BaseActivity if you created it, otherwise keep AppCompatActivity
-// If you use BaseActivity, you don't need the attachBaseContext method below.
 public class SplashActivity extends BaseActivity {
 
     private Button btnStart;
-    private MaterialButton btnLanguage; // ⭐ The new language button
+    private MaterialButton btnLanguage;
     private MediaPlayer mediaPlayer;
+    private boolean isTagalogEnabled = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_splash);
 
-        // --- 1. MUSIC SETUP ---
+        // ⭐ 1. START DOWNLOADING TRANSLATION MODEL IMMEDIATELY
+        TranslationHelper.downloadModel(this);
+
+        // --- 2. MUSIC SETUP ---
         try {
-            // Ensure 'intro_sound.mp3' exists in res/raw
             mediaPlayer = MediaPlayer.create(this, R.raw.intro_sound);
             if (mediaPlayer != null) {
                 mediaPlayer.setLooping(true);
@@ -33,45 +37,66 @@ public class SplashActivity extends BaseActivity {
             e.printStackTrace();
         }
 
-        // --- 2. LANGUAGE BUTTON SETUP ---
+        // --- 3. UI SETUP ---
         btnLanguage = findViewById(R.id.btn_language);
-        updateLanguageButtonText(); // Set initial text (EN or TL)
+        btnStart = findViewById(R.id.btnStart);
 
+        // Check current preference
+        SharedPreferences prefs = getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+        isTagalogEnabled = prefs.getBoolean("is_tagalog", false);
+
+        // Initial UI Update
+        updateLanguageButtonUI();
+
+        // Apply initial translation if needed
+        if (isTagalogEnabled) {
+            TranslationHelper.translateViewHierarchy(this, getWindow().getDecorView().getRootView());
+        }
+
+        // --- 4. TOGGLE LANGUAGE ---
         btnLanguage.setOnClickListener(v -> {
-            // Toggle Logic
-            String currentLang = LocaleHelper.getLanguage(this);
-            String newLang = currentLang.equals("tl") ? "en" : "tl";
+            // Toggle State
+            isTagalogEnabled = !isTagalogEnabled;
 
-            // Save new language
-            LocaleHelper.setLocale(this, newLang);
+            // Save Preference
+            prefs.edit().putBoolean("is_tagalog", isTagalogEnabled).apply();
 
-            // Restart this screen to see the change immediately
-            recreate();
+            // ⭐ KEY FIX: Call translateViewHierarchy for BOTH cases.
+            // The new TranslationHelper will automatically:
+            // - Translate to Tagalog if isTagalogEnabled = true
+            // - Restore to English if isTagalogEnabled = false
+            TranslationHelper.translateViewHierarchy(this, getWindow().getDecorView().getRootView());
+
+            // Update the Button Text explicitly AFTER translation
+            // (so the helper doesn't overwrite "TAGALOG" with a translation)
+            updateLanguageButtonUI();
+
+            // Optional: Show feedback
+            String msg = isTagalogEnabled ? "Tagalog Mode ON" : "English Mode ON";
+            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
         });
 
-        // --- 3. START BUTTON SETUP ---
-        btnStart = findViewById(R.id.btnStart);
+        // --- 5. START BUTTON ---
         btnStart.setOnClickListener(v -> {
-            stopMusic(); // Stop music before leaving
+            stopMusic();
 
             // Navigate to Login
             Intent intent = new Intent(SplashActivity.this, LoginActivity.class);
             startActivity(intent);
-            finish(); // Close splash so user can't go back
+            finish();
         });
     }
 
-    // Helper to update button text based on current language
-    private void updateLanguageButtonText() {
-        String currentLang = LocaleHelper.getLanguage(this);
-        if (currentLang.equals("tl")) {
+    private void updateLanguageButtonUI() {
+        if (isTagalogEnabled) {
             btnLanguage.setText("TAGALOG");
+            btnLanguage.setIconResource(R.drawable.ic_check_circle);
         } else {
             btnLanguage.setText("ENGLISH");
+            btnLanguage.setIcon(null);
         }
     }
 
-    // Helper to stop music
     private void stopMusic() {
         if (mediaPlayer != null) {
             if (mediaPlayer.isPlaying()) {
@@ -85,6 +110,6 @@ public class SplashActivity extends BaseActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        stopMusic(); // Ensure music stops if app is closed
+        stopMusic();
     }
 }

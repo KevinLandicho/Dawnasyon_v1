@@ -95,7 +95,7 @@
                     android:layout_marginEnd="8dp"
                     android:layout_marginBottom="6dp"
                     android:fontFamily="@font/dongle"
-                    android:text="@string/view_my_qr_code"
+                    android:text="QR code"
                     android:textColor="#F5901A"
                     android:textSize="20sp"
                     app:cornerRadius="6dp"

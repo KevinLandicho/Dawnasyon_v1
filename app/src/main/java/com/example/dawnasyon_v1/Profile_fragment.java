@@ -215,6 +215,9 @@ public class Profile_fragment extends BaseFragment {
                 }
             });
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
+        applyTagalogTranslation(view);
     }
 
     private void toggleBreakdown() {

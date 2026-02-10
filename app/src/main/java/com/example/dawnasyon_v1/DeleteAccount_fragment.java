@@ -7,7 +7,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class DeleteAccount_fragment extends BaseFragment {
 
@@ -40,5 +39,8 @@ public class DeleteAccount_fragment extends BaseFragment {
                     .addToBackStack(null)
                     .commit();
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 }

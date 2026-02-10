@@ -31,7 +31,7 @@
 
     <TextView
         android:id="@+id/txtTitle"
-        android:layout_width="240dp"
+        android:layout_width="0dp"
         android:layout_height="43dp"
         android:fontFamily="@font/dongle"
         android:text="@string/welcome_back"

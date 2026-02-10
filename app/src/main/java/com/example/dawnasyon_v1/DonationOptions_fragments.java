@@ -79,6 +79,9 @@ public class DonationOptions_fragments extends BaseFragment {
 
         // ⭐ FETCH REAL STOCK DATA (With Timeout Protection)
         fetchStockAndLoadCategories();
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC HEADER (if any)
+        applyTagalogTranslation(view);
     }
 
     private void fetchStockAndLoadCategories() {
@@ -194,12 +197,19 @@ public class DonationOptions_fragments extends BaseFragment {
         txtTitle.setText(title);
         txtDescription.setText(description);
 
+        // ⭐ TRANSLATE DYNAMIC TEXT AUTOMATICALLY
+        TranslationHelper.autoTranslate(getContext(), txtTitle, title);
+        TranslationHelper.autoTranslate(getContext(), txtDescription, description);
+
         // ⭐ HIDE TAG IF CASH
         if (title.equalsIgnoreCase("CASH") || status.equalsIgnoreCase("Hidden")) {
             txtStatus.setVisibility(View.GONE);
         } else {
             txtStatus.setVisibility(View.VISIBLE);
             txtStatus.setText(status);
+
+            // ⭐ TRANSLATE STATUS TOO (e.g., "Critical" -> "Kritikal")
+            TranslationHelper.autoTranslate(getContext(), txtStatus, status);
 
             // Dynamic Color Logic
             if (status.toLowerCase().contains("critical")) {

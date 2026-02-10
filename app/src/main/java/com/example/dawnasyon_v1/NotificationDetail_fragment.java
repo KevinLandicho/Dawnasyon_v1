@@ -22,6 +22,7 @@ public class NotificationDetail_fragment extends BaseFragment {
     private static final String ARG_BODY = "body";
     private static final String ARG_TIME = "time";
     private static final String ARG_TYPE = "type";
+
     // ✅ New Arguments
     private static final String ARG_SENDER = "sender";
     private static final String ARG_RAW_DATE = "raw_date";
@@ -61,13 +62,16 @@ public class NotificationDetail_fragment extends BaseFragment {
         TextView tvBody = view.findViewById(R.id.tv_body);
         TextView tvTime = view.findViewById(R.id.tv_time);
         TextView tvDate = view.findViewById(R.id.tv_date);
-        TextView tvSenderName = view.findViewById(R.id.tv_sender_name); // ✅ Bind Sender Name
+        TextView tvSenderName = view.findViewById(R.id.tv_sender_name);
         ImageView imgAttachment = view.findViewById(R.id.img_attachment);
 
         // Load data from arguments
         if (getArguments() != null) {
-            tvSubject.setText(getArguments().getString(ARG_TITLE));
-            tvBody.setText(getArguments().getString(ARG_BODY));
+            String title = getArguments().getString(ARG_TITLE);
+            String body = getArguments().getString(ARG_BODY);
+
+            tvSubject.setText(title);
+            tvBody.setText(body);
             tvTime.setText(getArguments().getString(ARG_TIME));
 
             // ✅ 1. Set Sender Name (Default to "Barangay Staff" if missing)
@@ -94,6 +98,9 @@ public class NotificationDetail_fragment extends BaseFragment {
         }
 
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS DETAIL VIEW
+        applyTagalogTranslation(view);
     }
 
     // Helper to format raw DB timestamp into readable Date
@@ -108,7 +115,6 @@ public class NotificationDetail_fragment extends BaseFragment {
             SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
             return outputFormat.format(date);
         } catch (Exception e) {
-            e.printStackTrace();
             return ""; // Return empty if error
         }
     }

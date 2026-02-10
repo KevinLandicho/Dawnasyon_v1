@@ -1,12 +1,12 @@
 package com.example.dawnasyon_v1;
 
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -30,8 +30,9 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     @Override
     public void onBindViewHolder(@NonNull NotificationViewHolder holder, int position) {
         NotificationItem item = notificationList.get(position);
+        Context context = holder.itemView.getContext();
 
-        // ✅ 1. SET THE TEXT (This was missing!)
+        // ✅ 1. SET THE TEXT
         holder.tvTitle.setText(item.getTitle());
         holder.tvTime.setText(item.getTime());
         holder.tvDescShort.setText(item.getDescription());
@@ -41,14 +42,26 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
             holder.tvDescFull.setText(item.getDescription());
         }
 
+        // ⭐ NEW: Auto-Translate if "Tagalog Mode" is enabled
+        SharedPreferences prefs = context.getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+        boolean isTagalog = prefs.getBoolean("is_tagalog", false);
+
+        if (isTagalog) {
+            TranslationHelper.autoTranslate(context, holder.tvTitle, item.getTitle());
+            TranslationHelper.autoTranslate(context, holder.tvDescShort, item.getDescription());
+
+            if (holder.tvDescFull != null) {
+                TranslationHelper.autoTranslate(context, holder.tvDescFull, item.getDescription());
+            }
+        }
+
         // ✅ 2. SET THE ICON
-        // If type is 1 (Decline), show red icon. Otherwise, show standard blue/green.
+        // If type is 1 (Decline/Alert), show red icon. Otherwise, show standard blue/green.
         if (item.getType() == 1) {
-            holder.imgIcon.setImageResource(R.drawable.ic_danger); // Make sure you have this drawable
-            // Optional: Change text color to red for alerts
+            holder.imgIcon.setImageResource(R.drawable.ic_danger);
             holder.tvTitle.setTextColor(Color.parseColor("#D32F2F"));
         } else {
-            holder.imgIcon.setImageResource(R.drawable.ic_notifications); // Your default icon
+            holder.imgIcon.setImageResource(R.drawable.ic_notifications);
             holder.tvTitle.setTextColor(Color.BLACK);
         }
 
@@ -61,7 +74,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                 NotificationDetail_fragment detailFragment = NotificationDetail_fragment.newInstance(item);
 
                 activity.getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment) // Ensure this ID matches your MainActivity
+                        .replace(R.id.fragment_container, detailFragment)
                         .addToBackStack(null)
                         .commit();
             }
@@ -76,7 +89,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     public static class NotificationViewHolder extends RecyclerView.ViewHolder {
         TextView tvTitle, tvTime, tvDescShort, tvDescFull;
         ImageView imgIcon;
-        // Removed imgAttachment/layoutExpanded if you aren't using them anymore to keep it simple
 
         public NotificationViewHolder(@NonNull View itemView) {
             super(itemView);

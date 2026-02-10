@@ -1,5 +1,6 @@
 package com.example.dawnasyon_v1;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,20 +36,29 @@ public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistory
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         DonationHistoryItem item = historyList.get(position);
+        Context context = holder.itemView.getContext();
 
-        // 1. Set Name (Static for "My History", or you can fetch profile name)
-        holder.tvName.setText("My Donation");
+        // 1. Set Name
+        String name = "My Donation";
+        holder.tvName.setText(name);
 
-        // 2. Set Date
+        // ⭐ TRANSLATE: "My Donation" -> "Aking Donasyon"
+        TranslationHelper.autoTranslate(context, holder.tvName, name);
+
+        // 2. Set Date (Usually kept in English/Numbers, but you can translate month names if needed)
         holder.tvDate.setText(item.getFormattedDate());
 
-        // 3. Set Description (Calculated in Fragment)
-        holder.tvDesc.setText(item.getDisplayDescription());
+        // 3. Set Description
+        String description = item.getDisplayDescription();
+        holder.tvDesc.setText(description);
+
+        // ⭐ TRANSLATE: Item names (e.g. "Rice" -> "Bigas")
+        TranslationHelper.autoTranslate(context, holder.tvDesc, description);
 
         // 4. Set Avatar
         holder.imgAvatar.setImageResource(item.getImageResId());
 
-        // 5. Handle Status Color (Optional visual improvement)
+        // 5. Handle Status Color
         String status = item.getStatus();
         if (status != null && status.equalsIgnoreCase("Verified")) {
             holder.tvDesc.setTextColor(Color.parseColor("#388E3C")); // Green
@@ -58,7 +68,10 @@ public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistory
             holder.tvDesc.setTextColor(Color.DKGRAY);
         }
 
-        // 6. Click Listener
+        // 6. Translate Button Text ("View Receipt" -> "Tingnan ang Resibo")
+        TranslationHelper.autoTranslate(context, holder.btnReceipt, holder.btnReceipt.getText().toString());
+
+        // 7. Click Listener
         holder.btnReceipt.setOnClickListener(v -> {
             if (listener != null) {
                 listener.onReceiptClick(item);

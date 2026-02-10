@@ -52,6 +52,8 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:storage-kt")
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
+    // Google ML Kit - On-Device Translation
+    implementation ("com.google.mlkit:translate:17.0.2")
 
     // 2. Ktor 3.0.1 (MUST match Supabase 3.x)
     // We explicitly add 'core' to fix the "NoClassDefFoundError" crash you had earlier

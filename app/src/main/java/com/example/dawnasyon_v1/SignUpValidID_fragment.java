@@ -6,7 +6,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -120,6 +119,9 @@ public class SignUpValidID_fragment extends BaseFragment {
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     // --- 🛡️ SECURE VERIFICATION LOGIC ---
@@ -129,7 +131,11 @@ public class SignUpValidID_fragment extends BaseFragment {
             InputImage image = InputImage.fromFilePath(requireContext(), uri);
             TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-            btnStartScan.setText("Verifying Authenticity...");
+            // ⭐ TRANSLATE LOADING STATE
+            String verifyingText = "Verifying Authenticity...";
+            btnStartScan.setText(verifyingText);
+            TranslationHelper.autoTranslate(getContext(), btnStartScan, verifyingText);
+
             btnStartScan.setEnabled(false);
 
             recognizer.process(image)
@@ -142,7 +148,12 @@ public class SignUpValidID_fragment extends BaseFragment {
                         } else {
                             // 3. If invalid, reject
                             showInvalidIdDialog();
-                            btnStartScan.setText("Start Scan");
+
+                            // ⭐ TRANSLATE RESET STATE
+                            String startText = "Start Scan";
+                            btnStartScan.setText(startText);
+                            TranslationHelper.autoTranslate(getContext(), btnStartScan, startText);
+
                             btnStartScan.setEnabled(true);
                             capturedImageUri = null;
                         }

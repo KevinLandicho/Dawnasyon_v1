@@ -22,7 +22,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -143,6 +142,15 @@ public class Home_fragment extends BaseFragment {
         return view;
     }
 
+    // ⭐ I ADDED THIS METHOD TO HANDLE THE TRANSLATION
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        // This triggers the auto-translation scanner for this screen
+        applyTagalogTranslation(view);
+    }
+
     @Override
     public void onResume() {
         super.onResume();
@@ -178,7 +186,13 @@ public class Home_fragment extends BaseFragment {
                 if (!isAdded() || getActivity() == null) return;
 
                 if (profile != null) {
-                    welcomeText.setText("Welcome, " + profile.getFull_name() + "!");
+                    // Update text
+                    String welcomeMsg = "Welcome, " + profile.getFull_name() + "!";
+                    welcomeText.setText(welcomeMsg);
+
+                    // ⭐ Also translate this dynamic text if needed
+                    TranslationHelper.autoTranslate(getContext(), welcomeText, welcomeMsg);
+
                     isUserVerified = Boolean.TRUE.equals(profile.getVerified());
                     if (profile.getType() != null) userType = profile.getType();
                     currentUserStreet = (profile.getStreet() != null) ? profile.getStreet().trim() : "";
@@ -271,9 +285,6 @@ public class Home_fragment extends BaseFragment {
                             }
                         } catch (ParseException e) { e.printStackTrace(); }
                     }
-
-                    // NOTE: If Start/End dates are NULL/Empty, code skips the checks above
-                    // and 'showIt' remains TRUE. (This covers your requirement to show items with empty dates)
 
                     // 4. Badge Count (Only count active Drives)
                     if (showIt && isDrive) {

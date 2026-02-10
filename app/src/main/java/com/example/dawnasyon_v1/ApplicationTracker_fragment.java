@@ -1,5 +1,6 @@
 package com.example.dawnasyon_v1;
 
+import android.content.Context;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -51,6 +52,9 @@ public class ApplicationTracker_fragment extends BaseFragment {
 
         setupRecyclerView();
         loadApplications();
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC VIEWS (e.g., Empty Text)
+        applyTagalogTranslation(view);
     }
 
     private void setupRecyclerView() {
@@ -91,7 +95,6 @@ public class ApplicationTracker_fragment extends BaseFragment {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
 
-                // Show the REAL error on screen so we can debug
                 if (adapter.getItemCount() == 0) {
                     tvEmpty.setVisibility(View.VISIBLE);
                     tvEmpty.setText("Error: " + message);
@@ -103,7 +106,6 @@ public class ApplicationTracker_fragment extends BaseFragment {
     }
 
     private void showProcessDialog(ApplicationHistoryDTO app) {
-        // ⭐ FIX 1: Use getRelief_drives() and getName()
         String title = (app.getRelief_drives() != null) ? app.getRelief_drives().getName() : "Relief Operation";
 
         TrackerDetailsDialog_Fragment dialog = TrackerDetailsDialog_Fragment.newInstance(
@@ -145,8 +147,8 @@ public class ApplicationTracker_fragment extends BaseFragment {
         @Override
         public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
             ApplicationHistoryDTO item = list.get(position);
+            Context context = holder.itemView.getContext();
 
-            // ⭐ FIX 2: Use getRelief_drives() and getName() here too
             String title = (item.getRelief_drives() != null) ? item.getRelief_drives().getName() : "Relief Operation";
             holder.tvTitle.setText(title);
 
@@ -155,11 +157,17 @@ public class ApplicationTracker_fragment extends BaseFragment {
             if (date != null && date.length() > 10) {
                 date = date.substring(0, 10);
             }
-            holder.tvDate.setText("Applied: " + date);
+            String dateText = "Applied: " + date;
+            holder.tvDate.setText(dateText);
 
             // 3. Status & Colors
             String status = item.getStatus().toUpperCase();
             holder.tvStatus.setText(status);
+
+            // ⭐ TRANSLATE LIST ITEMS AUTOMATICALLY
+            TranslationHelper.autoTranslate(context, holder.tvTitle, title);
+            TranslationHelper.autoTranslate(context, holder.tvStatus, status);
+            TranslationHelper.autoTranslate(context, holder.tvDate, dateText);
 
             if (status.equals("PENDING")) {
                 holder.tvStatus.setTextColor(Color.parseColor("#E65100"));

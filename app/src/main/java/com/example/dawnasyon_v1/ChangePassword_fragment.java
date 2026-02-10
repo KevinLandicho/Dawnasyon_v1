@@ -42,6 +42,9 @@ public class ChangePassword_fragment extends BaseFragment {
 
         // Update Logic
         btnUpdate.setOnClickListener(v -> handlePasswordUpdate());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void handlePasswordUpdate() {
@@ -110,7 +113,11 @@ public class ChangePassword_fragment extends BaseFragment {
 
         // 4. Disable button to prevent double clicks
         btnUpdate.setEnabled(false);
-        btnUpdate.setText("Updating...");
+
+        // ⭐ TRANSLATE LOADING STATE ("Updating...")
+        String updatingText = "Updating...";
+        btnUpdate.setText(updatingText);
+        TranslationHelper.autoTranslate(getContext(), btnUpdate, updatingText);
 
         // 5. Call AuthHelper
         AuthHelper.changePassword(oldPass, newPass, new AuthHelper.RegistrationCallback() {
@@ -118,7 +125,11 @@ public class ChangePassword_fragment extends BaseFragment {
             public void onSuccess() {
                 if (isAdded()) {
                     btnUpdate.setEnabled(true);
-                    btnUpdate.setText("Update Password");
+
+                    // ⭐ TRANSLATE RESET STATE ("Update Password")
+                    String resetText = "Update Password";
+                    btnUpdate.setText(resetText);
+                    TranslationHelper.autoTranslate(getContext(), btnUpdate, resetText);
 
                     Toast.makeText(getContext(), "✅ Password updated successfully!", Toast.LENGTH_LONG).show();
                     getParentFragmentManager().popBackStack(); // Go back to Profile
@@ -129,7 +140,11 @@ public class ChangePassword_fragment extends BaseFragment {
             public void onError(@NonNull String message) {
                 if (isAdded()) {
                     btnUpdate.setEnabled(true);
-                    btnUpdate.setText("Update Password");
+
+                    // ⭐ TRANSLATE RESET STATE ("Update Password")
+                    String resetText = "Update Password";
+                    btnUpdate.setText(resetText);
+                    TranslationHelper.autoTranslate(getContext(), btnUpdate, resetText);
 
                     Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
                 }

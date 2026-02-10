@@ -140,6 +140,9 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void proceedToNextStep(String fullName, String contact, String email) {

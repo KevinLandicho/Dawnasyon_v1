@@ -58,5 +58,8 @@ public class Reference_fragment extends BaseFragment {
             // Fallback text if the reference number was not passed
             txtReference.setText("N/A - ERROR");
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Thank You" and labels)
+        applyTagalogTranslation(view);
     }
 }

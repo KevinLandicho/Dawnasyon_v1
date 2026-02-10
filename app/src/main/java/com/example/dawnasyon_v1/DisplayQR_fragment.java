@@ -26,6 +26,7 @@ import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
+// You might need to adjust imports if BarcodeEncoder is in a different package for your setup
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.google.zxing.BarcodeFormat;
 
@@ -73,6 +74,9 @@ public class DisplayQR_fragment extends BaseFragment {
 
         // 3. Save to Gallery Button
         btnSave.setOnClickListener(v -> saveImageToGallery());
+
+        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Save to Gallery", etc.)
+        applyTagalogTranslation(view);
     }
 
     private void loadRealQrCode() {
@@ -134,7 +138,6 @@ public class DisplayQR_fragment extends BaseFragment {
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.encodeBitmap(userId, BarcodeFormat.QR_CODE, 400, 400);
             imgQrCode.setImageBitmap(bitmap);
-            // Log.d("DisplayQR", "Generated Local QR for Offline Mode");
         } catch (Exception e) {
             Log.e("DisplayQR", "Error generating local QR: " + e.getMessage());
         }
@@ -145,7 +148,10 @@ public class DisplayQR_fragment extends BaseFragment {
         Bitmap bitmap = null;
 
         try {
-            bitmap = ((BitmapDrawable) imgQrCode.getDrawable()).getBitmap();
+            Drawable drawable = imgQrCode.getDrawable();
+            if (drawable instanceof BitmapDrawable) {
+                bitmap = ((BitmapDrawable) drawable).getBitmap();
+            }
         } catch (Exception e) {
             // If drawable is not a bitmap (e.g. vector placeholder), ignore
         }
@@ -163,16 +169,15 @@ public class DisplayQR_fragment extends BaseFragment {
                 resolver.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
                 resolver.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES);
                 Uri imageUri = requireContext().getContentResolver().insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, resolver);
-                fos = requireContext().getContentResolver().openOutputStream(imageUri);
+                if (imageUri != null) {
+                    fos = requireContext().getContentResolver().openOutputStream(imageUri);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                    if (fos != null) fos.close();
+                    Toast.makeText(getContext(), "QR Code saved to Gallery!", Toast.LENGTH_SHORT).show();
+                }
             } else {
                 Toast.makeText(getContext(), "Saving not supported on this Android version", Toast.LENGTH_SHORT).show();
-                return;
             }
-
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
-            if (fos != null) fos.close();
-
-            Toast.makeText(getContext(), "QR Code saved to Gallery!", Toast.LENGTH_SHORT).show();
 
         } catch (Exception e) {
             Toast.makeText(getContext(), "Error saving image", Toast.LENGTH_SHORT).show();

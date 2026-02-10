@@ -47,7 +47,11 @@ public class SuggestionForm_fragment extends BaseFragment {
 
             // Disable button to prevent double clicks
             btnSendSuggestion.setEnabled(false);
-            btnSendSuggestion.setText("Sending...");
+
+            // ⭐ Update text and translate it immediately
+            String sendingText = "Sending...";
+            btnSendSuggestion.setText(sendingText);
+            TranslationHelper.autoTranslate(getContext(), btnSendSuggestion, sendingText);
 
             // ⭐ FIX: Updated to SupabaseJavaHelper.ApplicationCallback
             SupabaseJavaHelper.submitSuggestion(suggestionText, new SupabaseJavaHelper.ApplicationCallback() {
@@ -65,12 +69,20 @@ public class SuggestionForm_fragment extends BaseFragment {
                 public void onError(@NonNull String message) {
                     if (isAdded()) {
                         Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+
                         // Re-enable button so they can try again
                         btnSendSuggestion.setEnabled(true);
-                        btnSendSuggestion.setText("Send Suggestion");
+
+                        // Reset text and translate back
+                        String resetText = "Send Suggestion";
+                        btnSendSuggestion.setText(resetText);
+                        TranslationHelper.autoTranslate(getContext(), btnSendSuggestion, resetText);
                     }
                 }
             });
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
+        applyTagalogTranslation(view);
     }
 }

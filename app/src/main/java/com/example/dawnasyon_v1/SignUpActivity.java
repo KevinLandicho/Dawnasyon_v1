@@ -1,4 +1,3 @@
-// File: SignUpActivity.java
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
@@ -19,5 +18,9 @@ public class SignUpActivity extends BaseActivity {
             transaction.replace(R.id.fragment_container_signup, new SignUpOptions_fragment());
             transaction.commit();
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        // This translates any static headers/buttons defined in activity_sign_up.xml
+        TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 }

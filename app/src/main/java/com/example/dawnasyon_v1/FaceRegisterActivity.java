@@ -75,6 +75,9 @@ public class FaceRegisterActivity extends AppCompatActivity {
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 
     // ⭐ HANDLE USER RESPONSE
@@ -168,8 +171,12 @@ public class FaceRegisterActivity extends AppCompatActivity {
             alignCounter++;
             runOnUiThread(() -> {
                 faceOverlay.setBorderColor(Color.GREEN);
-                tvStatus.setText("Hold still... " + (ALIGN_THRESHOLD - alignCounter));
+
+                // ⭐ TRANSLATE DYNAMIC COUNTDOWN
+                String msg = "Hold still... " + (ALIGN_THRESHOLD - alignCounter);
+                tvStatus.setText(msg);
                 tvStatus.setTextColor(Color.GREEN);
+                TranslationHelper.autoTranslate(this, tvStatus, msg);
             });
 
             if (alignCounter >= ALIGN_THRESHOLD && !isCapturing) {
@@ -187,12 +194,18 @@ public class FaceRegisterActivity extends AppCompatActivity {
             faceOverlay.setBorderColor(Color.CYAN);
             tvStatus.setText(msg);
             tvStatus.setTextColor(Color.WHITE);
+            // ⭐ TRANSLATE DYNAMIC MESSAGE
+            TranslationHelper.autoTranslate(this, tvStatus, msg);
         });
     }
 
     private void captureAndRegister() {
         runOnUiThread(() -> {
-            tvStatus.setText("Scanning...");
+            // ⭐ TRANSLATE SCANNING STATE
+            String scanMsg = "Scanning...";
+            tvStatus.setText(scanMsg);
+            TranslationHelper.autoTranslate(this, tvStatus, scanMsg);
+
             Toast.makeText(this, "Capturing...", Toast.LENGTH_SHORT).show();
         });
 

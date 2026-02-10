@@ -55,6 +55,10 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         holder.description.setText(item.getDescription());
         holder.tvLikeCount.setText(item.getLikeCount() + " likes");
 
+        // ⭐ NEW: Auto-Translate Title & Description if enabled
+        TranslationHelper.autoTranslate(context, holder.title, item.getTitle());
+        TranslationHelper.autoTranslate(context, holder.description, item.getDescription());
+
         // ⭐ NEW: Make the "Created At" timestamp readable
         // Example: "Feb 08, 2026 • 10:30 AM"
         holder.timestamp.setText(formatDateTime(item.getCreated_at(), true));
@@ -88,6 +92,9 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                 holder.btnApply.setBackgroundColor(Color.parseColor("#F5901A"));
                 holder.btnApply.setEnabled(true);
             }
+
+            // Translate the button text too!
+            TranslationHelper.autoTranslate(context, holder.btnApply, holder.btnApply.getText().toString());
 
             // --- B. SHOW START/END DATES (Readable) ---
             String start = item.getDriveStartDate(); // Raw Date (yyyy-mm-dd)
@@ -160,8 +167,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         if (rawDate == null || rawDate.isEmpty()) return "N/A";
 
         try {
-            // Supabase often returns: "2026-02-08T14:30:00+00:00" OR "2026-02-08"
-            // We try parsing the full timestamp first
             SimpleDateFormat inputFormat;
             if (rawDate.contains("T")) {
                 inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
@@ -175,10 +180,8 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             // Output Format
             SimpleDateFormat outputFormat;
             if (includeTime) {
-                // Example: Feb 08, 2026 • 2:30 PM
                 outputFormat = new SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault());
             } else {
-                // Example: Feb 08, 2026
                 outputFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
             }
             outputFormat.setTimeZone(TimeZone.getDefault()); // Convert to user's local time
@@ -186,7 +189,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             return outputFormat.format(date);
 
         } catch (Exception e) {
-            // If parsing fails, just return the raw string so it's not empty
             return rawDate;
         }
     }
@@ -194,11 +196,8 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     public static class AnnouncementViewHolder extends RecyclerView.ViewHolder {
         ImageView image, btnHeart, btnBookmark;
         TextView title, timestamp, description, tvLikeCount;
-
-        // Date Views
         LinearLayout layoutDates;
         TextView tvStartDate, tvEndDate;
-
         Button btnApply;
 
         public AnnouncementViewHolder(View itemView) {

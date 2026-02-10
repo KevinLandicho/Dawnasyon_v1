@@ -24,7 +24,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 
-// Networking
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -36,7 +35,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
-// Map & Tiles
 import org.osmdroid.config.Configuration;
 import org.osmdroid.tileprovider.MapTileProviderBasic;
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
@@ -74,16 +72,15 @@ public class LiveMap_fragment extends BaseFragment {
     // API KEYS
     private static final String OPENWEATHER_API_KEY = "00572d4c95d6813ee92167727a796fab";
 
-    // ⭐ 1. Define Permission Launcher
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 Boolean fineLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false);
                 Boolean coarseLocationGranted = result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false);
 
                 if (fineLocationGranted != null && fineLocationGranted) {
-                    setupCurrentLocation(); // Retry setup
+                    setupCurrentLocation();
                 } else if (coarseLocationGranted != null && coarseLocationGranted) {
-                    setupCurrentLocation(); // Retry setup
+                    setupCurrentLocation();
                 } else {
                     Toast.makeText(getContext(), "Location permission denied. Current location unavailable.", Toast.LENGTH_SHORT).show();
                 }
@@ -125,32 +122,28 @@ public class LiveMap_fragment extends BaseFragment {
         GeoPoint startPoint = new GeoPoint(14.7036, 121.0543);
         map.getController().setZoom(10.0);
 
-        // =========================================================
-        // ⭐ VISUAL LAYERS
-        // =========================================================
-
-        // 1. WIND ONLY (Typhoon Swirls)
         setupWindTiles();
-
-        // 2. SETUP LOCATION (With Permission Check)
         checkAndRequestLocation();
 
         if (targetAddress != null && !targetAddress.isEmpty()) {
-            locateAddressOnMap(targetAddress, startPoint);
+            // ⭐ FIX: Add country context for better accuracy
+            String betterAddress = targetAddress + ", Philippines";
+            locateAddressOnMap(betterAddress, startPoint);
         } else {
             fetchRegisteredAddress(startPoint);
         }
 
-        // 3. SCANNERS
         fetchUSGSData();
         fetchPhivolcsData();
         fetchTyphoonTextAlert();
 
         Button btnBack = view.findViewById(R.id.btnBack);
         if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Wind Layer", Buttons, etc.)
+        applyTagalogTranslation(view);
     }
 
-    // ⭐ 2. Permission Check Logic
     private void checkAndRequestLocation() {
         if (getContext() == null) return;
         if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -164,9 +157,6 @@ public class LiveMap_fragment extends BaseFragment {
         }
     }
 
-    // =========================================================
-    // ⭐ WIND LAYER (The Typhoon Visual)
-    // =========================================================
     private void setupWindTiles() {
         if (getContext() == null) return;
         final MapTileProviderBasic provider = new MapTileProviderBasic(requireContext());
@@ -192,9 +182,6 @@ public class LiveMap_fragment extends BaseFragment {
         map.invalidate();
     }
 
-    // =========================================================
-    // 24-HOUR FORECAST (Open-Meteo)
-    // =========================================================
     private void fetchAdvancedWeather(double lat, double lon, String title) {
         String url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
                 "&hourly=temperature_2m,weathercode&forecast_days=1&timezone=Asia%2FManila";
@@ -246,9 +233,6 @@ public class LiveMap_fragment extends BaseFragment {
         return "Normal";
     }
 
-    // =========================================================
-    // TYPHOON ALERT
-    // =========================================================
     private void fetchTyphoonTextAlert() {
         new Thread(() -> {
             try {
@@ -287,9 +271,6 @@ public class LiveMap_fragment extends BaseFragment {
         }).start();
     }
 
-    // =========================================================
-    // EARTHQUAKE SCANNERS
-    // =========================================================
     private void fetchPhivolcsData() {
         new Thread(() -> {
             try {
@@ -355,12 +336,8 @@ public class LiveMap_fragment extends BaseFragment {
         }).start();
     }
 
-    // =========================================================
-    // MAP & LOCATION HELPERS
-    // =========================================================
     private void setupCurrentLocation() {
         if (getContext() == null) return;
-        // Double check permission before enabling
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
 
@@ -383,7 +360,9 @@ public class LiveMap_fragment extends BaseFragment {
         map.getController().setCenter(defaultPoint);
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null) {
-                String address = (profile.getHouse_number() + " " + profile.getStreet() + ", " + profile.getCity()).replace("null", "").trim();
+                // ⭐ FIX: Add Barangay and Philippines for better precision
+                String address = (profile.getHouse_number() + " " + profile.getStreet() + ", " + profile.getBarangay() + ", " + profile.getCity() + ", Philippines").replace("null", "").trim();
+
                 new Handler(Looper.getMainLooper()).post(() -> {
                     if (address.length() > 5) locateAddressOnMap(address, defaultPoint);
                     else {

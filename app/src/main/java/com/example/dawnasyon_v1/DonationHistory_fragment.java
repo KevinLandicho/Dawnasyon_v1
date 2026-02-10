@@ -44,7 +44,7 @@ public class DonationHistory_fragment extends BaseFragment {
         if (rvHistory != null) {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
 
-            // ⭐ CLICK LISTENER: Opens the Receipt Fragment (which has the timeline)
+            // ⭐ CLICK LISTENER: Opens the Receipt Fragment
             adapter = new DonationHistoryAdapter(historyList, item -> {
                 DonationReceipt_fragment receiptFragment = DonationReceipt_fragment.newInstance(item);
                 getParentFragmentManager().beginTransaction()
@@ -56,6 +56,9 @@ public class DonationHistory_fragment extends BaseFragment {
             rvHistory.setAdapter(adapter);
             loadDonationHistory();
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT (Header, etc.)
+        applyTagalogTranslation(view);
     }
 
     private void loadDonationHistory() {

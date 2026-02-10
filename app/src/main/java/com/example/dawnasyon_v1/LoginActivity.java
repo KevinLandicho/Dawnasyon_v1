@@ -101,20 +101,34 @@ public class LoginActivity extends AppCompatActivity {
 
             // Disable button to prevent spamming
             btnForgot.setEnabled(false);
-            btnForgot.setText("Sending...");
+
+            // ⭐ TRANSLATE LOADING STATE
+            String sendingMsg = "Sending...";
+            btnForgot.setText(sendingMsg);
+            TranslationHelper.autoTranslate(this, btnForgot, sendingMsg);
 
             SupabaseJavaHelper.sendPasswordResetEmail(email, new SupabaseJavaHelper.SimpleCallback() {
                 @Override
                 public void onSuccess() {
                     btnForgot.setEnabled(true);
-                    btnForgot.setText("Forgot Password?");
+
+                    // ⭐ TRANSLATE RESET STATE
+                    String resetMsg = "Forgot Password?";
+                    btnForgot.setText(resetMsg);
+                    TranslationHelper.autoTranslate(LoginActivity.this, btnForgot, resetMsg);
+
                     Toast.makeText(LoginActivity.this, "Reset link sent! Check your email.", Toast.LENGTH_LONG).show();
                 }
 
                 @Override
                 public void onError(String message) {
                     btnForgot.setEnabled(true);
-                    btnForgot.setText("Forgot Password?");
+
+                    // ⭐ TRANSLATE RESET STATE
+                    String resetMsg = "Forgot Password?";
+                    btnForgot.setText(resetMsg);
+                    TranslationHelper.autoTranslate(LoginActivity.this, btnForgot, resetMsg);
+
                     Toast.makeText(LoginActivity.this, "Error: " + message, Toast.LENGTH_LONG).show();
                 }
             });
@@ -126,6 +140,10 @@ public class LoginActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        // This translates hints, labels, and initial button text
+        TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 
     // ⭐ FIX: Handle New Intents (If app was already open in background)
@@ -140,11 +158,9 @@ public class LoginActivity extends AppCompatActivity {
     private void checkDeepLink(Intent intent) {
         if (intent == null || intent.getData() == null) return;
 
-        // UPDATED: Now uses only 1 callback (Success/Recovery).
-        // AuthHelper handles the fallback internally.
         AuthHelper.handleDeepLink(intent, () -> {
             runOnUiThread(this::showResetPasswordDialog);
-            return Unit.INSTANCE; // Required for Kotlin interop
+            return Unit.INSTANCE;
         });
     }
 
@@ -199,13 +215,22 @@ public class LoginActivity extends AppCompatActivity {
 
     private void performSupabaseLogin(String email, String password) {
         btnSignin.setEnabled(false);
-        btnSignin.setText("Verifying...");
+
+        // ⭐ TRANSLATE LOADING STATE
+        String verifyingMsg = "Verifying...";
+        btnSignin.setText(verifyingMsg);
+        TranslationHelper.autoTranslate(this, btnSignin, verifyingMsg);
+
         fetchRetries = 0; // Reset retries
 
         SupabaseJavaHelper.loginUser(email, password, new SupabaseJavaHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
-                btnSignin.setText("Syncing Profile...");
+                // ⭐ TRANSLATE SYNC STATE
+                String syncMsg = "Syncing Profile...";
+                btnSignin.setText(syncMsg);
+                TranslationHelper.autoTranslate(LoginActivity.this, btnSignin, syncMsg);
+
                 fetchProfileWithRetry(email);
             }
             @Override
@@ -238,13 +263,22 @@ public class LoginActivity extends AppCompatActivity {
         if (fetchRetries < MAX_RETRIES) {
             fetchRetries++;
             runOnUiThread(() -> {
-                btnSignin.setText("Retrying (" + fetchRetries + "/" + MAX_RETRIES + ")...");
+                // ⭐ TRANSLATE RETRY STATE
+                String retryMsg = "Retrying (" + fetchRetries + "/" + MAX_RETRIES + ")...";
+                btnSignin.setText(retryMsg);
+                TranslationHelper.autoTranslate(this, btnSignin, retryMsg);
+
                 new Handler().postDelayed(() -> fetchProfileWithRetry(email), 2000); // Wait 2s then retry
             });
         } else {
             runOnUiThread(() -> {
                 btnSignin.setEnabled(true);
-                btnSignin.setText("Sign In");
+
+                // ⭐ TRANSLATE RESET STATE
+                String signInMsg = "Sign In";
+                btnSignin.setText(signInMsg);
+                TranslationHelper.autoTranslate(this, btnSignin, signInMsg);
+
                 showErrorDialog("Connection Failed", "Could not download profile. Please check your internet and try again.\n\nError: " + message);
             });
         }
@@ -260,7 +294,6 @@ public class LoginActivity extends AppCompatActivity {
         editor.putString("user_type", profile.getType());
 
         // ⭐ SAFE FACE DATA CHECK (Handles List/Object/String)
-        // We use toString() to safely convert whatever format (List or String) came from Supabase
         Object faceDataObj = profile.getFace_embedding();
         String faceData = (faceDataObj != null) ? faceDataObj.toString() : null;
 
@@ -269,7 +302,12 @@ public class LoginActivity extends AppCompatActivity {
             if (faceData == null || faceData.length() < 5) {
                 runOnUiThread(() -> {
                     btnSignin.setEnabled(true);
-                    btnSignin.setText("Sign In");
+
+                    // ⭐ TRANSLATE RESET STATE
+                    String signInMsg = "Sign In";
+                    btnSignin.setText(signInMsg);
+                    TranslationHelper.autoTranslate(this, btnSignin, signInMsg);
+
                     showErrorDialog("Face Data Missing", "Your Resident account is missing face data. Please contact admin.");
                 });
                 return; // 🛑 BLOCK LOGIN
@@ -307,7 +345,12 @@ public class LoginActivity extends AppCompatActivity {
         loginAttempts++;
         runOnUiThread(() -> {
             btnSignin.setEnabled(true);
-            btnSignin.setText("Sign In");
+
+            // ⭐ TRANSLATE RESET STATE
+            String signInMsg = "Sign In";
+            btnSignin.setText(signInMsg);
+            TranslationHelper.autoTranslate(this, btnSignin, signInMsg);
+
             if (loginAttempts >= MAX_LOGIN_ATTEMPTS) initiateLockout();
             else Toast.makeText(LoginActivity.this, "Error: " + errorMessage, Toast.LENGTH_LONG).show();
         });
@@ -319,8 +362,20 @@ public class LoginActivity extends AppCompatActivity {
         btnSignin.setAlpha(0.5f);
         Toast.makeText(this, "Locked for 30s.", Toast.LENGTH_LONG).show();
         new CountDownTimer(LOCKOUT_DURATION_MS, 1000) {
-            public void onTick(long millisUntilFinished) { btnSignin.setText("Locked (" + millisUntilFinished / 1000 + "s)"); }
-            public void onFinish() { isLockedOut = false; loginAttempts = 0; btnSignin.setEnabled(true); btnSignin.setAlpha(1.0f); btnSignin.setText("Sign In"); }
+            public void onTick(long millisUntilFinished) {
+                btnSignin.setText("Locked (" + millisUntilFinished / 1000 + "s)");
+            }
+            public void onFinish() {
+                isLockedOut = false;
+                loginAttempts = 0;
+                btnSignin.setEnabled(true);
+                btnSignin.setAlpha(1.0f);
+
+                // ⭐ TRANSLATE RESET STATE
+                String signInMsg = "Sign In";
+                btnSignin.setText(signInMsg);
+                TranslationHelper.autoTranslate(LoginActivity.this, btnSignin, signInMsg);
+            }
         }.start();
     }
 

@@ -49,7 +49,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private PreviewView previewView;
     private FaceOverlayView faceOverlay;
     private TextView tvStatus;
-    private Button btnRetry; // ⭐ NEW: Retry Button for Errors
+    private Button btnRetry;
     private ImageCapture imageCapture;
     private FaceHelper faceHelper;
     private ExecutorService cameraExecutor;
@@ -73,10 +73,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
         faceOverlay = findViewById(R.id.faceOverlay);
         tvStatus = findViewById(R.id.tvStatus);
 
-        // You need to add this button to your XML layout or create it dynamically if missing
-        // For now, I'll assume you might add it or we use logic to show dialogs.
-        // Let's use a dialog for retrying if layout changes are hard.
-
         faceOverlay.setRegistrationMode(false);
         faceHelper = new FaceHelper(this);
         cameraExecutor = Executors.newSingleThreadExecutor();
@@ -93,12 +89,18 @@ public class FaceVerifyActivity extends AppCompatActivity {
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 10);
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 
     // ⭐ STRICT SYNC: NO CACHE FALLBACK IF EMPTY
     private void checkUserTypeAndStart() {
         runOnUiThread(() -> {
-            tvStatus.setText("Connecting to database...");
+            String msg = "Connecting to database...";
+            tvStatus.setText(msg);
+            TranslationHelper.autoTranslate(this, tvStatus, msg); // ⭐ Translate
+
             previewView.setVisibility(View.INVISIBLE);
         });
 
@@ -198,7 +200,13 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
-                runOnUiThread(() -> tvStatus.setText("Center Your Face"));
+
+                runOnUiThread(() -> {
+                    String msg = "Center Your Face";
+                    tvStatus.setText(msg);
+                    TranslationHelper.autoTranslate(this, tvStatus, msg); // ⭐ Translate
+                });
+
             } catch (Exception e) { e.printStackTrace(); }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -262,6 +270,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
         float rotY = calculateYaw(face);
         float rotX = calculatePitch(face);
+        // Note: Debug info is appended, translation API handles dynamic text well
         String debug = String.format("\nY: %.1f | X: %.1f", rotY, rotX);
 
         switch (currentStep) {
@@ -338,17 +347,25 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
+    // ⭐ UPDATED STATUS METHOD TO INCLUDE TRANSLATION
     private void updateStatus(String msg, int color) {
         runOnUiThread(() -> {
             tvStatus.setText(msg);
             tvStatus.setTextColor(color);
+            // This translates the instructions (e.g. "Look Left") dynamically
+            TranslationHelper.autoTranslate(this, tvStatus, msg);
         });
     }
 
     private void triggerCapture() {
         if (isCapturing) return;
         isCapturing = true;
-        runOnUiThread(() -> tvStatus.setText("Verifying Identity..."));
+        runOnUiThread(() -> {
+            String msg = "Verifying Identity...";
+            tvStatus.setText(msg);
+            TranslationHelper.autoTranslate(this, tvStatus, msg); // ⭐ Translate
+        });
+
         if (imageCapture == null) return;
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
             @Override

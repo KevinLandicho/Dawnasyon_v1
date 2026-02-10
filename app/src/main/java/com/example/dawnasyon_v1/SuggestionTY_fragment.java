@@ -8,7 +8,6 @@ import android.widget.ImageButton;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
 public class SuggestionTY_fragment extends BaseFragment {
 
@@ -28,9 +27,10 @@ public class SuggestionTY_fragment extends BaseFragment {
 
         ImageButton btnBack = view.findViewById(R.id.btn_back);
 
-        // logic: Go back to the previous screen (which is the Form, or Profile)
-        // You might want to pop back TWICE to go straight to Profile, or just once to the Form.
-        // Here we just pop once.
+        // logic: Go back to the previous screen
         btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Thank You" message)
+        applyTagalogTranslation(view);
     }
 }

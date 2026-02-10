@@ -2,6 +2,8 @@ package com.example.dawnasyon_v1;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -84,6 +86,15 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
 
         ivStep3.setOnClickListener(v -> showStepDetails("Step 3: Claiming Status",
                 "READY: Present your QR Code at the distribution site.\n\nCLAIMED: You have successfully received your relief pack."));
+
+        // ⭐ MANUAL TRANSLATION (Since this is a DialogFragment, not BaseFragment)
+        if (getContext() != null) {
+            SharedPreferences prefs = getContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+            boolean isTagalog = prefs.getBoolean("is_tagalog", false);
+            if (isTagalog) {
+                TranslationHelper.translateViewHierarchy(getContext(), view);
+            }
+        }
     }
 
     private void setupStepper(String status, ImageView iv1, ImageView iv2, ImageView iv3, View l1, View l2) {
@@ -142,16 +153,25 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
             // SPECIAL CASE: REJECTED
             l1.setBackgroundColor(Color.RED);
             iv2.setColorFilter(Color.RED);
-            // iv2.setImageResource(R.drawable.ic_cancel); // Optional if you have cancel icon
         }
     }
 
     private void showStepDetails(String title, String message) {
         if (getContext() == null) return;
-        new AlertDialog.Builder(getContext())
+
+        AlertDialog dialog = new AlertDialog.Builder(getContext())
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("Got it", null)
                 .show();
+
+        // ⭐ TRANSLATE THE POP-UP DIALOG CONTENT TOO
+        SharedPreferences prefs = getContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+        boolean isTagalog = prefs.getBoolean("is_tagalog", false);
+
+        if (isTagalog && dialog.getWindow() != null) {
+            // This scans the standard Android dialog layout and translates the Title, Message, and Button
+            TranslationHelper.translateViewHierarchy(getContext(), dialog.getWindow().getDecorView());
+        }
     }
 }

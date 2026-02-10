@@ -70,6 +70,13 @@ public class SignUpStep3Location_fragment extends BaseFragment {
                 return;
             }
 
+            // ⭐ TRANSLATE LOADING STATE
+            String verifyingText = "Verifying Address...";
+            btnSubmit.setText(verifyingText);
+            TranslationHelper.autoTranslate(getContext(), btnSubmit, verifyingText);
+
+            btnSubmit.setEnabled(false);
+
             // ⭐ CALL HELPER: The smart "st/street" and "53b/53 B" check happens inside SupabaseJavaHelper
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
@@ -88,11 +95,22 @@ public class SignUpStep3Location_fragment extends BaseFragment {
                     // Duplicate Found
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                        // ⭐ TRANSLATE RESET STATE
+                        String submitText = "Submit";
+                        btnSubmit.setText(submitText);
+                        TranslationHelper.autoTranslate(getContext(), btnSubmit, submitText);
+
+                        btnSubmit.setEnabled(true);
+
                         Toast.makeText(getContext(), "Validation Failed: " + message, Toast.LENGTH_LONG).show();
                     }
                 }
             });
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void proceedToAccountCreation(String prov, String city, String brgy, String street, String house, String zip) {

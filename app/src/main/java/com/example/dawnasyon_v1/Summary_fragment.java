@@ -78,7 +78,11 @@ public class Summary_fragment extends BaseFragment {
             }
 
             btnApplyToDonate.setEnabled(false);
-            btnApplyToDonate.setText("Processing...");
+
+            // ⭐ TRANSLATE LOADING STATE
+            String processingText = "Processing...";
+            btnApplyToDonate.setText(processingText);
+            TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, processingText);
 
             boolean isAnon = cbAnonymous != null && cbAnonymous.isChecked();
             String refNumber = generateReferenceNumber(); // e.g. "D20250101-5921"
@@ -95,7 +99,12 @@ public class Summary_fragment extends BaseFragment {
                         public void onSuccess() {
                             if (getActivity() == null) return;
                             btnApplyToDonate.setEnabled(true);
-                            btnApplyToDonate.setText("Confirm Donation");
+
+                            // ⭐ TRANSLATE RESET STATE
+                            String confirmText = "Confirm Donation";
+                            btnApplyToDonate.setText(confirmText);
+                            TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, confirmText);
+
                             Toast.makeText(getContext(), "Donation Submitted!", Toast.LENGTH_SHORT).show();
 
                             // Go to Reference/Thank You screen
@@ -106,17 +115,30 @@ public class Summary_fragment extends BaseFragment {
                         public void onError(@NonNull String message) {
                             if (getActivity() == null) return;
                             btnApplyToDonate.setEnabled(true);
-                            btnApplyToDonate.setText("Confirm Donation");
+
+                            // ⭐ TRANSLATE RESET STATE
+                            String confirmText = "Confirm Donation";
+                            btnApplyToDonate.setText(confirmText);
+                            TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, confirmText);
+
                             Toast.makeText(getContext(), "Failed: " + message, Toast.LENGTH_LONG).show();
                         }
                     }
             );
         });
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC TEXT
+        applyTagalogTranslation(view);
     }
 
     private void addItemRowToSummary(LinearLayout container, String name, String quantityUnit) {
         TextView textView = new TextView(getContext());
-        textView.setText(name + " (" + quantityUnit + ")");
+        String fullText = name + " (" + quantityUnit + ")";
+        textView.setText(fullText);
+
+        // ⭐ TRANSLATE DYNAMIC ITEMS (e.g. "Rice (5 kg)" -> "Bigas (5 kg)")
+        TranslationHelper.autoTranslate(getContext(), textView, fullText);
+
         textView.setTextSize(16);
         try {
             Typeface dongleTypeface = ResourcesCompat.getFont(getContext(), R.font.dongle);

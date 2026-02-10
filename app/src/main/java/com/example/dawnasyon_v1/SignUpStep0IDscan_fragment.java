@@ -1,6 +1,7 @@
 package com.example.dawnasyon_v1;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -85,6 +86,9 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
 
         btnScanStart.setOnClickListener(v -> startDocumentScan());
         btnUploadId.setOnClickListener(v -> galleryLauncher.launch("image/*"));
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     // ⭐ UPDATED METHOD TO PREVENT CRASH ON SCREEN RECORDING
@@ -118,7 +122,11 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
             InputImage image = InputImage.fromFilePath(requireContext(), imageUri);
             TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-            btnScanStart.setText("Verifying ID...");
+            // ⭐ TRANSLATE LOADING STATE
+            String verifyingText = "Verifying ID...";
+            btnScanStart.setText(verifyingText);
+            TranslationHelper.autoTranslate(getContext(), btnScanStart, verifyingText);
+
             btnScanStart.setEnabled(false);
             btnUploadId.setEnabled(false);
 
@@ -165,7 +173,11 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
     }
 
     private void resetButtons() {
-        btnScanStart.setText("Scan with Camera");
+        // ⭐ TRANSLATE RESET STATE
+        String scanText = "Scan with Camera";
+        btnScanStart.setText(scanText);
+        TranslationHelper.autoTranslate(getContext(), btnScanStart, scanText);
+
         btnScanStart.setEnabled(true);
         btnUploadId.setEnabled(true);
         capturedImageUri = null; // Clear the invalid image

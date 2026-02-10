@@ -48,14 +48,14 @@ public class Donation_details_fragment extends BaseFragment {
   private static final String[] UNITS_PIECES = {"PCS", "Box", "Case", "Tray"};
   private static final String[] UNITS_LIQUID = {"Liter", "Bottle", "Gallon", "Box"};
   private static final String[] UNITS_PACKS  = {"Pack", "Set", "Box"};
-  private static final String[] UNITS_GENERIC = {"PCS", "Set", "Box"}; // Fallback
+  private static final String[] UNITS_GENERIC = {"PCS", "Set", "Box"};
 
   // --- Data Structure ---
   private static class ItemData {
     String name;
-    String[] specificUnits; // ⭐ Changed from String defaultUnit to String[] specificUnits
+    String[] specificUnits;
     String description;
-    int layoutType; // 1 = Standard (Spinner), 2 = Description (No Spinner)
+    int layoutType;
 
     // Constructor for Items with Spinner
     ItemData(String name, String[] specificUnits) {
@@ -75,13 +75,12 @@ public class Donation_details_fragment extends BaseFragment {
   private static final Map<String, List<ItemData>> PRESET_ITEMS = new HashMap<>();
 
   static {
-    // ⭐ ASSIGN SPECIFIC UNITS PER ITEM HERE
     PRESET_ITEMS.put("FOOD", Arrays.asList(
-            new ItemData("Rice", UNITS_WEIGHT),           // Uses Kilo/Sack
-            new ItemData("Instant noodles", UNITS_PIECES),// Uses PCS/Box
-            new ItemData("Canned Goods", UNITS_PIECES),   // Uses PCS/Box
-            new ItemData("Biscuits", UNITS_PACKS),        // Uses Pack/Set
-            new ItemData("Water", UNITS_LIQUID)           // Uses Liter/Bottle
+            new ItemData("Rice", UNITS_WEIGHT),
+            new ItemData("Instant noodles", UNITS_PIECES),
+            new ItemData("Canned Goods", UNITS_PIECES),
+            new ItemData("Biscuits", UNITS_PACKS),
+            new ItemData("Water", UNITS_LIQUID)
     ));
 
     PRESET_ITEMS.put("HYGIENE KITS", Arrays.asList(
@@ -139,6 +138,7 @@ public class Donation_details_fragment extends BaseFragment {
 
     final String categoryKey = fTitle != null ? fTitle : "FOOD";
 
+    // Handle Cash specifically
     if (categoryKey.equals("CASH")) {
       if (getActivity() != null) {
         Fragment cashFragment = CashInfo_fragment.newInstance(fTitle, fDescription, fStatus, fImageRes);
@@ -182,7 +182,7 @@ public class Donation_details_fragment extends BaseFragment {
         btnAddCustomItem.setVisibility(View.VISIBLE);
         btnAddCustomItem.setOnClickListener(v -> {
           addCustomItemInput();
-          customItemInputLayout.setVisibility(View.VISIBLE);
+          if(customItemInputLayout != null) customItemInputLayout.setVisibility(View.VISIBLE);
         });
       }
     }
@@ -199,6 +199,9 @@ public class Donation_details_fragment extends BaseFragment {
         launchSummaryFragment(collectedItems);
       });
     }
+
+    // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
+    applyTagalogTranslation(view);
   }
 
   private void addPresetItem(ItemData item) {
@@ -210,18 +213,27 @@ public class Donation_details_fragment extends BaseFragment {
       itemView = inflater.inflate(R.layout.item_input_desc, itemInputsContainer, false);
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       TextView txtDesc = itemView.findViewById(R.id.txtItemDescription);
-      if (txtName != null) txtName.setText(item.name);
-      if (txtDesc != null) txtDesc.setText(item.description);
+      if (txtName != null) {
+        txtName.setText(item.name);
+        TranslationHelper.autoTranslate(getContext(), txtName, item.name);
+      }
+      if (txtDesc != null) {
+        txtDesc.setText(item.description);
+        TranslationHelper.autoTranslate(getContext(), txtDesc, item.description);
+      }
     } else {
       // Standard Type (Food)
       itemView = inflater.inflate(R.layout.item_input, itemInputsContainer, false);
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       Spinner spinner = itemView.findViewById(R.id.spinnerUnit);
-      if (txtName != null) txtName.setText(item.name);
+      if (txtName != null) {
+        txtName.setText(item.name);
+        TranslationHelper.autoTranslate(getContext(), txtName, item.name);
+      }
 
-      // ⭐ Pass the specific units for this item
       setupUnitSpinner(spinner, item.specificUnits);
     }
+
     setupQuantityControls(itemView);
     itemInputsContainer.addView(itemView);
   }
@@ -244,6 +256,9 @@ public class Donation_details_fragment extends BaseFragment {
       editName.setLayoutParams(originalName.getLayoutParams());
       parent.addView(editName, 0);
 
+      // Translate hint
+      TranslationHelper.autoTranslate(getContext(), editName, "Enter Item");
+
       TextView btnPlus = customView.findViewById(R.id.btnPlus);
       TextView closeBtn = new TextView(requireContext());
       closeBtn.setText("X");
@@ -259,12 +274,21 @@ public class Donation_details_fragment extends BaseFragment {
         params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
       }
 
-      parent.addView(closeBtn, params);
+      // Need to cast LayoutParams properly if using ConstraintLayout
+      if (btnPlus != null) {
+        ConstraintLayout.LayoutParams clParams = new ConstraintLayout.LayoutParams(dp35, dp35);
+        clParams.topToTop = btnPlus.getId();
+        clParams.bottomToBottom = btnPlus.getId();
+        clParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+        parent.addView(closeBtn, clParams);
+      } else {
+        parent.addView(closeBtn);
+      }
+
       closeBtn.setOnClickListener(v -> customItemInputLayout.removeView(customView));
     }
 
     Spinner spinner = customView.findViewById(R.id.spinnerUnit);
-    // ⭐ Custom items get a generic list (since we don't know what they are)
     setupUnitSpinner(spinner, UNITS_GENERIC);
     setupQuantityControls(customView);
 

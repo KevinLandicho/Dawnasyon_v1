@@ -63,6 +63,9 @@ public class SignUpOptions_fragment extends BaseFragment {
                     btnOverseas, R.drawable.ic_glob,
                     "Local");
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        applyTagalogTranslation(view);
     }
 
     private void handleSelection(Button selectedButton, int selectedIconRes,
@@ -81,18 +84,25 @@ public class SignUpOptions_fragment extends BaseFragment {
     }
 
     private Drawable getIconWithCircle(int iconResId, String colorHex) {
-        int sizePx = dpToPx(48);
-        GradientDrawable circle = new GradientDrawable();
-        circle.setShape(GradientDrawable.OVAL);
-        circle.setColor(Color.parseColor(colorHex));
-        circle.setSize(sizePx, sizePx);
-        Drawable icon = ContextCompat.getDrawable(requireContext(), iconResId);
-        LayerDrawable layerDrawable = new LayerDrawable(new Drawable[]{circle, icon});
-        layerDrawable.setLayerGravity(1, Gravity.CENTER);
-        int padding = dpToPx(12);
-        layerDrawable.setLayerInset(1, padding, padding, padding, padding);
-        layerDrawable.setBounds(0, 0, sizePx, sizePx);
-        return layerDrawable;
+        try {
+            int sizePx = dpToPx(48);
+            GradientDrawable circle = new GradientDrawable();
+            circle.setShape(GradientDrawable.OVAL);
+            circle.setColor(Color.parseColor(colorHex));
+            circle.setSize(sizePx, sizePx);
+
+            Drawable icon = ContextCompat.getDrawable(requireContext(), iconResId);
+            if (icon == null) return circle; // Safety check
+
+            LayerDrawable layerDrawable = new LayerDrawable(new Drawable[]{circle, icon});
+            layerDrawable.setLayerGravity(1, Gravity.CENTER);
+            int padding = dpToPx(12);
+            layerDrawable.setLayerInset(1, padding, padding, padding, padding);
+            layerDrawable.setBounds(0, 0, sizePx, sizePx);
+            return layerDrawable;
+        } catch (Exception e) {
+            return ContextCompat.getDrawable(requireContext(), iconResId);
+        }
     }
 
     private int dpToPx(int dp) {

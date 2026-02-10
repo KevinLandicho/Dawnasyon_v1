@@ -1,6 +1,8 @@
-package com.example.dawnasyon_v1; // Change to your package name
+package com.example.dawnasyon_v1;
 
 import android.app.Dialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -39,6 +41,17 @@ public class ApplicationSuccessDialogFragment extends DialogFragment {
                 dismiss();
             }
         });
+
+        // ⭐ MANUAL TRANSLATION CHECK
+        // Since DialogFragment doesn't extend BaseFragment, we check manually here.
+        if (getContext() != null) {
+            SharedPreferences prefs = getContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+            boolean isTagalog = prefs.getBoolean("is_tagalog", false);
+
+            if (isTagalog) {
+                TranslationHelper.translateViewHierarchy(getContext(), view);
+            }
+        }
 
         return view;
     }

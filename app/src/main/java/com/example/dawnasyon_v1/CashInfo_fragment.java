@@ -81,7 +81,9 @@ public class CashInfo_fragment extends BaseFragment {
 
         etOtherAmount = view.findViewById(R.id.et_other_amount);
         btnConfirmOther = view.findViewById(R.id.btn_confirm_other);
-        btnConfirmOther.setText("Review");
+
+        String btnText = "Review";
+        btnConfirmOther.setText(btnText);
 
         btnConfirmOther.setOnClickListener(v -> {
             String otherAmountStr = etOtherAmount.getText().toString().trim();
@@ -102,6 +104,9 @@ public class CashInfo_fragment extends BaseFragment {
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> goBackToOptions());
         }
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
+        applyTagalogTranslation(view);
     }
 
     // ⭐ HELPER: Navigate explicitly to DonationOption_fragment

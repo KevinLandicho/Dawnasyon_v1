@@ -14,7 +14,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.util.ArrayList; // Needed for the empty list
+import java.util.ArrayList;
 
 public class CashSummary_fragment extends BaseFragment {
 
@@ -52,9 +52,12 @@ public class CashSummary_fragment extends BaseFragment {
 
         if (getArguments() != null) {
             mAmount = getArguments().getInt(ARG_AMOUNT);
-            String refId = getArguments().getString(ARG_REF_ID);
             tvAmount.setText("PHP " + mAmount + ".00");
-            tvRefId.setText("Will be generated upon confirmation");
+
+            String refText = "Will be generated upon confirmation";
+            tvRefId.setText(refText);
+            // Translate initial text
+            TranslationHelper.autoTranslate(getContext(), tvRefId, refText);
         }
 
         if (savedInstanceState != null) {
@@ -70,11 +73,19 @@ public class CashSummary_fragment extends BaseFragment {
         });
 
         btnChange.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC TEXT
+        applyTagalogTranslation(view);
     }
 
     private void startPaymentProcess() {
         btnConfirm.setEnabled(false);
-        btnConfirm.setText("Generating Link...");
+
+        // ⭐ Translate Dynamic Button State
+        String loadingText = "Generating Link...";
+        btnConfirm.setText(loadingText);
+        TranslationHelper.autoTranslate(getContext(), btnConfirm, loadingText);
+
         Toast.makeText(getContext(), "Connecting to PayMongo...", Toast.LENGTH_SHORT).show();
 
         PayMongoHelper.createDonationLink(mAmount, "Donation", new PayMongoHelper.PaymentListener() {
@@ -88,7 +99,11 @@ public class CashSummary_fragment extends BaseFragment {
                     Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(checkoutUrl));
                     startActivity(intent);
 
-                    btnConfirm.setText("Verify Payment");
+                    // ⭐ Translate Next State
+                    String verifyText = "Verify Payment";
+                    btnConfirm.setText(verifyText);
+                    TranslationHelper.autoTranslate(getContext(), btnConfirm, verifyText);
+
                     btnConfirm.setEnabled(true);
 
                     Toast.makeText(getContext(), "Please pay in browser, then return here.", Toast.LENGTH_LONG).show();
@@ -100,7 +115,12 @@ public class CashSummary_fragment extends BaseFragment {
                 if (getActivity() == null) return;
                 getActivity().runOnUiThread(() -> {
                     btnConfirm.setEnabled(true);
-                    btnConfirm.setText("CONFIRM DONATION");
+
+                    // ⭐ Translate Reset State
+                    String resetText = "CONFIRM DONATION";
+                    btnConfirm.setText(resetText);
+                    TranslationHelper.autoTranslate(getContext(), btnConfirm, resetText);
+
                     Toast.makeText(getContext(), "Error: " + error, Toast.LENGTH_SHORT).show();
                 });
             }
@@ -111,7 +131,11 @@ public class CashSummary_fragment extends BaseFragment {
         if (currentLinkId == null) return;
 
         btnConfirm.setEnabled(false);
-        btnConfirm.setText("Verifying...");
+
+        // ⭐ Translate Verifying State
+        String verifyingText = "Verifying...";
+        btnConfirm.setText(verifyingText);
+        TranslationHelper.autoTranslate(getContext(), btnConfirm, verifyingText);
 
         PayMongoHelper.checkPaymentStatus(currentLinkId, status -> {
             if (getActivity() == null) return;
@@ -121,7 +145,12 @@ public class CashSummary_fragment extends BaseFragment {
                     saveToSupabaseAndProceed();
                 } else {
                     btnConfirm.setEnabled(true);
-                    btnConfirm.setText("Verify Payment");
+
+                    // ⭐ Translate Reset State
+                    String resetText = "Verify Payment";
+                    btnConfirm.setText(resetText);
+                    TranslationHelper.autoTranslate(getContext(), btnConfirm, resetText);
+
                     Toast.makeText(getContext(), "Status: " + status.toUpperCase() + ". Please complete payment.", Toast.LENGTH_SHORT).show();
                 }
             });
@@ -132,15 +161,18 @@ public class CashSummary_fragment extends BaseFragment {
     private void saveToSupabaseAndProceed() {
         if (getActivity() == null) return;
 
-        btnConfirm.setText("Saving Record...");
+        // ⭐ Translate Saving State
+        String savingText = "Saving Record...";
+        btnConfirm.setText(savingText);
+        TranslationHelper.autoTranslate(getContext(), btnConfirm, savingText);
 
         // Use your existing DonationHelper
         DonationHelper.INSTANCE.submitDonation(
-                currentLinkId, // Use the PayMongo ID as the Reference Number
-                new ArrayList<>(), // Empty list because there are no items (Rice/Canned goods)
-                "Cash", // Type is Cash
-                (double) mAmount, // The actual amount
-                false, // Is Anonymous? (You can pass true/false if you have a checkbox here)
+                currentLinkId,
+                new ArrayList<>(),
+                "Cash",
+                (double) mAmount,
+                false,
                 new DonationHelper.DonationCallback() {
                     @Override
                     public void onSuccess() {
@@ -159,7 +191,12 @@ public class CashSummary_fragment extends BaseFragment {
                     public void onError(@NonNull String message) {
                         if (getActivity() == null) return;
                         btnConfirm.setEnabled(true);
-                        btnConfirm.setText("Retry Save");
+
+                        // ⭐ Translate Retry State
+                        String retryText = "Retry Save";
+                        btnConfirm.setText(retryText);
+                        TranslationHelper.autoTranslate(getContext(), btnConfirm, retryText);
+
                         Toast.makeText(getContext(), "Payment received but failed to save record: " + message, Toast.LENGTH_LONG).show();
                     }
                 }

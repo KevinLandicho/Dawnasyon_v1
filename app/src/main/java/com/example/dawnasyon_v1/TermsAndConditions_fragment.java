@@ -7,9 +7,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 
-public class TermsAndConditions_fragment extends Fragment {
+public class TermsAndConditions_fragment extends BaseFragment {
 
     public TermsAndConditions_fragment() {
         // Required empty public constructor
@@ -28,5 +27,9 @@ public class TermsAndConditions_fragment extends Fragment {
         // Close button logic
         Button btnClose = view.findViewById(R.id.btn_close);
         btnClose.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        // This will translate the header, the body text, and the "Close" button.
+        applyTagalogTranslation(view);
     }
 }
