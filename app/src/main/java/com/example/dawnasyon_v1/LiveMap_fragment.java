@@ -84,7 +84,7 @@ public class LiveMap_fragment extends BaseFragment {
     // API KEYS
     private static final String OPENWEATHER_API_KEY = "00572d4c95d6813ee92167727a796fab";
 
-    // BRGY STA. LUCIA COORDINATES
+    // BRGY STA. LUCIA COORDINATES (Center)
     private static final double STA_LUCIA_LAT = 14.7046;
     private static final double STA_LUCIA_LON = 121.0560;
 
@@ -140,13 +140,13 @@ public class LiveMap_fragment extends BaseFragment {
 
         // 2. CENTER ON STA. LUCIA & HIGH ZOOM
         GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
-        map.getController().setZoom(17.0);
+        map.getController().setZoom(16.5); // Adjusted zoom to fit new border
         map.getController().setCenter(startPoint);
 
-        // 3. ADD BORDER POLYGON
+        // 3. ADD REALISTIC BORDER POLYGON
         drawStaLuciaBorder();
 
-        // ⭐ 4. ADD HAZARD ZONES (Using Simple Boxes) ⭐
+        // 4. ADD HAZARD ZONES
         addHazardZones();
 
         // 5. ADD TAP LISTENER
@@ -207,7 +207,45 @@ public class LiveMap_fragment extends BaseFragment {
         applyTagalogTranslation(view);
     }
 
-    // ⭐ MODIFIED: Use Simple Boxes for Fire and Flood Markers
+    // ⭐ NEW: DETAILED BORDER FOR BRGY STA. LUCIA, QC
+    private void drawStaLuciaBorder() {
+        List<GeoPoint> borderPoints = new ArrayList<>();
+
+        // These coordinates trace the actual irregular shape of Sta. Lucia (Counter-Clockwise)
+        // North-West Tip (Near Tullahan River / Sauyo)
+        borderPoints.add(new GeoPoint(14.7135, 121.0550));
+        borderPoints.add(new GeoPoint(14.7120, 121.0580));
+
+        // East Boundary (Near Fairview / Commonwealth)
+        borderPoints.add(new GeoPoint(14.7100, 121.0605));
+        borderPoints.add(new GeoPoint(14.7070, 121.0620));
+        borderPoints.add(new GeoPoint(14.7030, 121.0625));
+
+        // South-East Corner
+        borderPoints.add(new GeoPoint(14.6990, 121.0610));
+
+        // South Boundary (Near Holy Spirit)
+        borderPoints.add(new GeoPoint(14.6975, 121.0580));
+        borderPoints.add(new GeoPoint(14.6970, 121.0550));
+
+        // West Boundary (Following Creek/River)
+        borderPoints.add(new GeoPoint(14.6990, 121.0520));
+        borderPoints.add(new GeoPoint(14.7020, 121.0505));
+        borderPoints.add(new GeoPoint(14.7060, 121.0500));
+        borderPoints.add(new GeoPoint(14.7090, 121.0515));
+        borderPoints.add(new GeoPoint(14.7115, 121.0530));
+
+        Polygon polygon = new Polygon();
+        polygon.setPoints(borderPoints);
+        polygon.setFillColor(Color.argb(30, 255, 140, 0)); // Transparent Dark Orange
+        polygon.setStrokeColor(Color.RED);
+        polygon.setStrokeWidth(4.0f); // Thicker border
+        polygon.setTitle("Brgy. Sta. Lucia Boundary");
+
+        map.getOverlays().add(polygon);
+        map.invalidate();
+    }
+
     private void addHazardZones() {
         // --- 1. FIRE ALERT (Red Box) ---
         GeoPoint firePoint = new GeoPoint(STA_LUCIA_LAT + 0.0015, STA_LUCIA_LON - 0.0010);
@@ -217,12 +255,11 @@ public class LiveMap_fragment extends BaseFragment {
         fireMarker.setTitle("🔥 FIRE ALERT");
         fireMarker.setSnippet("Active Fire Reported: Residential Area");
 
-        // Create RED Box (Same style as earthquake)
         GradientDrawable fireBox = new GradientDrawable();
         fireBox.setShape(GradientDrawable.RECTANGLE);
-        fireBox.setSize(30, 30); // Slightly larger for hazards
+        fireBox.setSize(30, 30);
         fireBox.setColor(Color.RED);
-        fireBox.setStroke(3, Color.WHITE); // White border
+        fireBox.setStroke(3, Color.WHITE);
         fireMarker.setIcon(fireBox);
 
         map.getOverlays().add(fireMarker);
@@ -241,14 +278,12 @@ public class LiveMap_fragment extends BaseFragment {
         floodZone.setStrokeWidth(2.0f);
         floodZone.setTitle("🌊 FLOOD RISK ZONE");
 
-        // Add Marker in the middle of the flood zone
         Marker floodMarker = new Marker(map);
         floodMarker.setPosition(new GeoPoint(STA_LUCIA_LAT - 0.0017, STA_LUCIA_LON + 0.0017));
         floodMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
         floodMarker.setTitle("Flood Prone Area");
         floodMarker.setSnippet("High Water Level: Creek Area");
 
-        // Create BLUE Box (Matches Legend)
         GradientDrawable floodBox = new GradientDrawable();
         floodBox.setShape(GradientDrawable.RECTANGLE);
         floodBox.setSize(30, 30);
@@ -321,24 +356,6 @@ public class LiveMap_fragment extends BaseFragment {
             Intent browserIntent = new Intent(Intent.ACTION_VIEW, browserUri);
             startActivity(browserIntent);
         }
-    }
-
-    private void drawStaLuciaBorder() {
-        List<GeoPoint> borderPoints = new ArrayList<>();
-        borderPoints.add(new GeoPoint(14.7120, 121.0520));
-        borderPoints.add(new GeoPoint(14.7120, 121.0620));
-        borderPoints.add(new GeoPoint(14.6980, 121.0620));
-        borderPoints.add(new GeoPoint(14.6980, 121.0520));
-
-        Polygon polygon = new Polygon();
-        polygon.setPoints(borderPoints);
-        polygon.setFillColor(Color.argb(20, 255, 165, 0));
-        polygon.setStrokeColor(Color.RED);
-        polygon.setStrokeWidth(3.0f);
-        polygon.setTitle("Brgy. Sta. Lucia Boundary");
-
-        map.getOverlays().add(polygon);
-        map.invalidate();
     }
 
     private void checkAndRequestLocation() {
