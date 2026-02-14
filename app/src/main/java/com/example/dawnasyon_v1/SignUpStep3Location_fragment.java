@@ -174,7 +174,56 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
     private List<String> getSampleStreets(String brgy) {
         List<String> streets = new ArrayList<>();
-        streets.add("Rizal Street"); streets.add("Mabini Street"); streets.add("Quezon Avenue");
+
+        // Add all unique streets from your list
+        streets.add("A. Bonifacio St.");
+        streets.add("A. Mabini St.");
+        streets.add("Burgos St.");
+        streets.add("Castro St.");
+        streets.add("Cursilista St.");
+        streets.add("Dela Cruz St.");
+        streets.add("Diego Silang St.");
+        streets.add("Dona Field");
+        streets.add("E. Aguinaldo St.");
+        streets.add("E. Jacinto St.");
+        streets.add("F. Agoncillo St.");
+        streets.add("F. Balagtas St.");
+        streets.add("F. Calderon St.");
+        streets.add("Francisco Park");
+        streets.add("Galvez St.");
+        streets.add("Gen. Malvar St.");
+        streets.add("Gomez St.");
+        streets.add("Humabon St.");
+        streets.add("J. Abad Santos St.");
+        streets.add("J. Basa St.");
+        streets.add("J. Luna St.");
+        streets.add("J. Palma St.");
+        streets.add("J.P. Rizal St.");
+        streets.add("Lapu Lapu St.");
+        streets.add("Lopez Jaena St");
+        streets.add("Lower Visayas Ave");
+        streets.add("M. Aquino St.");
+        streets.add("M.H. Del Pilar St.");
+        streets.add("Marco Polo St.");
+        streets.add("Naning Ponce St.");
+        streets.add("Natividad Subd.");
+        streets.add("P. Bukaneg St");
+        streets.add("P. Paterno St.");
+        streets.add("Paguio St.");
+        streets.add("Pamana St.");
+        streets.add("Panganiban St.");
+        streets.add("Plain Ville");
+        streets.add("Rajah Soliman St.");
+        streets.add("Rivera St.");
+        streets.add("Sta. Lucia Ave.");
+        streets.add("Sta. Marcela St.");
+        streets.add("T. Alonzo St.");
+        streets.add("Tarha Ville");
+        streets.add("Upper Visayas");
+        streets.add("Valbuena Compd.");
+        streets.add("Villa Hermano 4");
+        streets.add("Zamora St.");
+
         return streets;
     }
 }
