@@ -31,7 +31,7 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         void onLikeClick(Announcement announcement, int position);
         void onBookmarkClick(Announcement announcement, int position);
     }
-
+//dsds
     public AnnouncementAdapter(List<Announcement> announcementList, OnItemClickListener listener) {
         this.announcementList = announcementList;
         this.listener = listener;
