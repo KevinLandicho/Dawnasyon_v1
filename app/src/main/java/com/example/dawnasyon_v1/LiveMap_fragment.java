@@ -75,7 +75,7 @@ public class LiveMap_fragment extends BaseFragment {
     private final OkHttpClient client = new OkHttpClient();
 
     private Marker homeMarker;
-    private Marker selectedLocationMarker; // ⭐ NEW: Track the user's pinned location
+    private Marker selectedLocationMarker;
     private MyLocationNewOverlay locationOverlay;
 
     // TRACK MAP MODE (Satellite vs Road)
@@ -98,7 +98,7 @@ public class LiveMap_fragment extends BaseFragment {
                 } else if (coarseLocationGranted != null && coarseLocationGranted) {
                     setupCurrentLocation();
                 } else {
-                    Toast.makeText(getContext(), "Location permission denied. Current location unavailable.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Location permission denied.", Toast.LENGTH_SHORT).show();
                 }
             });
 
@@ -134,19 +134,22 @@ public class LiveMap_fragment extends BaseFragment {
 
         map = view.findViewById(R.id.osmmap);
 
-        // 1. DEFAULT TO MAPNIK (Standard Road View)
+        // 1. DEFAULT TO MAPNIK
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
 
         // 2. CENTER ON STA. LUCIA & HIGH ZOOM
         GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
-        map.getController().setZoom(17.5);
+        map.getController().setZoom(17.0);
         map.getController().setCenter(startPoint);
 
         // 3. ADD BORDER POLYGON
         drawStaLuciaBorder();
 
-        // ⭐ 4. ADD TAP LISTENER FOR PINNING ⭐
+        // ⭐ 4. ADD HAZARD ZONES (Using Simple Boxes) ⭐
+        addHazardZones();
+
+        // 5. ADD TAP LISTENER
         addMapTapListener();
 
         setupWindTiles();
@@ -166,13 +169,13 @@ public class LiveMap_fragment extends BaseFragment {
         Button btnBack = view.findViewById(R.id.btnBack);
         if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // SATELLITE TOGGLE LOGIC
+        // SATELLITE TOGGLE
         ImageButton btnLayerToggle = view.findViewById(R.id.btn_layer_toggle);
         if (btnLayerToggle != null) {
             btnLayerToggle.setOnClickListener(v -> {
                 if (isSatelliteMode) {
                     map.setTileSource(TileSourceFactory.MAPNIK);
-                    Toast.makeText(getContext(), "Road View (Houses)", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Road View", Toast.LENGTH_SHORT).show();
                 } else {
                     OnlineTileSourceBase esriSatellite = new OnlineTileSourceBase(
                             "ArcGIS World Imagery",
@@ -188,14 +191,14 @@ public class LiveMap_fragment extends BaseFragment {
                         }
                     };
                     map.setTileSource(esriSatellite);
-                    Toast.makeText(getContext(), "Satellite View (ArcGIS)", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getContext(), "Satellite View", Toast.LENGTH_SHORT).show();
                 }
                 isSatelliteMode = !isSatelliteMode;
                 map.invalidate();
             });
         }
 
-        // GOOGLE STREET VIEW LOGIC
+        // STREET VIEW TOGGLE
         ImageButton btnStreetView = view.findViewById(R.id.btn_street_view);
         if (btnStreetView != null) {
             btnStreetView.setOnClickListener(v -> openGoogleMapsStreetView());
@@ -204,7 +207,61 @@ public class LiveMap_fragment extends BaseFragment {
         applyTagalogTranslation(view);
     }
 
-    // ⭐ NEW: DETECT TAPS ON MAP AND ADD PIN
+    // ⭐ MODIFIED: Use Simple Boxes for Fire and Flood Markers
+    private void addHazardZones() {
+        // --- 1. FIRE ALERT (Red Box) ---
+        GeoPoint firePoint = new GeoPoint(STA_LUCIA_LAT + 0.0015, STA_LUCIA_LON - 0.0010);
+        Marker fireMarker = new Marker(map);
+        fireMarker.setPosition(firePoint);
+        fireMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+        fireMarker.setTitle("🔥 FIRE ALERT");
+        fireMarker.setSnippet("Active Fire Reported: Residential Area");
+
+        // Create RED Box (Same style as earthquake)
+        GradientDrawable fireBox = new GradientDrawable();
+        fireBox.setShape(GradientDrawable.RECTANGLE);
+        fireBox.setSize(30, 30); // Slightly larger for hazards
+        fireBox.setColor(Color.RED);
+        fireBox.setStroke(3, Color.WHITE); // White border
+        fireMarker.setIcon(fireBox);
+
+        map.getOverlays().add(fireMarker);
+
+        // --- 2. FLOOD RISK (Blue Polygon + Blue Box) ---
+        List<GeoPoint> floodPoints = new ArrayList<>();
+        floodPoints.add(new GeoPoint(STA_LUCIA_LAT - 0.0020, STA_LUCIA_LON + 0.0010));
+        floodPoints.add(new GeoPoint(STA_LUCIA_LAT - 0.0025, STA_LUCIA_LON + 0.0015));
+        floodPoints.add(new GeoPoint(STA_LUCIA_LAT - 0.0015, STA_LUCIA_LON + 0.0025));
+        floodPoints.add(new GeoPoint(STA_LUCIA_LAT - 0.0010, STA_LUCIA_LON + 0.0020));
+
+        Polygon floodZone = new Polygon();
+        floodZone.setPoints(floodPoints);
+        floodZone.setFillColor(Color.argb(70, 0, 0, 255));
+        floodZone.setStrokeColor(Color.BLUE);
+        floodZone.setStrokeWidth(2.0f);
+        floodZone.setTitle("🌊 FLOOD RISK ZONE");
+
+        // Add Marker in the middle of the flood zone
+        Marker floodMarker = new Marker(map);
+        floodMarker.setPosition(new GeoPoint(STA_LUCIA_LAT - 0.0017, STA_LUCIA_LON + 0.0017));
+        floodMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
+        floodMarker.setTitle("Flood Prone Area");
+        floodMarker.setSnippet("High Water Level: Creek Area");
+
+        // Create BLUE Box (Matches Legend)
+        GradientDrawable floodBox = new GradientDrawable();
+        floodBox.setShape(GradientDrawable.RECTANGLE);
+        floodBox.setSize(30, 30);
+        floodBox.setColor(Color.BLUE);
+        floodBox.setStroke(3, Color.WHITE);
+        floodMarker.setIcon(floodBox);
+
+        map.getOverlays().add(floodZone);
+        map.getOverlays().add(floodMarker);
+
+        map.invalidate();
+    }
+
     private void addMapTapListener() {
         MapEventsReceiver receiver = new MapEventsReceiver() {
             @Override
@@ -221,7 +278,6 @@ public class LiveMap_fragment extends BaseFragment {
         map.getOverlays().add(new MapEventsOverlay(receiver));
     }
 
-    // ⭐ NEW: ADD THE PIN MARKER
     private void addSelectedLocationMarker(GeoPoint p) {
         if (selectedLocationMarker != null) {
             map.getOverlays().remove(selectedLocationMarker);
@@ -232,31 +288,24 @@ public class LiveMap_fragment extends BaseFragment {
         selectedLocationMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
         selectedLocationMarker.setTitle("Selected Location");
 
-        // Format coordinates to look nice
         DecimalFormat df = new DecimalFormat("#.#####");
         String coords = df.format(p.getLatitude()) + ", " + df.format(p.getLongitude());
         selectedLocationMarker.setSnippet("Coords: " + coords + "\nTap Street View to see this area.");
 
         map.getOverlays().add(selectedLocationMarker);
         map.invalidate();
-
-        selectedLocationMarker.showInfoWindow(); // Automatically show the bubble
+        selectedLocationMarker.showInfoWindow();
     }
 
-    // ⭐ UPDATED: OPEN STREET VIEW FOR THE PINNED LOCATION
     private void openGoogleMapsStreetView() {
         double lat, lon;
-
-        // Priority 1: Use the user's pinned location if it exists
         if (selectedLocationMarker != null) {
             lat = selectedLocationMarker.getPosition().getLatitude();
             lon = selectedLocationMarker.getPosition().getLongitude();
-        }
-        // Priority 2: Use the Map Center if no pin exists
-        else if (map.getMapCenter() != null) {
+        } else if (map.getMapCenter() != null) {
             lat = map.getMapCenter().getLatitude();
             lon = map.getMapCenter().getLongitude();
-            Toast.makeText(getContext(), "Using Map Center (Tip: Tap map to pin a specific spot)", Toast.LENGTH_LONG).show();
+            Toast.makeText(getContext(), "Using Map Center", Toast.LENGTH_SHORT).show();
         } else {
             return;
         }
@@ -333,9 +382,7 @@ public class LiveMap_fragment extends BaseFragment {
     private void fetchAdvancedWeather(double lat, double lon, String title) {
         String url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
                 "&hourly=temperature_2m,weathercode&forecast_days=1&timezone=Asia%2FManila";
-
         Request request = new Request.Builder().url(url).build();
-
         new Thread(() -> {
             try (Response response = client.newCall(request).execute()) {
                 if (response.isSuccessful() && response.body() != null) {
@@ -357,7 +404,6 @@ public class LiveMap_fragment extends BaseFragment {
                                 String condLater = decodeWmoCode(codes.getInt(6));
                                 forecastSummary.append("Later (+6h): ").append(condLater);
                             }
-
                             if (homeMarker != null) {
                                 String info = forecastSummary.toString();
                                 homeMarker.setSnippet(title + "\n" + info);
@@ -497,11 +543,9 @@ public class LiveMap_fragment extends BaseFragment {
 
     private void fetchRegisteredAddress(GeoPoint defaultPoint) {
         map.getController().setCenter(new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON));
-
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null) {
                 String address = (profile.getHouse_number() + " " + profile.getStreet() + ", " + profile.getBarangay() + ", " + profile.getCity() + ", Philippines").replace("null", "").trim();
-
                 new Handler(Looper.getMainLooper()).post(() -> {
                     if (address.length() > 5) locateAddressOnMap(address, defaultPoint);
                     else {
@@ -530,7 +574,6 @@ public class LiveMap_fragment extends BaseFragment {
 
     private void addHomeMarker(double lat, double lon, String title, String snippet) {
         if (map == null) return;
-
         if(homeMarker != null) map.getOverlays().remove(homeMarker);
 
         homeMarker = new Marker(map);
