@@ -49,7 +49,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private PreviewView previewView;
     private FaceOverlayView faceOverlay;
     private TextView tvStatus;
-    private Button btnRetry;
     private ImageCapture imageCapture;
     private FaceHelper faceHelper;
     private ExecutorService cameraExecutor;
@@ -63,6 +62,9 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private int stabilityCounter = 0;
 
     private String userType = "Resident";
+
+    // Track last message to prevent UI flickering
+    private String lastMessage = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -90,44 +92,45 @@ public class FaceVerifyActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 10);
         }
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        // ⭐ KEEP STATIC TRANSLATION (Only runs once at startup)
         TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 
-    // ⭐ STRICT SYNC: NO CACHE FALLBACK IF EMPTY
     private void checkUserTypeAndStart() {
-        runOnUiThread(() -> {
-            String msg = "Connecting to database...";
-            tvStatus.setText(msg);
-            TranslationHelper.autoTranslate(this, tvStatus, msg); // ⭐ Translate
+        // Cache First Strategy
+        SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
+        String localEmbedding = prefs.getString("face_embedding", "");
+        String localType = prefs.getString("user_type", "");
 
+        if (!localEmbedding.isEmpty() && !localType.isEmpty()) {
+            Log.d("FaceVerify", "✅ Local data found. Skipping DB fetch.");
+            handleUserType(localType);
+            return;
+        }
+
+        runOnUiThread(() -> {
+            tvStatus.setText("Connecting to database...");
             previewView.setVisibility(View.INVISIBLE);
         });
 
         AuthHelper.fetchUserProfile(profile -> {
-            if (profile != null) {
-                // 1. Save User Type
-                SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
-                prefs.edit().putString("user_type", profile.getType()).apply();
+            runOnUiThread(() -> {
+                if (profile != null) {
+                    SharedPreferences.Editor editor = getSharedPreferences("UserSession", MODE_PRIVATE).edit();
+                    editor.putString("user_type", profile.getType());
+                    editor.apply();
 
-                // 2. Check for Face Data
-                Object rawEmbedding = profile.getFace_embedding();
-
-                if (rawEmbedding != null) {
-                    // Convert Object/Array to String for storage
-                    String embeddingString = rawEmbedding.toString();
-                    saveFaceDataLocally(embeddingString);
-                    handleUserType(profile.getType());
+                    Object rawEmbedding = profile.getFace_embedding();
+                    if (rawEmbedding != null) {
+                        saveFaceDataLocally(rawEmbedding.toString());
+                        handleUserType(profile.getType());
+                    } else {
+                        showErrorDialog("Account Issue", "Your account does not have Face ID set up.");
+                    }
                 } else {
-                    // ⭐ STRICT FAIL: Profile loaded, but no Face ID found
-                    Log.e("FaceVerify", "Face data is NULL in database.");
-                    showErrorDialog("Account Issue", "Your account does not have Face ID set up. Please contact admin or register again.");
+                    showErrorDialog("Connection Failed", "Cannot retrieve user profile. Please check internet.");
                 }
-            } else {
-                // ⭐ STRICT FAIL: Internet Error
-                Log.e("FaceVerify", "Failed to fetch profile (Internet/Server error).");
-                showErrorDialog("Connection Failed", "Cannot verify identity without internet. Please check your connection and try again.");
-            }
+            });
             return null;
         });
     }
@@ -149,7 +152,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 .edit()
                 .putString("face_embedding", embedding)
                 .apply();
-        Log.d("FaceVerify", "✅ Face data downloaded & saved.");
     }
 
     private void handleUserType(String type) {
@@ -159,12 +161,11 @@ public class FaceVerifyActivity extends AppCompatActivity {
         if (isForeign) {
             bypassFaceScan();
         } else {
-            // Double Check Local Storage
             SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
             String savedData = prefs.getString("face_embedding", "");
 
             if (savedData.isEmpty()) {
-                showErrorDialog("Critical Error", "Face data failed to save. Please try again.");
+                checkUserTypeAndStart();
             } else {
                 runOnUiThread(() -> {
                     previewView.setVisibility(View.VISIBLE);
@@ -202,9 +203,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
 
                 runOnUiThread(() -> {
-                    String msg = "Center Your Face";
-                    tvStatus.setText(msg);
-                    TranslationHelper.autoTranslate(this, tvStatus, msg); // ⭐ Translate
+                    updateStatus("Center Your Face", Color.WHITE);
                 });
 
             } catch (Exception e) { e.printStackTrace(); }
@@ -270,8 +269,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
         float rotY = calculateYaw(face);
         float rotX = calculatePitch(face);
-        // Note: Debug info is appended, translation API handles dynamic text well
-        String debug = String.format("\nY: %.1f | X: %.1f", rotY, rotX);
 
         switch (currentStep) {
             case ALIGN:
@@ -281,38 +278,34 @@ public class FaceVerifyActivity extends AppCompatActivity {
                         currentStep = SecurityStep.LOOK_LEFT;
                         stabilityCounter = 0;
                     }
-                    updateStatus("Hold Still..." + debug, Color.GREEN);
+                    updateStatus("Hold Still...", Color.GREEN);
                 } else {
-                    updateStatus("Center Your Face" + debug, Color.WHITE);
+                    updateStatus("Center Your Face", Color.WHITE);
                     stabilityCounter = 0;
                 }
                 break;
             case LOOK_LEFT:
                 if (rotY > 12) {
-                    updateStatus("Good! Hold Left..." + stabilityCounter, Color.GREEN);
+                    updateStatus("Good! Hold Left...", Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
                         currentStep = SecurityStep.LOOK_RIGHT;
                         stabilityCounter = 0;
                     }
-                } else if (rotY < -10) {
-                    updateStatus("Wrong Way! Turn LEFT ⬅️" + debug, Color.RED);
                 } else {
-                    updateStatus("Turn Head LEFT ⬅️" + debug, Color.CYAN);
+                    updateStatus("Turn Head LEFT ⬅️", Color.CYAN);
                 }
                 break;
             case LOOK_RIGHT:
                 if (rotY < -12) {
-                    updateStatus("Good! Hold Right..." + stabilityCounter, Color.GREEN);
+                    updateStatus("Good! Hold Right...", Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
                         currentStep = SecurityStep.LOOK_UP;
                         stabilityCounter = 0;
                     }
-                } else if (rotY > 10) {
-                    updateStatus("Wrong Way! Turn RIGHT ➡️" + debug, Color.RED);
                 } else {
-                    updateStatus("Turn Head RIGHT ➡️" + debug, Color.CYAN);
+                    updateStatus("Turn Head RIGHT ➡️", Color.CYAN);
                 }
                 break;
             case LOOK_UP:
@@ -325,7 +318,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
                         stabilityCounter = 0;
                     }
                 } else {
-                    updateStatus("Look UP ⬆️" + debug, Color.CYAN);
+                    updateStatus("Look UP ⬆️", Color.CYAN);
                 }
                 break;
             case VERIFYING:
@@ -347,24 +340,21 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
-    // ⭐ UPDATED STATUS METHOD TO INCLUDE TRANSLATION
+    // ⭐ REMOVED TRANSLATION TO FIX LAG/MISSING TEXT
     private void updateStatus(String msg, int color) {
+        if (msg.equals(lastMessage)) return;
+        lastMessage = msg;
+
         runOnUiThread(() -> {
             tvStatus.setText(msg);
             tvStatus.setTextColor(color);
-            // This translates the instructions (e.g. "Look Left") dynamically
-            TranslationHelper.autoTranslate(this, tvStatus, msg);
         });
     }
 
     private void triggerCapture() {
         if (isCapturing) return;
         isCapturing = true;
-        runOnUiThread(() -> {
-            String msg = "Verifying Identity...";
-            tvStatus.setText(msg);
-            TranslationHelper.autoTranslate(this, tvStatus, msg); // ⭐ Translate
-        });
+        updateStatus("Verifying Identity...", Color.YELLOW);
 
         if (imageCapture == null) return;
         imageCapture.takePicture(ContextCompat.getMainExecutor(this), new ImageCapture.OnImageCapturedCallback() {
