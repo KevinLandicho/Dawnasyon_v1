@@ -2,12 +2,14 @@ package com.example.dawnasyon_v1;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.location.Address;
 import android.location.Geocoder;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,6 +18,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -36,19 +39,24 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 import org.osmdroid.config.Configuration;
+import org.osmdroid.events.MapEventsReceiver;
 import org.osmdroid.tileprovider.MapTileProviderBasic;
 import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.util.MapTileIndex;
 import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
+import org.osmdroid.views.overlay.Polygon;
 import org.osmdroid.views.overlay.TilesOverlay;
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -67,10 +75,18 @@ public class LiveMap_fragment extends BaseFragment {
     private final OkHttpClient client = new OkHttpClient();
 
     private Marker homeMarker;
+    private Marker selectedLocationMarker; // ⭐ NEW: Track the user's pinned location
     private MyLocationNewOverlay locationOverlay;
+
+    // TRACK MAP MODE (Satellite vs Road)
+    private boolean isSatelliteMode = false;
 
     // API KEYS
     private static final String OPENWEATHER_API_KEY = "00572d4c95d6813ee92167727a796fab";
+
+    // BRGY STA. LUCIA COORDINATES
+    private static final double STA_LUCIA_LAT = 14.7046;
+    private static final double STA_LUCIA_LON = 121.0560;
 
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -108,6 +124,7 @@ public class LiveMap_fragment extends BaseFragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         Context ctx = requireContext();
         Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx));
+        Configuration.getInstance().setUserAgentValue("com.example.dawnasyon_v1");
         return inflater.inflate(R.layout.fragment_live_map, container, false);
     }
 
@@ -116,17 +133,26 @@ public class LiveMap_fragment extends BaseFragment {
         super.onViewCreated(view, savedInstanceState);
 
         map = view.findViewById(R.id.osmmap);
+
+        // 1. DEFAULT TO MAPNIK (Standard Road View)
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
 
-        GeoPoint startPoint = new GeoPoint(14.7036, 121.0543);
-        map.getController().setZoom(10.0);
+        // 2. CENTER ON STA. LUCIA & HIGH ZOOM
+        GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
+        map.getController().setZoom(17.5);
+        map.getController().setCenter(startPoint);
+
+        // 3. ADD BORDER POLYGON
+        drawStaLuciaBorder();
+
+        // ⭐ 4. ADD TAP LISTENER FOR PINNING ⭐
+        addMapTapListener();
 
         setupWindTiles();
         checkAndRequestLocation();
 
         if (targetAddress != null && !targetAddress.isEmpty()) {
-            // ⭐ FIX: Add country context for better accuracy
             String betterAddress = targetAddress + ", Philippines";
             locateAddressOnMap(betterAddress, startPoint);
         } else {
@@ -140,8 +166,130 @@ public class LiveMap_fragment extends BaseFragment {
         Button btnBack = view.findViewById(R.id.btnBack);
         if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Wind Layer", Buttons, etc.)
+        // SATELLITE TOGGLE LOGIC
+        ImageButton btnLayerToggle = view.findViewById(R.id.btn_layer_toggle);
+        if (btnLayerToggle != null) {
+            btnLayerToggle.setOnClickListener(v -> {
+                if (isSatelliteMode) {
+                    map.setTileSource(TileSourceFactory.MAPNIK);
+                    Toast.makeText(getContext(), "Road View (Houses)", Toast.LENGTH_SHORT).show();
+                } else {
+                    OnlineTileSourceBase esriSatellite = new OnlineTileSourceBase(
+                            "ArcGIS World Imagery",
+                            0, 19, 256, "",
+                            new String[] { "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/" }
+                    ) {
+                        @Override
+                        public String getTileURLString(long pMapTileIndex) {
+                            return getBaseUrl()
+                                    + MapTileIndex.getZoom(pMapTileIndex) + "/"
+                                    + MapTileIndex.getY(pMapTileIndex) + "/"
+                                    + MapTileIndex.getX(pMapTileIndex);
+                        }
+                    };
+                    map.setTileSource(esriSatellite);
+                    Toast.makeText(getContext(), "Satellite View (ArcGIS)", Toast.LENGTH_SHORT).show();
+                }
+                isSatelliteMode = !isSatelliteMode;
+                map.invalidate();
+            });
+        }
+
+        // GOOGLE STREET VIEW LOGIC
+        ImageButton btnStreetView = view.findViewById(R.id.btn_street_view);
+        if (btnStreetView != null) {
+            btnStreetView.setOnClickListener(v -> openGoogleMapsStreetView());
+        }
+
         applyTagalogTranslation(view);
+    }
+
+    // ⭐ NEW: DETECT TAPS ON MAP AND ADD PIN
+    private void addMapTapListener() {
+        MapEventsReceiver receiver = new MapEventsReceiver() {
+            @Override
+            public boolean singleTapConfirmedHelper(GeoPoint p) {
+                addSelectedLocationMarker(p);
+                return true;
+            }
+
+            @Override
+            public boolean longPressHelper(GeoPoint p) {
+                return false;
+            }
+        };
+        map.getOverlays().add(new MapEventsOverlay(receiver));
+    }
+
+    // ⭐ NEW: ADD THE PIN MARKER
+    private void addSelectedLocationMarker(GeoPoint p) {
+        if (selectedLocationMarker != null) {
+            map.getOverlays().remove(selectedLocationMarker);
+        }
+
+        selectedLocationMarker = new Marker(map);
+        selectedLocationMarker.setPosition(p);
+        selectedLocationMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        selectedLocationMarker.setTitle("Selected Location");
+
+        // Format coordinates to look nice
+        DecimalFormat df = new DecimalFormat("#.#####");
+        String coords = df.format(p.getLatitude()) + ", " + df.format(p.getLongitude());
+        selectedLocationMarker.setSnippet("Coords: " + coords + "\nTap Street View to see this area.");
+
+        map.getOverlays().add(selectedLocationMarker);
+        map.invalidate();
+
+        selectedLocationMarker.showInfoWindow(); // Automatically show the bubble
+    }
+
+    // ⭐ UPDATED: OPEN STREET VIEW FOR THE PINNED LOCATION
+    private void openGoogleMapsStreetView() {
+        double lat, lon;
+
+        // Priority 1: Use the user's pinned location if it exists
+        if (selectedLocationMarker != null) {
+            lat = selectedLocationMarker.getPosition().getLatitude();
+            lon = selectedLocationMarker.getPosition().getLongitude();
+        }
+        // Priority 2: Use the Map Center if no pin exists
+        else if (map.getMapCenter() != null) {
+            lat = map.getMapCenter().getLatitude();
+            lon = map.getMapCenter().getLongitude();
+            Toast.makeText(getContext(), "Using Map Center (Tip: Tap map to pin a specific spot)", Toast.LENGTH_LONG).show();
+        } else {
+            return;
+        }
+
+        Uri gmmIntentUri = Uri.parse("google.streetview:cbll=" + lat + "," + lon);
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        mapIntent.setPackage("com.google.android.apps.maps");
+
+        if (mapIntent.resolveActivity(requireActivity().getPackageManager()) != null) {
+            startActivity(mapIntent);
+        } else {
+            Uri browserUri = Uri.parse("https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=" + lat + "," + lon);
+            Intent browserIntent = new Intent(Intent.ACTION_VIEW, browserUri);
+            startActivity(browserIntent);
+        }
+    }
+
+    private void drawStaLuciaBorder() {
+        List<GeoPoint> borderPoints = new ArrayList<>();
+        borderPoints.add(new GeoPoint(14.7120, 121.0520));
+        borderPoints.add(new GeoPoint(14.7120, 121.0620));
+        borderPoints.add(new GeoPoint(14.6980, 121.0620));
+        borderPoints.add(new GeoPoint(14.6980, 121.0520));
+
+        Polygon polygon = new Polygon();
+        polygon.setPoints(borderPoints);
+        polygon.setFillColor(Color.argb(20, 255, 165, 0));
+        polygon.setStrokeColor(Color.RED);
+        polygon.setStrokeWidth(3.0f);
+        polygon.setTitle("Brgy. Sta. Lucia Boundary");
+
+        map.getOverlays().add(polygon);
+        map.invalidate();
     }
 
     private void checkAndRequestLocation() {
@@ -295,7 +443,7 @@ public class LiveMap_fragment extends BaseFragment {
                             double lon = Double.parseDouble(cols.get(2).text().trim());
                             double mag = Double.parseDouble(cols.get(4).text().trim());
 
-                            addQuakeMarker(lat, lon, "PHIVOLCS: Mag " + mag, dateStr, mag >= 4.0 ? 0xFFFF00FF : 0xFF2E7D32);
+                            addQuakeMarker(lat, lon, "PHIVOLCS: Mag " + mag, dateStr, 0xFFFF00FF);
 
                         } catch (Exception e) {}
                     }
@@ -326,7 +474,7 @@ public class LiveMap_fragment extends BaseFragment {
                                 double mag = p.getDouble("mag");
 
                                 if(lat > 4 && lat < 22 && lon > 116 && lon < 127) {
-                                    addQuakeMarker(lat, lon, "USGS: Mag " + mag, p.getString("place"), mag >= 4.0 ? 0xFFFF00FF : 0xFF2E7D32);
+                                    addQuakeMarker(lat, lon, "USGS: Mag " + mag, p.getString("place"), 0xFFFF00FF);
                                 }
                             }
                         } catch(Exception e) {}
@@ -343,37 +491,23 @@ public class LiveMap_fragment extends BaseFragment {
 
             locationOverlay = new MyLocationNewOverlay(new GpsMyLocationProvider(requireContext()), map);
             locationOverlay.enableMyLocation();
-            locationOverlay.runOnFirstFix(() -> {
-                GeoPoint myLoc = locationOverlay.getMyLocation();
-                if (myLoc != null) {
-                    new Handler(Looper.getMainLooper()).post(() -> {
-                        if(targetAddress == null) map.getController().animateTo(myLoc);
-                        fetchAdvancedWeather(myLoc.getLatitude(), myLoc.getLongitude(), "Current Location");
-                    });
-                }
-            });
             map.getOverlays().add(locationOverlay);
         }
     }
 
     private void fetchRegisteredAddress(GeoPoint defaultPoint) {
-        map.getController().setCenter(defaultPoint);
+        map.getController().setCenter(new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON));
+
         AuthHelper.fetchUserProfile(profile -> {
             if (profile != null) {
-                // ⭐ FIX: Add Barangay and Philippines for better precision
                 String address = (profile.getHouse_number() + " " + profile.getStreet() + ", " + profile.getBarangay() + ", " + profile.getCity() + ", Philippines").replace("null", "").trim();
 
                 new Handler(Looper.getMainLooper()).post(() -> {
                     if (address.length() > 5) locateAddressOnMap(address, defaultPoint);
                     else {
-                        addHomeMarker(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Location", "Default");
-                        fetchAdvancedWeather(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "My Location");
+                        addHomeMarker(STA_LUCIA_LAT, STA_LUCIA_LON, "My Location", "Sta. Lucia (Default)");
+                        fetchAdvancedWeather(STA_LUCIA_LAT, STA_LUCIA_LON, "My Location");
                     }
-                });
-            } else {
-                new Handler(Looper.getMainLooper()).post(() -> {
-                    addHomeMarker(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Location", "Default");
-                    fetchAdvancedWeather(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "My Location");
                 });
             }
             return null;
@@ -387,21 +521,18 @@ public class LiveMap_fragment extends BaseFragment {
             if (addresses != null && !addresses.isEmpty()) {
                 Address location = addresses.get(0);
                 GeoPoint foundPoint = new GeoPoint(location.getLatitude(), location.getLongitude());
-                map.getController().setCenter(foundPoint);
                 addHomeMarker(foundPoint.getLatitude(), foundPoint.getLongitude(), "My Household", addressStr);
-                fetchAdvancedWeather(foundPoint.getLatitude(), foundPoint.getLongitude(), "My Household");
-            } else {
-                map.getController().setCenter(defaultPoint);
-                addHomeMarker(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Location", "Default");
-                fetchAdvancedWeather(defaultPoint.getLatitude(), defaultPoint.getLongitude(), "Default");
             }
         } catch (IOException e) {
-            map.getController().setCenter(defaultPoint);
+            e.printStackTrace();
         }
     }
 
     private void addHomeMarker(double lat, double lon, String title, String snippet) {
         if (map == null) return;
+
+        if(homeMarker != null) map.getOverlays().remove(homeMarker);
+
         homeMarker = new Marker(map);
         homeMarker.setPosition(new GeoPoint(lat, lon));
         homeMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
