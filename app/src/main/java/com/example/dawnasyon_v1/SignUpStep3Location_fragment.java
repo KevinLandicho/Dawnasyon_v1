@@ -45,14 +45,12 @@ public class SignUpStep3Location_fragment extends BaseFragment {
         // 1. Load Data
         PhLocationHelper.loadData(requireContext());
 
-        // 2. Setup Logic
-        setupCascadingDropdowns();
-
-        // 3. Force Dropdowns to Open on Click
-        setupDropdownTrigger(dropdownProv);
-        setupDropdownTrigger(dropdownCity);
-        setupDropdownTrigger(dropdownBrgy);
-        dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
+        // ⭐ 2. CONDITIONAL SETUP BASED ON USER TYPE
+        if ("Resident".equalsIgnoreCase(RegistrationCache.userType)) {
+            setupResidentMode();
+        } else {
+            setupNonResidentMode();
+        }
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
@@ -77,7 +75,7 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
             btnSubmit.setEnabled(false);
 
-            // ⭐ CALL HELPER: The smart "st/street" and "53b/53 B" check happens inside SupabaseJavaHelper
+            // ⭐ CALL HELPER: The smart "st/street" check happens inside SupabaseJavaHelper
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
             SupabaseJavaHelper.checkAddressExists(house, street, brgy, city, new SupabaseJavaHelper.SimpleCallback() {
@@ -111,6 +109,55 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
         // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
+    }
+
+    // ⭐ LOGIC FOR RESIDENTS (LOCKED FIELDS)
+    private void setupResidentMode() {
+        // 1. Pre-fill fields
+        dropdownProv.setText("Metro Manila");
+        dropdownCity.setText("Quezon City");
+        dropdownBrgy.setText("Santa Lucia"); // Updated to Santa Lucia
+        etZip.setText("1117"); // Santa Lucia ZIP Code (usually 1117)
+
+        // 2. Lock specific fields
+        lockField(dropdownProv);
+        lockField(dropdownCity);
+        lockField(dropdownBrgy);
+
+        // 3. UNLOCK Zip Code and Street Name (As requested)
+        etZip.setEnabled(true);
+        dropdownStreet.setEnabled(true);
+        dropdownStreet.setFocusableInTouchMode(true);
+        dropdownStreet.setClickable(true);
+
+        // 4. Populate Street Dropdown with Santa Lucia Streets
+        List<String> streets = getSampleStreets("Santa Lucia");
+        ArrayAdapter<String> streetAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, streets);
+        dropdownStreet.setAdapter(streetAdapter);
+
+        // Setup Street Trigger
+        dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
+        dropdownStreet.setOnFocusChangeListener((v, hasFocus) -> {
+            if (hasFocus) dropdownStreet.showDropDown();
+        });
+    }
+
+    // ⭐ LOGIC FOR NON-RESIDENTS (OPEN FIELDS)
+    private void setupNonResidentMode() {
+        setupCascadingDropdowns();
+
+        // Force Dropdowns to Open on Click
+        setupDropdownTrigger(dropdownProv);
+        setupDropdownTrigger(dropdownCity);
+        setupDropdownTrigger(dropdownBrgy);
+        dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
+    }
+
+    private void lockField(AutoCompleteTextView view) {
+        view.setEnabled(false);
+        view.setFocusable(false);
+        view.setClickable(false);
+        view.setAdapter(null); // Remove dropdown adapter so it doesn't show suggestions
     }
 
     private void proceedToAccountCreation(String prov, String city, String brgy, String street, String house, String zip) {
