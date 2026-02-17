@@ -272,20 +272,19 @@ public class Profile_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ UPDATED: Hidden Points & Fixed Distance Logic
     private void calculatePriorityWithGeoRisk(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
         final int[] score = {10};
         final StringBuilder breakdown = new StringBuilder();
 
-        // 1. Base Text (No points shown)
+        // 1. Base Text
         breakdown.append("• Base Score applied\n");
 
         int familySize = (members != null) ? members.size() : 0;
         int famPoints = Math.min(familySize * 5, 50);
         score[0] += famPoints;
 
-        // 2. Family & Status (No points shown)
+        // 2. Family & Status
         if(familySize > 0) breakdown.append("• Family Size (").append(familySize).append(") considered\n");
         if(familySize > 4) { score[0] += 20; breakdown.append("• Large Household Recognized\n"); }
         if(isVerified) { score[0] += 10; breakdown.append("• Verified Resident Status\n"); }
@@ -311,7 +310,7 @@ public class Profile_fragment extends BaseFragment {
                     float distToCreek = getDistance(userLat, userLon, RISK_CREEK_LAT, RISK_CREEK_LON);
                     float distToFire = getDistance(userLat, userLon, RISK_FIRE_LAT, RISK_FIRE_LON);
 
-                    // Fixed: Reduced threshold to 300m/500m to avoid false positives
+                    // Fixed: Reduced threshold
                     if (distToCreek < 300) {
                         score[0] += 30;
                         breakdown.append("• Proximity to Flood Risk Zone\n");
@@ -339,7 +338,6 @@ public class Profile_fragment extends BaseFragment {
     }
 
     private void updatePriorityUI(int score, String breakdownText) {
-        // ⭐ UPDATED: HIDE THE SCORE NUMBER, SHOW ONLY LEVEL & REASON
         tvPriorityScore.setVisibility(View.GONE);
         tvPriorityReason.setText(breakdownText.trim());
 

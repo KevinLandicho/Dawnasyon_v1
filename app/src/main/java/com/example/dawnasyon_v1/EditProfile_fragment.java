@@ -108,7 +108,7 @@ public class EditProfile_fragment extends BaseFragment {
                 if (editBarangay != null) editBarangay.setText(profile.getBarangay());
                 if (editStreet != null) editStreet.setText(profile.getStreet());
 
-                // ⭐ NEW: Apply Locking Logic based on User Type
+                // Apply Locking Logic based on User Type
                 applyLockingLogic(profile.getType());
 
                 // Avatar Logic
@@ -124,11 +124,10 @@ public class EditProfile_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ NEW METHOD: Handles the locking logic
     private void applyLockingLogic(String userType) {
         boolean isResident = userType != null && userType.equalsIgnoreCase("Resident");
 
-        // 1. Name is ALWAYS locked for everyone (as per request)
+        // 1. Name is ALWAYS locked for everyone
         editName.setEnabled(false);
 
         // 2. Contact Number is ALWAYS editable
@@ -168,7 +167,9 @@ public class EditProfile_fragment extends BaseFragment {
             ((BaseActivity) getActivity()).showLoading();
         }
 
+        // ⭐ UPDATED: Added requireContext() as first parameter for Geocoding
         SupabaseJavaHelper.updateUserProfile(
+                requireContext(),
                 name, contact, province, city, barangay, street, avatarName,
                 new SupabaseJavaHelper.ProfileUpdateCallback() {
                     @Override

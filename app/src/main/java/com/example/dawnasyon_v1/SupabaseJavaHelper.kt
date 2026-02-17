@@ -373,15 +373,64 @@ object SupabaseJavaHelper {
         }
     }
 
+    // ====================================================
+    // ⭐ UPDATED: UPDATE PROFILE WITH AUTO-GEOCODING
+    // ====================================================
     @JvmStatic
-    fun updateUserProfile(fullName: String, contactNumber: String, province: String, city: String, barangay: String, street: String, avatarName: String, callback: ProfileUpdateCallback) {
+    fun updateUserProfile(
+        context: Context, // ⭐ Added Context to allow Geocoding
+        fullName: String,
+        contactNumber: String,
+        province: String,
+        city: String,
+        barangay: String,
+        street: String,
+        avatarName: String,
+        callback: ProfileUpdateCallback
+    ) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
-                val updateData = mapOf("full_name" to fullName, "contact_number" to contactNumber, "province" to province, "city" to city, "barangay" to barangay, "street" to street, "avatar_name" to avatarName)
-                SupabaseManager.client.from("profiles").update(updateData) { filter { eq("id", currentUser.id) } }
+
+                // 1. Prepare Data Map
+                val updateData = mutableMapOf<String, Any>(
+                    "full_name" to fullName,
+                    "contact_number" to contactNumber,
+                    "province" to province,
+                    "city" to city,
+                    "barangay" to barangay,
+                    "street" to street,
+                    "avatar_name" to avatarName
+                )
+
+                // 2. ⭐ AUTO-GEOCODING: Convert address to coordinates
+                try {
+                    val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
+                    // Combine into a search string
+                    val fullAddress = "$street, $barangay, $city, Philippines"
+                    val addresses = geocoder.getFromLocationName(fullAddress, 1)
+
+                    if (addresses != null && addresses.isNotEmpty()) {
+                        val location = addresses[0]
+                        // Save coordinates to Supabase
+                        updateData["latitude"] = location.latitude
+                        updateData["longitude"] = location.longitude
+                        Log.d("GeoProfile", "Found coords: ${location.latitude}, ${location.longitude}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("GeoProfile", "Geocoding failed: ${e.message}")
+                    // Continue even if geocoding fails
+                }
+
+                // 3. Update Database
+                SupabaseManager.client.from("profiles").update(updateData) {
+                    filter { eq("id", currentUser.id) }
+                }
+
                 runOnUi { callback.onSuccess() }
-            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to update profile") } }
+            } catch (e: Exception) {
+                runOnUi { callback.onError(e.message ?: "Failed to update profile") }
+            }
         }
     }
 
