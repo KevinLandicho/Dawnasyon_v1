@@ -35,7 +35,10 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.PercentFormatter;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -153,6 +156,27 @@ public class Dashboard_fragment extends BaseFragment {
         popup.show();
     }
 
+    // ⭐ HELPER: Sorts map by value descending and takes Top 5
+    private Map<String, Integer> getTop5(Map<String, Integer> data) {
+        if (data == null || data.isEmpty()) return new HashMap<>();
+
+        // Convert Map to List
+        List<Map.Entry<String, Integer>> list = new ArrayList<>(data.entrySet());
+
+        // Sort by Value (Descending)
+        Collections.sort(list, (o1, o2) -> o2.getValue().compareTo(o1.getValue()));
+
+        // Keep Top 5
+        Map<String, Integer> sortedMap = new LinkedHashMap<>();
+        int count = 0;
+        for (Map.Entry<String, Integer> entry : list) {
+            if (count >= 5) break;
+            sortedMap.put(entry.getKey(), entry.getValue());
+            count++;
+        }
+        return sortedMap;
+    }
+
     private void loadRealData(View view, String filterType) {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
@@ -162,8 +186,14 @@ public class Dashboard_fragment extends BaseFragment {
                 if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                 if (!isAdded()) return;
 
-                updatePieChart(chartRelief, inventory);
-                updatePieChart(chartAffected, areas);
+                // ⭐ FILTER TOP 5 FOR RELIEF STATUS
+                Map<String, Integer> topInventory = getTop5(inventory);
+                updatePieChart(chartRelief, topInventory);
+
+                // ⭐ FILTER TOP 5 FOR AFFECTED AREAS
+                Map<String, Integer> topAreas = getTop5(areas);
+                updatePieChart(chartAffected, topAreas);
+
                 updateUserActivityChart(metrics.getActive_users(), metrics.getTotal_users());
                 updateLineChart(chartDonations, donations);
 
@@ -175,8 +205,9 @@ public class Dashboard_fragment extends BaseFragment {
                 }
                 updateLineChart(chartFamilies, familiesFloat);
 
-                updateListUI(llReliefList, inventory, "Item");
-                updateListUI(llAffectedList, areas, "Street");
+                // ⭐ Update lists with Top 5 as well
+                updateListUI(llReliefList, topInventory, "Item");
+                updateListUI(llAffectedList, topAreas, "Street");
 
                 updateAnalyticsUI(view, metrics);
 
