@@ -203,7 +203,7 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FETCH ANNOUNCEMENTS (UPDATED FOR JOIN)
+    // ⭐ FETCH ANNOUNCEMENTS (UPDATED FOR JOIN WITH RELIEF ITEM LIST)
     // ====================================================
     @JvmStatic
     fun fetchAnnouncements(context: Context?, callback: AnnouncementCallback) {
@@ -218,12 +218,10 @@ object SupabaseJavaHelper {
 
             try {
                 withTimeout(5000L) {
-                    // ⭐ UPDATED QUERY: We select EVERYTHING from announcements,
-                    // PLUS we join 'relief_drives' to get start_date and end_date.
-                    // This populates the 'relief_drives' nested object in JSON.
+                    // ⭐ UPDATED QUERY: Added 'relief_item_list' to the select string
                     val announcementsDeferred = async {
                         SupabaseManager.client.from("announcements").select(
-                            columns = Columns.raw("*, relief_drives(start_date, end_date)")
+                            columns = Columns.raw("*, relief_drives(start_date, end_date, relief_item_list)")
                         ) {
                             order("created_at", order = Order.DESCENDING)
                         }.data

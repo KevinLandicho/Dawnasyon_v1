@@ -1,5 +1,6 @@
 package com.example.dawnasyon_v1;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
@@ -142,11 +143,9 @@ public class Home_fragment extends BaseFragment {
         return view;
     }
 
-    // ⭐ I ADDED THIS METHOD TO HANDLE THE TRANSLATION
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         // This triggers the auto-translation scanner for this screen
         applyTagalogTranslation(view);
     }
@@ -171,7 +170,7 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // ⭐ DATA LOADING & FILTER LOGIC
+    // DATA LOADING & FILTER LOGIC
     // ====================================================
 
     private void loadUserProfileAndAnnouncements() {
@@ -190,7 +189,6 @@ public class Home_fragment extends BaseFragment {
                     String welcomeMsg = "Welcome, " + profile.getFull_name() + "!";
                     welcomeText.setText(welcomeMsg);
 
-                    // ⭐ Also translate this dynamic text if needed
                     TranslationHelper.autoTranslate(getContext(), welcomeText, welcomeMsg);
 
                     isUserVerified = Boolean.TRUE.equals(profile.getVerified());
@@ -233,7 +231,6 @@ public class Home_fragment extends BaseFragment {
                 SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
                 long lastCheckedTime = prefs.getLong(KEY_LAST_CHECKED_DRIVE, 0);
 
-                // ⭐ DATE CHECK: Get Today (Time zeroed out)
                 Calendar cal = Calendar.getInstance();
                 cal.set(Calendar.HOUR_OF_DAY, 0);
                 cal.set(Calendar.MINUTE, 0);
@@ -247,46 +244,41 @@ public class Home_fragment extends BaseFragment {
                     boolean showIt = true;
                     boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
 
-                    // 1. Street Filter (Only strictly applies to Drives)
+                    // 1. Street Filter
                     if (isDrive) {
                         String targetStreet = item.getAffected_street();
-                        if (targetStreet == null || targetStreet.trim().isEmpty() ||
-                                targetStreet.equalsIgnoreCase("All Streets") ||
-                                targetStreet.equalsIgnoreCase("All")) {
-                            // Keep true
-                        } else {
-                            // If street doesn't match, hide it
+                        if (targetStreet != null && !targetStreet.trim().isEmpty() &&
+                                !targetStreet.equalsIgnoreCase("All Streets") &&
+                                !targetStreet.equalsIgnoreCase("All")) {
                             if (!targetStreet.equalsIgnoreCase(currentUserStreet)) {
                                 showIt = false;
                             }
                         }
                     }
 
-                    // ⭐ 2. END DATE CHECK (Strict: If date exists and passed, remove from Home)
+                    // 2. END DATE CHECK
                     String endDateStr = item.getDriveEndDate();
                     if (showIt && endDateStr != null && !endDateStr.isEmpty()) {
                         try {
                             Date endDate = sdf.parse(endDateStr);
-                            // If Today is AFTER End Date -> HIDE IT
                             if (endDate != null && todayZero.after(endDate)) {
                                 showIt = false;
                             }
                         } catch (ParseException e) { e.printStackTrace(); }
                     }
 
-                    // ⭐ 3. START DATE CHECK (Hide Advance Posts)
+                    // 3. START DATE CHECK
                     String startDateStr = item.getDriveStartDate();
                     if (showIt && startDateStr != null && !startDateStr.isEmpty()) {
                         try {
                             Date startDate = sdf.parse(startDateStr);
-                            // If Today is BEFORE Start Date -> HIDE IT
                             if (startDate != null && todayZero.before(startDate)) {
                                 showIt = false;
                             }
                         } catch (ParseException e) { e.printStackTrace(); }
                     }
 
-                    // 4. Badge Count (Only count active Drives)
+                    // 4. Badge Count
                     if (showIt && isDrive) {
                         long itemTime = parseDateToMillis(item.getCreated_at());
                         if (itemTime > lastCheckedTime) {
@@ -403,17 +395,15 @@ public class Home_fragment extends BaseFragment {
             // 2. Bookmark Logic
             if (showBookmarksOnly) matchesBookmark = item.isBookmarked();
 
-            // ⭐ 3. Category Logic (UPDATED)
+            // 3. Category Logic
             if (!currentCategoryFilter.equals("ALL")) {
                 if (currentCategoryFilter.equals("General")) {
-                    // Logic: Show everything that is NOT a Donation drive
                     if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
                         matchesCategory = false;
                     } else {
                         matchesCategory = true;
                     }
                 } else if (currentCategoryFilter.equals("Donation drive")) {
-                    // Logic: Show ONLY Donation drives
                     if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
                         matchesCategory = true;
                     } else {
@@ -456,8 +446,43 @@ public class Home_fragment extends BaseFragment {
             public void onLikeClick(Announcement announcement, int position) { handleLike(announcement, position); }
             @Override
             public void onBookmarkClick(Announcement announcement, int position) { handleBookmark(announcement, position); }
+
+            // ⭐ NEW: Handle Card Click to Show Relief Items
+            @Override
+            public void onCardClick(Announcement announcement) {
+                showReliefGoodsDialog(announcement);
+            }
         });
         announcementRecyclerView.setAdapter(announcementAdapter);
+    }
+
+    // ⭐ SHOW DIALOG WITH RELIEF LIST (REMOVED APPLY BUTTON AS REQUESTED)
+    private void showReliefGoodsDialog(Announcement announcement) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
+
+        String title = announcement.getTitle();
+        String reliefItems = announcement.getReliefItemList();
+
+        if (reliefItems == null || reliefItems.trim().isEmpty() || reliefItems.equalsIgnoreCase("null")) {
+            reliefItems = "Details regarding relief items will be updated soon.";
+        }
+
+        // Format the message
+        String message = "📦 Included Relief Goods:\n\n" + reliefItems;
+
+        builder.setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
+        // "Apply Now" button removed entirely from this dialog
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Translate the dialog content dynamically
+        TextView messageView = dialog.findViewById(android.R.id.message);
+        if (messageView != null) {
+            TranslationHelper.autoTranslate(getContext(), messageView, message);
+        }
     }
 
     private void handleLike(Announcement item, int position) {

@@ -32,7 +32,7 @@ public class Announcement implements Serializable {
     @SerializedName("like_count")
     private int likeCount = 0;
 
-    // ⭐ NEW: Capture the nested "relief_drives" data from Supabase join
+    // Capture the nested "relief_drives" data from Supabase join
     @SerializedName("relief_drives")
     private ReliefDriveInfo driveInfo;
 
@@ -47,14 +47,14 @@ public class Announcement implements Serializable {
     public long getPostId() { return postId; }
     public String getTitle() { return title; }
     public String getTimestamp() { return timestamp; }
-    public String getCreated_at() { return timestamp; } // Alias for Home_fragment
+    public String getCreated_at() { return timestamp; } // Alias for Home_fragment compatibility
     public String getDescription() { return description; }
     public String getImageUrl() { return imageUrl; }
     public Long getLinkedDriveId() { return linkedDriveId; }
     public String getType() { return type; }
     public String getAffected_street() { return affectedStreet; }
 
-    // ⭐ NEW Helper Methods for Dates
+    // --- HELPER METHODS FOR NESTED DATA ---
     public String getDriveStartDate() {
         return (driveInfo != null) ? driveInfo.startDate : null;
     }
@@ -63,6 +63,13 @@ public class Announcement implements Serializable {
         return (driveInfo != null) ? driveInfo.endDate : null;
     }
 
+    // ⭐ NEW: Helper to get the relief items list
+    public String getReliefItemList() {
+        // If driveInfo is null or the list is null, return null so we can handle the default text in the fragment
+        return (driveInfo != null) ? driveInfo.reliefItemList : null;
+    }
+
+    // --- LOCAL STATE SETTERS/GETTERS ---
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
 
@@ -75,12 +82,16 @@ public class Announcement implements Serializable {
     public boolean isBookmarked() { return isBookmarked; }
     public void setBookmarked(boolean bookmarked) { isBookmarked = bookmarked; }
 
-    // ⭐ Inner Class to match Supabase structure
+    // --- INNER CLASS FOR NESTED JSON ---
     public static class ReliefDriveInfo implements Serializable {
         @SerializedName("start_date")
         public String startDate;
 
         @SerializedName("end_date")
         public String endDate;
+
+        // ⭐ NEW: Field to capture the list from the joined 'relief_drives' table
+        @SerializedName("relief_item_list")
+        public String reliefItemList;
     }
 }

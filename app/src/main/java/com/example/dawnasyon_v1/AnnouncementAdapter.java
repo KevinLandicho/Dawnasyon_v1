@@ -30,8 +30,10 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         void onApplyClick(Announcement announcement);
         void onLikeClick(Announcement announcement, int position);
         void onBookmarkClick(Announcement announcement, int position);
+        // ⭐ NEW: Listener for clicking the whole card
+        void onCardClick(Announcement announcement);
     }
-//dsds
+
     public AnnouncementAdapter(List<Announcement> announcementList, OnItemClickListener listener) {
         this.announcementList = announcementList;
         this.listener = listener;
@@ -55,12 +57,9 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         holder.description.setText(item.getDescription());
         holder.tvLikeCount.setText(item.getLikeCount() + " likes");
 
-        // ⭐ NEW: Auto-Translate Title & Description if enabled
         TranslationHelper.autoTranslate(context, holder.title, item.getTitle());
         TranslationHelper.autoTranslate(context, holder.description, item.getDescription());
 
-        // ⭐ NEW: Make the "Created At" timestamp readable
-        // Example: "Feb 08, 2026 • 10:30 AM"
         holder.timestamp.setText(formatDateTime(item.getCreated_at(), true));
 
         // 2. Image Logic
@@ -75,9 +74,9 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             holder.image.setVisibility(View.GONE);
         }
 
-        // 3. "Donation drive" Specific Logic
+        // 3. Logic for Drives / Applications
         String type = item.getType();
-        boolean isDrive = type != null && type.equalsIgnoreCase("Donation drive");
+        boolean isDrive = type != null && (type.equalsIgnoreCase("Donation drive") || type.equalsIgnoreCase("Ayuda Application"));
 
         if (isDrive) {
             // --- A. SHOW APPLY BUTTON ---
@@ -92,28 +91,22 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                 holder.btnApply.setBackgroundColor(Color.parseColor("#F5901A"));
                 holder.btnApply.setEnabled(true);
             }
-
-            // Translate the button text too!
             TranslationHelper.autoTranslate(context, holder.btnApply, holder.btnApply.getText().toString());
 
-            // --- B. SHOW START/END DATES (Readable) ---
-            String start = item.getDriveStartDate(); // Raw Date (yyyy-mm-dd)
-            String end = item.getDriveEndDate();     // Raw Date (yyyy-mm-dd)
+            // --- B. SHOW START/END DATES ---
+            String start = item.getDriveStartDate();
+            String end = item.getDriveEndDate();
 
             if (start != null || end != null) {
                 holder.layoutDates.setVisibility(View.VISIBLE);
-
                 if (start != null) {
                     holder.tvStartDate.setVisibility(View.VISIBLE);
-                    // Format: "Feb 08, 2026"
                     holder.tvStartDate.setText("Start: " + formatDateTime(start, false));
                 } else {
                     holder.tvStartDate.setVisibility(View.GONE);
                 }
-
                 if (end != null) {
                     holder.tvEndDate.setVisibility(View.VISIBLE);
-                    // Format: "Feb 10, 2026"
                     holder.tvEndDate.setText("End: " + formatDateTime(end, false));
                 } else {
                     holder.tvEndDate.setVisibility(View.GONE);
@@ -122,13 +115,17 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                 holder.layoutDates.setVisibility(View.GONE);
             }
 
+            // ⭐ NEW: Make the card clickable for details
+            holder.itemView.setOnClickListener(v -> listener.onCardClick(item));
+
         } else {
-            // Hide drive-specific elements for General posts
+            // General posts
             holder.btnApply.setVisibility(View.GONE);
             holder.layoutDates.setVisibility(View.GONE);
+            holder.itemView.setOnClickListener(null); // Disable click for general posts
         }
 
-        // 4. Like Button Visuals
+        // 4. Like/Bookmark Visuals
         if (item.isLiked()) {
             holder.btnHeart.setImageResource(R.drawable.ic_heart_filled_red);
             holder.btnHeart.setColorFilter(Color.RED);
@@ -137,7 +134,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             holder.btnHeart.setImageResource(R.drawable.ic_heart_outline);
         }
 
-        // 5. Bookmark Button Visuals
         if (item.isBookmarked()) {
             holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_filled);
             holder.btnBookmark.setColorFilter(Color.parseColor("#F5901A"));
@@ -146,7 +142,7 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_outline);
         }
 
-        // 6. Click Listeners
+        // 5. Button Click Listeners
         holder.btnApply.setOnClickListener(v -> listener.onApplyClick(item));
         holder.btnHeart.setOnClickListener(v -> listener.onLikeClick(item, position));
         holder.btnBookmark.setOnClickListener(v -> listener.onBookmarkClick(item, position));
@@ -162,10 +158,8 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         notifyDataSetChanged();
     }
 
-    // ⭐ HELPER: Converts ISO Date (2026-02-08...) to Readable Text
     private String formatDateTime(String rawDate, boolean includeTime) {
         if (rawDate == null || rawDate.isEmpty()) return "N/A";
-
         try {
             SimpleDateFormat inputFormat;
             if (rawDate.contains("T")) {
@@ -173,21 +167,16 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             } else {
                 inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
             }
-            inputFormat.setTimeZone(TimeZone.getTimeZone("UTC")); // Supabase is usually UTC
-
+            inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
             Date date = inputFormat.parse(rawDate);
-
-            // Output Format
             SimpleDateFormat outputFormat;
             if (includeTime) {
                 outputFormat = new SimpleDateFormat("MMM dd, yyyy • h:mm a", Locale.getDefault());
             } else {
                 outputFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
             }
-            outputFormat.setTimeZone(TimeZone.getDefault()); // Convert to user's local time
-
+            outputFormat.setTimeZone(TimeZone.getDefault());
             return outputFormat.format(date);
-
         } catch (Exception e) {
             return rawDate;
         }
@@ -207,11 +196,9 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             timestamp = itemView.findViewById(R.id.txtAnnouncementTime);
             description = itemView.findViewById(R.id.txtAnnouncementDescription);
             tvLikeCount = itemView.findViewById(R.id.tv_like_count);
-
             btnApply = itemView.findViewById(R.id.btnApply);
             btnHeart = itemView.findViewById(R.id.btnLike);
             btnBookmark = itemView.findViewById(R.id.btnBookmark);
-
             layoutDates = itemView.findViewById(R.id.layout_dates);
             tvStartDate = itemView.findViewById(R.id.tvStartDate);
             tvEndDate = itemView.findViewById(R.id.tvEndDate);
