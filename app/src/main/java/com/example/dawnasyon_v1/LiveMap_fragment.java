@@ -84,9 +84,9 @@ public class LiveMap_fragment extends BaseFragment {
     // API KEYS
     private static final String OPENWEATHER_API_KEY = "00572d4c95d6813ee92167727a796fab";
 
-    // ⭐ TODO: Ensure these are your REAL keys that worked!
+    // ⭐ SUPABASE CONFIGURATION
     private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
-    // Paste your working 'sb_publishable...' or 'anon' key here
+    // Using the key you provided
     private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
 
     // BRGY STA. LUCIA COORDINATES
@@ -148,7 +148,7 @@ public class LiveMap_fragment extends BaseFragment {
         drawStaLuciaBorder();
         addMapTapListener();
 
-        // ⭐ FETCH REAL ALERTS (Test Pin Removed)
+        // ⭐ FETCH REAL ALERTS (Now updated to catch all disaster types)
         fetchSupabaseAnnouncements();
 
         setupWindTiles();
@@ -202,6 +202,7 @@ public class LiveMap_fragment extends BaseFragment {
     }
 
     private void fetchSupabaseAnnouncements() {
+        // We select * to ensure we get latitude and longitude columns
         String url = SUPABASE_URL + "/rest/v1/announcements?select=*&status=eq.Pending";
 
         Request request = new Request.Builder()
@@ -220,61 +221,78 @@ public class LiveMap_fragment extends BaseFragment {
                     for (int i = 0; i < array.length(); i++) {
                         JSONObject item = array.getJSONObject(i);
                         String type = item.optString("type", "General");
+                        String typeLower = type.toLowerCase();
 
-                        if (type.equalsIgnoreCase("Fire Alert") ||
-                                type.equalsIgnoreCase("Fire Disaster") ||
-                                type.equalsIgnoreCase("Flood") ||
-                                type.equalsIgnoreCase("Earthquake")) {
+                        // ⭐ FIX: Use .contains() instead of .equals() to catch "Typhoon/Flood Disaster"
+                        if (typeLower.contains("fire") ||
+                                typeLower.contains("flood") ||
+                                typeLower.contains("typhoon") ||
+                                typeLower.contains("earthquake")) {
 
                             String title = item.optString("title", "Alert");
                             String body = item.optString("body", "");
                             String affected = item.optString("affected_street", "");
                             String location = item.optString("location", "");
 
-                            String targetLocation = "";
-                            if (!affected.isEmpty() && !affected.equalsIgnoreCase("null") && !affected.equalsIgnoreCase("N/A")) {
-                                targetLocation = affected;
-                            } else if (!location.isEmpty()) {
-                                targetLocation = location;
+                            // ⭐ 1. CHECK FOR DIRECT LATITUDE/LONGITUDE FIRST
+                            double lat = item.optDouble("latitude", 0.0);
+                            double lon = item.optDouble("longitude", 0.0);
+
+                            if (lat != 0.0 && lon != 0.0) {
+                                // If coordinates exist in DB, use them directly! (Precise & Fast)
+                                GeoPoint point = new GeoPoint(lat, lon);
+                                String finalAffected = affected.isEmpty() ? location : affected;
+                                new Handler(Looper.getMainLooper()).post(() ->
+                                        addAlertMarkerAndZone(point, type, title, body, finalAffected)
+                                );
                             }
+                            else {
+                                // ⭐ 2. FALLBACK: USE GEOCODER IF COORDINATES ARE MISSING
+                                String targetLocation = "";
+                                if (!affected.isEmpty() && !affected.equalsIgnoreCase("null") && !affected.equalsIgnoreCase("N/A")) {
+                                    targetLocation = affected;
+                                } else if (!location.isEmpty()) {
+                                    targetLocation = location;
+                                }
 
-                            if (targetLocation.toLowerCase().contains("all street") || targetLocation.isEmpty()) {
-                                continue;
-                            }
+                                if (targetLocation.toLowerCase().contains("all street") || targetLocation.isEmpty()) {
+                                    continue;
+                                }
 
-                            try {
-                                List<Address> addresses = null;
-
-                                // 1. Specific Search
                                 try {
-                                    String query1 = targetLocation + ", Sta. Lucia, Quezon City, Philippines";
-                                    addresses = geocoder.getFromLocationName(query1, 1);
-                                } catch (Exception e) {}
+                                    List<Address> addresses = null;
 
-                                // 2. Broader Search
-                                if (addresses == null || addresses.isEmpty()) {
+                                    // Try Specific Search
                                     try {
-                                        String query2 = targetLocation + ", Quezon City, Philippines";
-                                        addresses = geocoder.getFromLocationName(query2, 1);
+                                        String query1 = targetLocation + ", Sta. Lucia, Quezon City, Philippines";
+                                        addresses = geocoder.getFromLocationName(query1, 1);
                                     } catch (Exception e) {}
-                                }
 
-                                if (addresses != null && !addresses.isEmpty()) {
-                                    Address addr = addresses.get(0);
-
-                                    // Safety Check
-                                    if ((addr.getLocality() != null && addr.getLocality().contains("Quezon")) ||
-                                            (addr.getAddressLine(0) != null && addr.getAddressLine(0).contains("Quezon")) ||
-                                            (addr.getLatitude() > 14.0 && addr.getLatitude() < 15.0)) {
-
-                                        GeoPoint point = new GeoPoint(addr.getLatitude(), addr.getLongitude());
-                                        String finalAffected = targetLocation;
-                                        new Handler(Looper.getMainLooper()).post(() ->
-                                                addAlertMarkerAndZone(point, type, title, body, finalAffected)
-                                        );
+                                    // Try Broader Search
+                                    if (addresses == null || addresses.isEmpty()) {
+                                        try {
+                                            String query2 = targetLocation + ", Quezon City, Philippines";
+                                            addresses = geocoder.getFromLocationName(query2, 1);
+                                        } catch (Exception e) {}
                                     }
-                                }
-                            } catch (Exception e) { e.printStackTrace(); }
+
+                                    if (addresses != null && !addresses.isEmpty()) {
+                                        Address addr = addresses.get(0);
+
+                                        // Safety Check to ensure it's nearby
+                                        if ((addr.getLocality() != null && addr.getLocality().contains("Quezon")) ||
+                                                (addr.getAddressLine(0) != null && addr.getAddressLine(0).contains("Quezon")) ||
+                                                (addr.getLatitude() > 14.0 && addr.getLatitude() < 15.0)) {
+
+                                            GeoPoint point = new GeoPoint(addr.getLatitude(), addr.getLongitude());
+                                            String finalAffected = targetLocation;
+                                            new Handler(Looper.getMainLooper()).post(() ->
+                                                    addAlertMarkerAndZone(point, type, title, body, finalAffected)
+                                            );
+                                        }
+                                    }
+                                } catch (Exception e) { e.printStackTrace(); }
+                            }
                         }
                     }
                 }
@@ -288,7 +306,7 @@ public class LiveMap_fragment extends BaseFragment {
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER);
         marker.setTitle("⚠️ " + type.toUpperCase() + ": " + title);
 
-        String snippet = "Affected: " + (affected.isEmpty() ? "See Map" : affected);
+        String snippet = "Affected: " + (affected == null || affected.isEmpty() ? "See Map" : affected);
         marker.setSnippet(snippet);
 
         GradientDrawable iconBox = new GradientDrawable();
@@ -299,13 +317,16 @@ public class LiveMap_fragment extends BaseFragment {
         int color = Color.GRAY;
         int circleColor = Color.GRAY;
 
-        if (type.toLowerCase().contains("fire")) {
+        // ⭐ UPDATED LOGIC TO MATCH DB TYPES
+        String typeLower = type.toLowerCase();
+
+        if (typeLower.contains("fire")) {
             color = Color.RED;
             circleColor = Color.argb(60, 255, 0, 0);
-        } else if (type.equalsIgnoreCase("Flood")) {
+        } else if (typeLower.contains("flood") || typeLower.contains("typhoon")) {
             color = Color.BLUE;
             circleColor = Color.argb(60, 0, 0, 255);
-        } else if (type.equalsIgnoreCase("Earthquake")) {
+        } else if (typeLower.contains("earthquake")) {
             color = Color.MAGENTA;
             circleColor = Color.argb(60, 255, 0, 255);
         }
@@ -320,8 +341,7 @@ public class LiveMap_fragment extends BaseFragment {
 
     private void drawGroundZeroCircle(GeoPoint center, int fillColor) {
         List<GeoPoint> circlePoints = new ArrayList<>();
-        // ⭐ CHANGED: Reduced radius from 0.0015 to 0.0005 (~50 meters)
-        double radius = 0.0005;
+        double radius = 0.0005; // ~50 meters
 
         for (int i = 0; i < 360; i += 10) {
             double angle = Math.toRadians(i);
