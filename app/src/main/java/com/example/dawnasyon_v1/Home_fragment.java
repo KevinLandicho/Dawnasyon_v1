@@ -447,7 +447,7 @@ public class Home_fragment extends BaseFragment {
             @Override
             public void onBookmarkClick(Announcement announcement, int position) { handleBookmark(announcement, position); }
 
-            // ⭐ NEW: Handle Card Click to Show Relief Items
+            // Handle Card Click to Show Relief Items
             @Override
             public void onCardClick(Announcement announcement) {
                 showReliefGoodsDialog(announcement);
@@ -456,7 +456,6 @@ public class Home_fragment extends BaseFragment {
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
 
-    // ⭐ SHOW DIALOG WITH RELIEF LIST (REMOVED APPLY BUTTON AS REQUESTED)
     private void showReliefGoodsDialog(Announcement announcement) {
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
 
@@ -473,7 +472,6 @@ public class Home_fragment extends BaseFragment {
         builder.setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
-        // "Apply Now" button removed entirely from this dialog
 
         AlertDialog dialog = builder.create();
         dialog.show();
@@ -535,6 +533,7 @@ public class Home_fragment extends BaseFragment {
         });
     }
 
+    // ⭐ UPDATED: Shows Custom Dialog to allow Image Upload
     private void showApplyDialog(Announcement announcement) {
         if (announcement.isApplied()) {
             Toast.makeText(getContext(), "You have already applied to this drive!", Toast.LENGTH_SHORT).show();
@@ -549,34 +548,52 @@ public class Home_fragment extends BaseFragment {
             return;
         }
 
-        ApplyConfirmationDialogFragment dialog = new ApplyConfirmationDialogFragment();
-        dialog.setOnConfirmListener(() -> {
+        // Use the new DialogFragment to handle image picking
+        ApplyWithImageDialogFragment dialog = new ApplyWithImageDialogFragment();
+        dialog.setOnConfirmListener(imageBytes -> {
+
+            // Show simple loading feedback
+            Toast.makeText(getContext(), "Submitting Application...", Toast.LENGTH_SHORT).show();
+
             if (announcement.getLinkedDriveId() == null) {
                 Toast.makeText(getContext(), "Error: Drive not linked.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), new SupabaseJavaHelper.ApplicationCallback() {
-                @Override
-                public void onSuccess() {
-                    if (isAdded()) {
-                        dialog.dismiss();
-                        announcement.setApplied(true);
-                        announcementAdapter.notifyDataSetChanged();
-                        ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
-                        successDialog.show(getParentFragmentManager(), "SuccessDialog");
-                    }
-                }
-                @Override
-                public void onError(@NonNull String message) {
-                    if (isAdded()) {
-                        Toast.makeText(getContext(), "Failed: " + message, Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
-                    }
-                }
-            });
+            if (imageBytes != null) {
+                // Upload Image, then Apply
+                SupabaseJavaHelper.uploadApplicationImage(imageBytes, publicUrl -> {
+                    submitApplication(announcement, publicUrl);
+                    return null;
+                });
+            } else {
+                // Just Apply (No Image)
+                submitApplication(announcement, null);
+            }
         });
-        dialog.show(getParentFragmentManager(), "ApplyDialog");
+        dialog.show(getParentFragmentManager(), "ApplyImageDialog");
+    }
+
+    // ⭐ Helper to reduce nested callbacks
+    private void submitApplication(Announcement announcement, String imageUrl) {
+        SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), imageUrl, new SupabaseJavaHelper.ApplicationCallback() {
+            @Override
+            public void onSuccess() {
+                if (isAdded()) {
+                    announcement.setApplied(true);
+                    announcementAdapter.notifyDataSetChanged();
+                    ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
+                    successDialog.show(getParentFragmentManager(), "SuccessDialog");
+                }
+            }
+
+            @Override
+            public void onError(@NonNull String message) {
+                if (isAdded()) {
+                    Toast.makeText(getContext(), "Failed: " + message, Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
     }
 
     private void setupCarousel() {

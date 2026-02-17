@@ -12,6 +12,7 @@ import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -218,7 +219,6 @@ object SupabaseJavaHelper {
 
             try {
                 withTimeout(5000L) {
-                    // ⭐ UPDATED QUERY: Added 'relief_item_list' to the select string
                     val announcementsDeferred = async {
                         SupabaseManager.client.from("announcements").select(
                             columns = Columns.raw("*, relief_drives(start_date, end_date, relief_item_list)")
@@ -243,7 +243,15 @@ object SupabaseJavaHelper {
                     if (currentUser != null) {
                         val likedIds = if (likesJson != null) gson.fromJson<List<LikeDTO>>(likesJson, object : TypeToken<List<LikeDTO>>() {}.type).map { it.post_id }.toSet() else emptySet()
                         val bookmarkedIds = if (bookmarksJson != null) gson.fromJson<List<BookmarkDTO>>(bookmarksJson, object : TypeToken<List<BookmarkDTO>>() {}.type).map { it.post_id }.toSet() else emptySet()
-                        val appliedDriveIds = if (appsJson != null) gson.fromJson<List<ApplicationDTO>>(appsJson, object : TypeToken<List<ApplicationDTO>>() {}.type).map { it.drive_id }.toSet() else emptySet()
+
+                        // ⭐ CRASH FIX: Use mapNotNull to safely ignore entries with null drive_id
+                        val appliedDriveIds = if (appsJson != null) {
+                            gson.fromJson<List<ApplicationDTO>>(appsJson, object : TypeToken<List<ApplicationDTO>>() {}.type)
+                                .mapNotNull { it.drive_id }
+                                .toSet()
+                        } else {
+                            emptySet()
+                        }
 
                         for (item in dataList) {
                             if (likedIds.contains(item.getPostId())) item.setLiked(true)
@@ -304,8 +312,87 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ OTHER STANDARD FUNCTIONS
+    // ⭐ NEW: UPLOAD IMAGE FUNCTION
     // ====================================================
+    @JvmStatic
+    fun uploadApplicationImage(bytes: ByteArray, callback: (String?) -> Unit) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val fileName = "app_${System.currentTimeMillis()}.jpg"
+                val bucket = SupabaseManager.client.storage.from("application-images")
+                bucket.upload(fileName, bytes)
+                val publicUrl = bucket.publicUrl(fileName)
+                runOnUi { callback(publicUrl) }
+            } catch (e: Exception) {
+                Log.e("Upload", "Error: ${e.message}")
+                runOnUi { callback(null) }
+            }
+        }
+    }
+
+    // ====================================================
+    // ⭐ UPDATED: APPLY TO DRIVE (WITH IMAGE URL)
+    // ====================================================
+    @JvmStatic
+    fun applyToDrive(driveId: Long, imageUrl: String?, callback: ApplicationCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
+                // Now accepts optional image URL
+                val applicationData = ApplicationDTO(driveId, currentUser.id, "Pending", imageUrl)
+                SupabaseManager.client.from("relief_applications").insert(applicationData)
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) {
+                if (e.message?.contains("duplicate") == true) runOnUi { callback.onSuccess() }
+                else runOnUi { callback.onError(e.message ?: "Application failed") }
+            }
+        }
+    }
+
+    @JvmStatic
+    fun toggleLike(postId: Long, isLiked: Boolean, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
+                if (isLiked) { try { SupabaseManager.client.from("post_likes").insert(LikeDTO(currentUser.id, postId)) } catch (e: Exception) {} }
+                else { SupabaseManager.client.from("post_likes").delete { filter { eq("user_id", currentUser.id); eq("post_id", postId) } } }
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Like failed") } }
+        }
+    }
+
+    @JvmStatic
+    fun toggleBookmark(postId: Long, isBookmarked: Boolean, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
+                if (isBookmarked) { try { SupabaseManager.client.from("bookmarks").insert(BookmarkDTO(currentUser.id, postId)) } catch (e: Exception) {} }
+                else { SupabaseManager.client.from("bookmarks").delete { filter { eq("user_id", currentUser.id); eq("post_id", postId) } } }
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Bookmark failed") } }
+        }
+    }
+
+    @JvmStatic
+    fun updateUserProfile(fullName: String, contactNumber: String, province: String, city: String, barangay: String, street: String, avatarName: String, callback: ProfileUpdateCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
+                val updateData = mapOf("full_name" to fullName, "contact_number" to contactNumber, "province" to province, "city" to city, "barangay" to barangay, "street" to street, "avatar_name" to avatarName)
+                SupabaseManager.client.from("profiles").update(updateData) { filter { eq("id", currentUser.id) } }
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to update profile") } }
+        }
+    }
+
+    @JvmStatic
+    fun updatePriorityScore(userId: String, score: Int, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try { SupabaseManager.client.from("profiles").update(mapOf("priority_score" to score)) { filter { eq("id", userId) } }; runOnUi { callback.onSuccess() } }
+            catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to update priority score") } }
+        }
+    }
+
     @JvmStatic
     fun assignHouseholdProxy(headId: String, memberId: Long, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -392,62 +479,6 @@ object SupabaseJavaHelper {
     }
 
     @JvmStatic
-    fun applyToDrive(driveId: Long, callback: ApplicationCallback) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
-                val applicationData = ApplicationDTO(driveId, currentUser.id, "Pending")
-                SupabaseManager.client.from("relief_applications").insert(applicationData)
-                runOnUi { callback.onSuccess() }
-            } catch (e: Exception) { if (e.message?.contains("duplicate") == true) runOnUi { callback.onSuccess() } else runOnUi { callback.onError(e.message ?: "Application failed") } }
-        }
-    }
-
-    @JvmStatic
-    fun toggleLike(postId: Long, isLiked: Boolean, callback: SimpleCallback) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
-                if (isLiked) { try { SupabaseManager.client.from("post_likes").insert(LikeDTO(currentUser.id, postId)) } catch (e: Exception) {} }
-                else { SupabaseManager.client.from("post_likes").delete { filter { eq("user_id", currentUser.id); eq("post_id", postId) } } }
-                runOnUi { callback.onSuccess() }
-            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Like failed") } }
-        }
-    }
-
-    @JvmStatic
-    fun toggleBookmark(postId: Long, isBookmarked: Boolean, callback: SimpleCallback) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
-                if (isBookmarked) { try { SupabaseManager.client.from("bookmarks").insert(BookmarkDTO(currentUser.id, postId)) } catch (e: Exception) {} }
-                else { SupabaseManager.client.from("bookmarks").delete { filter { eq("user_id", currentUser.id); eq("post_id", postId) } } }
-                runOnUi { callback.onSuccess() }
-            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Bookmark failed") } }
-        }
-    }
-
-    @JvmStatic
-    fun updateUserProfile(fullName: String, contactNumber: String, province: String, city: String, barangay: String, street: String, avatarName: String, callback: ProfileUpdateCallback) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
-                val updateData = mapOf("full_name" to fullName, "contact_number" to contactNumber, "province" to province, "city" to city, "barangay" to barangay, "street" to street, "avatar_name" to avatarName)
-                SupabaseManager.client.from("profiles").update(updateData) { filter { eq("id", currentUser.id) } }
-                runOnUi { callback.onSuccess() }
-            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to update profile") } }
-        }
-    }
-
-    @JvmStatic
-    fun updatePriorityScore(userId: String, score: Int, callback: SimpleCallback) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try { SupabaseManager.client.from("profiles").update(mapOf("priority_score" to score)) { filter { eq("id", userId) } }; runOnUi { callback.onSuccess() } }
-            catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to update priority score") } }
-        }
-    }
-
-    @JvmStatic
     fun archiveAccount(callback: RegistrationCallback) {
         val client = SupabaseManager.client
         val currentUser = client.auth.currentUserOrNull() ?: return
@@ -463,8 +494,15 @@ object SupabaseJavaHelper {
 }
 
 // --- DTO CLASSES ---
+// ⭐ CRASH FIX: All fields nullable to handle database inconsistencies
+@Serializable data class ApplicationDTO(
+    val drive_id: Long? = null,
+    val user_id: String? = null,
+    val status: String? = null,
+    val image_url: String? = null
+)
+
 @Serializable data class DashboardCacheDTO(val inventory: MutableMap<String, Int>, val areas: MutableMap<String, Int>, val donations: MutableMap<String, Float>, val families: MutableMap<String, Int>, val metrics: DashboardMetrics, val impact: MutableMap<String, Int>)
-@Serializable data class ApplicationDTO(val drive_id: Long, val user_id: String, val status: String)
 @Serializable data class SuggestionDTO(val user_id: String, val message: String)
 @Serializable data class ChartDataInt(val label: String, val value: Int)
 @Serializable data class ChartDataFloat(val label: String, val value: Float)
