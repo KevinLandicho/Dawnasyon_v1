@@ -55,12 +55,14 @@
             android:layout_weight="1.2"
             android:orientation="vertical"
             android:layout_marginEnd="4dp">
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Relation"
                 android:textSize="12sp"
                 android:textColor="#888"/>
+
             <Spinner
                 android:id="@+id/sp_relation"
                 android:layout_width="match_parent"
@@ -74,12 +76,14 @@
             android:layout_weight="1"
             android:orientation="vertical"
             android:layout_marginEnd="4dp">
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Gender"
                 android:textSize="12sp"
                 android:textColor="#888"/>
+
             <Spinner
                 android:id="@+id/sp_gender"
                 android:layout_width="match_parent"
@@ -93,6 +97,7 @@
             android:layout_weight="0.8"
             android:orientation="vertical"
             android:gravity="center_horizontal">
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -132,6 +137,18 @@
                     app:tint="#F5901A"/>
             </LinearLayout>
         </LinearLayout>
-
     </LinearLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_upload_doc"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Scan ID Document"
+        android:textColor="#F5901A"
+        android:visibility="gone"
+        app:cornerRadius="8dp"
+        app:strokeColor="#F5901A" />
+
 </LinearLayout>

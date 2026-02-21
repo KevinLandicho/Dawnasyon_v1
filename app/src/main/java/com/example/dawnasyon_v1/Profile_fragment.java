@@ -75,6 +75,7 @@ public class Profile_fragment extends BaseFragment {
         LinearLayout menuHistory = view.findViewById(R.id.menu_history);
         LinearLayout menuSuggestion = view.findViewById(R.id.menu_suggestion);
         LinearLayout menuPassword = view.findViewById(R.id.menu_password);
+        LinearLayout menuTerms = view.findViewById(R.id.menu_terms); // ⭐ ADDED TERMS MENU
         LinearLayout menuDelete = view.findViewById(R.id.menu_delete);
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
@@ -105,6 +106,7 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
+        setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions"); // ⭐ ADDED TERMS SETUP
         setupMenuItem(menuDelete, R.drawable.ic_delete, "Delete account");
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
 
@@ -124,13 +126,14 @@ public class Profile_fragment extends BaseFragment {
         if (menuTracker != null) {
             menuTracker.setOnClickListener(v -> navigateToFragment(new ApplicationTracker_fragment()));
         }
-        menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
-        menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
-        menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
-        menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
+        if (menuHistory != null) menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
+        if (menuSuggestion != null) menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
+        if (menuPassword != null) menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
+        if (menuTerms != null) menuTerms.setOnClickListener(v -> navigateToFragment(new TermsAndConditions_fragment())); // ⭐ ADDED TERMS CLICK LISTENER
+        if (menuDelete != null) menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
 
         // ⭐ LOGOUT CLICK
-        menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
+        if (menuLogout != null) menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
 
         // ⭐ 4. Load Data
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
