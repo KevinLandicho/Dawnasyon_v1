@@ -13,6 +13,9 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.storage.storage
+// ⭐ REQUIRED IMPORTS FOR THE FIX
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -93,26 +96,22 @@ object SupabaseJavaHelper {
             try {
                 val currentUser = SupabaseManager.client.auth.currentUserOrNull()
 
-                // 1. If a user is found, ERASE their FCM token in the DB first
                 if (currentUser != null) {
                     try {
-                        val updateData = mapOf("fcm_token" to null) // Set to null
+                        val updateData = mapOf("fcm_token" to null)
                         SupabaseManager.client.from("profiles").update(updateData) {
                             filter { eq("id", currentUser.id) }
                         }
                     } catch (e: Exception) {
                         Log.e("SupabaseLogout", "Failed to clear token: ${e.message}")
-                        // Continue logout even if token clear fails
                     }
                 }
 
-                // 2. Perform the actual Sign Out
                 SupabaseManager.client.auth.signOut()
                 runOnUi { callback.onSuccess() }
             } catch (e: Exception) {
-                // If DB update fails (e.g., offline), force sign out anyway
                 try { SupabaseManager.client.auth.signOut() } catch (e2: Exception) {}
-                runOnUi { callback.onSuccess() } // Treat as success to let user leave
+                runOnUi { callback.onSuccess() }
             }
         }
     }
@@ -204,7 +203,7 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FETCH ANNOUNCEMENTS (UPDATED FOR JOIN WITH RELIEF ITEM LIST)
+    // ⭐ FETCH ANNOUNCEMENTS
     // ====================================================
     @JvmStatic
     fun fetchAnnouncements(context: Context?, callback: AnnouncementCallback) {
@@ -244,7 +243,6 @@ object SupabaseJavaHelper {
                         val likedIds = if (likesJson != null) gson.fromJson<List<LikeDTO>>(likesJson, object : TypeToken<List<LikeDTO>>() {}.type).map { it.post_id }.toSet() else emptySet()
                         val bookmarkedIds = if (bookmarksJson != null) gson.fromJson<List<BookmarkDTO>>(bookmarksJson, object : TypeToken<List<BookmarkDTO>>() {}.type).map { it.post_id }.toSet() else emptySet()
 
-                        // ⭐ CRASH FIX: Use mapNotNull to safely ignore entries with null drive_id
                         val appliedDriveIds = if (appsJson != null) {
                             gson.fromJson<List<ApplicationDTO>>(appsJson, object : TypeToken<List<ApplicationDTO>>() {}.type)
                                 .mapNotNull { it.drive_id }
@@ -288,9 +286,6 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ====================================================
-    // ⭐ VALIDATE HOUSE CLAIM
-    // ====================================================
     @JvmStatic
     fun validateHouseClaim(driveId: Long, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -311,9 +306,6 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ====================================================
-    // ⭐ NEW: UPLOAD IMAGE FUNCTION
-    // ====================================================
     @JvmStatic
     fun uploadApplicationImage(bytes: ByteArray, callback: (String?) -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -330,15 +322,11 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ====================================================
-    // ⭐ UPDATED: APPLY TO DRIVE (WITH IMAGE URL)
-    // ====================================================
     @JvmStatic
     fun applyToDrive(driveId: Long, imageUrl: String?, callback: ApplicationCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
-                // Now accepts optional image URL
                 val applicationData = ApplicationDTO(driveId, currentUser.id, "Pending", imageUrl)
                 SupabaseManager.client.from("relief_applications").insert(applicationData)
                 runOnUi { callback.onSuccess() }
@@ -374,11 +362,11 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ UPDATED: UPDATE PROFILE WITH AUTO-GEOCODING
+    // ⭐ UPDATED: UPDATE PROFILE WITH JSON OBJECT (Fixes Serialization Error)
     // ====================================================
     @JvmStatic
     fun updateUserProfile(
-        context: Context, // ⭐ Added Context to allow Geocoding
+        context: Context,
         fullName: String,
         contactNumber: String,
         province: String,
@@ -392,38 +380,44 @@ object SupabaseJavaHelper {
             try {
                 val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
 
-                // 1. Prepare Data Map
-                val updateData = mutableMapOf<String, Any>(
-                    "full_name" to fullName,
-                    "contact_number" to contactNumber,
-                    "province" to province,
-                    "city" to city,
-                    "barangay" to barangay,
-                    "street" to street,
-                    "avatar_name" to avatarName
-                )
+                // 1. Geocode Address to get Coordinates
+                var lat: Double? = null
+                var long: Double? = null
 
-                // 2. ⭐ AUTO-GEOCODING: Convert address to coordinates
                 try {
                     val geocoder = android.location.Geocoder(context, java.util.Locale.getDefault())
-                    // Combine into a search string
                     val fullAddress = "$street, $barangay, $city, Philippines"
                     val addresses = geocoder.getFromLocationName(fullAddress, 1)
 
                     if (addresses != null && addresses.isNotEmpty()) {
                         val location = addresses[0]
-                        // Save coordinates to Supabase
-                        updateData["latitude"] = location.latitude
-                        updateData["longitude"] = location.longitude
-                        Log.d("GeoProfile", "Found coords: ${location.latitude}, ${location.longitude}")
+                        lat = location.latitude
+                        long = location.longitude
+                        Log.d("GeoProfile", "Found coords: $lat, $long")
                     }
                 } catch (e: Exception) {
                     Log.e("GeoProfile", "Geocoding failed: ${e.message}")
-                    // Continue even if geocoding fails
                 }
 
-                // 3. Update Database
-                SupabaseManager.client.from("profiles").update(updateData) {
+                // 2. ⭐ FIX: Use buildJsonObject instead of Map<String, Any>
+                // This avoids the "Serializer for class 'Any' is not found" crash
+                val jsonPayload = buildJsonObject {
+                    put("full_name", fullName)
+                    put("contact_number", contactNumber)
+                    put("province", province)
+                    put("city", city)
+                    put("barangay", barangay)
+                    put("street", street)
+                    put("avatar_name", avatarName)
+
+                    if (lat != null && long != null) {
+                        put("latitude", lat)
+                        put("longitude", long)
+                    }
+                }
+
+                // 3. Update Database using JSON payload
+                SupabaseManager.client.from("profiles").update(jsonPayload) {
                     filter { eq("id", currentUser.id) }
                 }
 
@@ -543,7 +537,6 @@ object SupabaseJavaHelper {
 }
 
 // --- DTO CLASSES ---
-// ⭐ CRASH FIX: All fields nullable to handle database inconsistencies
 @Serializable data class ApplicationDTO(
     val drive_id: Long? = null,
     val user_id: String? = null,

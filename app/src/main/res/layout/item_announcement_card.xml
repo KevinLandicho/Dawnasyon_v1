@@ -114,7 +114,10 @@
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             app:cornerRadius="5dp"
+            app:layout_constrainedWidth="true"
+            app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
+            app:layout_constraintEnd_toStartOf="@+id/btnBookmark"
             app:layout_constraintTop_toBottomOf="@+id/layout_dates" />
 
         <ImageButton
@@ -123,10 +126,10 @@
             android:layout_height="36dp"
             android:background="@android:color/transparent"
             android:src="@drawable/ic_heart_outline"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@+id/btnApply"
-            app:layout_constraintBottom_toBottomOf="@+id/btnApply"
+            android:layout_marginTop="12dp"
             android:layout_marginEnd="16dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/layout_dates"
             android:contentDescription="Like button" />
 
         <TextView
@@ -149,8 +152,7 @@
             android:src="@drawable/ic_bookmark_outline"
             android:layout_marginEnd="8dp"
             app:layout_constraintEnd_toStartOf="@+id/tv_like_count"
-            app:layout_constraintTop_toTopOf="@+id/btnApply"
-            app:layout_constraintBottom_toBottomOf="@+id/btnApply"
+            app:layout_constraintTop_toTopOf="@+id/btnLike"
             android:contentDescription="Bookmark button" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
