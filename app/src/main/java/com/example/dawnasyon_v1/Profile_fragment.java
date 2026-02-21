@@ -272,19 +272,20 @@ public class Profile_fragment extends BaseFragment {
         });
     }
 
+    // ⭐ UPDATED: Hidden Points & Fixed Distance Logic
     private void calculatePriorityWithGeoRisk(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
         final int[] score = {10};
         final StringBuilder breakdown = new StringBuilder();
 
-        // 1. Base Text
+        // 1. Base Text (No points shown)
         breakdown.append("• Base Score applied\n");
 
         int familySize = (members != null) ? members.size() : 0;
         int famPoints = Math.min(familySize * 5, 50);
         score[0] += famPoints;
 
-        // 2. Family & Status
+        // 2. Family & Status (No points shown)
         if(familySize > 0) breakdown.append("• Family Size (").append(familySize).append(") considered\n");
         if(familySize > 4) { score[0] += 20; breakdown.append("• Large Household Recognized\n"); }
         if(isVerified) { score[0] += 10; breakdown.append("• Verified Resident Status\n"); }
@@ -310,7 +311,7 @@ public class Profile_fragment extends BaseFragment {
                     float distToCreek = getDistance(userLat, userLon, RISK_CREEK_LAT, RISK_CREEK_LON);
                     float distToFire = getDistance(userLat, userLon, RISK_FIRE_LAT, RISK_FIRE_LON);
 
-                    // Fixed: Reduced threshold
+                    // Fixed: Reduced threshold to 300m/500m to avoid false positives
                     if (distToCreek < 300) {
                         score[0] += 30;
                         breakdown.append("• Proximity to Flood Risk Zone\n");
@@ -338,6 +339,7 @@ public class Profile_fragment extends BaseFragment {
     }
 
     private void updatePriorityUI(int score, String breakdownText) {
+        // ⭐ UPDATED: HIDE THE SCORE NUMBER, SHOW ONLY LEVEL & REASON
         tvPriorityScore.setVisibility(View.GONE);
         tvPriorityReason.setText(breakdownText.trim());
 
@@ -410,13 +412,33 @@ public class Profile_fragment extends BaseFragment {
                 btnAssign.setTextColor(Color.WHITE);
                 btnAssign.setBackgroundColor(Color.parseColor("#FF9800"));
                 btnAssign.setPadding(16, 8, 16, 8);
+
+                // ⭐ FIXED CLICK LISTENER
                 btnAssign.setOnClickListener(v -> {
                     if (currentUserId.isEmpty()) return;
                     new AlertDialog.Builder(getContext()).setTitle("Assign Proxy").setMessage("Set " + member.getFull_name() + " as proxy?").setPositiveButton("Yes", (dialog, which) -> {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
+
                         SupabaseJavaHelper.assignHouseholdProxy(currentUserId, member.getMember_id(), new SupabaseJavaHelper.SimpleCallback() {
-                            @Override public void onSuccess() { if(getContext() != null) SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() { @Override public void onLoaded(Profile profile) { if(profile != null) loadFamilyMembers(true, profile, ""); } @Override public void onError(String msg) {} }); }
-                            @Override public void onError(String message) { if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading(); Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show(); }
+                            @Override public void onSuccess() {
+                                if(getContext() != null) {
+                                    SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() {
+                                        @Override public void onLoaded(Profile profile) {
+                                            // ⭐ HIDE LOADING HERE
+                                            if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                                            if(profile != null) loadFamilyMembers(true, profile, "");
+                                        }
+                                        @Override public void onError(String msg) {
+                                            // ⭐ HIDE LOADING HERE TOO
+                                            if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                                        }
+                                    });
+                                }
+                            }
+                            @Override public void onError(String message) {
+                                if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                                Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_SHORT).show();
+                            }
                         });
                     }).setNegativeButton("Cancel", null).show();
                 });

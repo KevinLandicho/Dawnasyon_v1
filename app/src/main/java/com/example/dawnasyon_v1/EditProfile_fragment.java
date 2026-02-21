@@ -167,7 +167,7 @@ public class EditProfile_fragment extends BaseFragment {
             ((BaseActivity) getActivity()).showLoading();
         }
 
-        // ⭐ UPDATED: Added requireContext() as first parameter for Geocoding
+        // ⭐ UPDATED: Added requireContext() so the Helper can do Geocoding
         SupabaseJavaHelper.updateUserProfile(
                 requireContext(),
                 name, contact, province, city, barangay, street, avatarName,
