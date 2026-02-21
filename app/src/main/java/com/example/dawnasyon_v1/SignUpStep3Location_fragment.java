@@ -1,6 +1,7 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -39,6 +40,10 @@ public class SignUpStep3Location_fragment extends BaseFragment {
         dropdownBrgy = view.findViewById(R.id.et_brgy_dropdown);
         dropdownStreet = view.findViewById(R.id.et_street_dropdown);
 
+        // ⭐ EXPLICITLY ALLOW MANUAL TYPING IN STREET DROPDOWN
+        dropdownStreet.setInputType(InputType.TYPE_CLASS_TEXT);
+        dropdownStreet.setThreshold(1); // Show suggestions after 1 character is typed
+
         btnSubmit = view.findViewById(R.id.btn_submit);
         btnPrevious = view.findViewById(R.id.btn_previous);
 
@@ -54,7 +59,7 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ SUBMIT BUTTON WITH STRICT ADDRESS VALIDATION
+        // ⭐ SUBMIT BUTTON WITH ADDRESS VALIDATION
         btnSubmit.setOnClickListener(v -> {
             String prov = dropdownProv.getText().toString().trim();
             String city = dropdownCity.getText().toString().trim();
@@ -75,22 +80,27 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
             btnSubmit.setEnabled(false);
 
-            // ⭐ CALL HELPER: The smart "st/street" check happens inside SupabaseJavaHelper
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            SupabaseJavaHelper.checkAddressExists(house, street, brgy, city, new SupabaseJavaHelper.SimpleCallback() {
+            // ⭐ USE THE NEW AddressCheckCallback
+            SupabaseJavaHelper.checkAddressExists(house, street, brgy, city, new SupabaseJavaHelper.AddressCheckCallback() {
                 @Override
-                public void onSuccess() {
-                    // Unique Address Found. Proceed.
+                public void onResult(boolean isDuplicate) {
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                        // If address exists, notify them but DON'T stop them!
+                        if (isDuplicate) {
+                            Toast.makeText(getContext(), "📍 Address found in system! You will be registered under this existing household.", Toast.LENGTH_LONG).show();
+                        }
+
+                        // Always proceed to the next step
                         proceedToAccountCreation(prov, city, brgy, street, house, zip);
                     }
                 }
 
                 @Override
                 public void onError(String message) {
-                    // Duplicate Found
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
@@ -116,15 +126,15 @@ public class SignUpStep3Location_fragment extends BaseFragment {
         // 1. Pre-fill fields
         dropdownProv.setText("Metro Manila");
         dropdownCity.setText("Quezon City");
-        dropdownBrgy.setText("Santa Lucia"); // Updated to Santa Lucia
-        etZip.setText("1117"); // Santa Lucia ZIP Code (usually 1117)
+        dropdownBrgy.setText("Santa Lucia");
+        etZip.setText("1117");
 
         // 2. Lock specific fields
         lockField(dropdownProv);
         lockField(dropdownCity);
         lockField(dropdownBrgy);
 
-        // 3. UNLOCK Zip Code and Street Name (As requested)
+        // 3. UNLOCK Zip Code and Street Name
         etZip.setEnabled(true);
         dropdownStreet.setEnabled(true);
         dropdownStreet.setFocusableInTouchMode(true);

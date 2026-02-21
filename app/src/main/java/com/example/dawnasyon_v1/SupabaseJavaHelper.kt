@@ -57,6 +57,7 @@ object SupabaseJavaHelper {
 
     // INTERFACES
     interface SimpleCallback { fun onSuccess(); fun onError(message: String) }
+    interface AddressCheckCallback { fun onResult(isDuplicate: Boolean); fun onError(message: String) }
     interface AnnouncementCallback { fun onSuccess(data: MutableList<Announcement>); fun onError(message: String) }
     interface ProfileCallback { fun onLoaded(profile: Profile?); fun onError(message: String) }
     interface DashboardCallback { fun onDataLoaded(inventory: MutableMap<String, Int>, areas: MutableMap<String, Int>, donations: MutableMap<String, Float>, families: MutableMap<String, Int>, metrics: DashboardMetrics, impact: MutableMap<String, Int>); fun onError(message: String) }
@@ -452,24 +453,65 @@ object SupabaseJavaHelper {
     fun checkUserExists(fullName: String, email: String, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val emailCount = SupabaseManager.client.from("profiles").select { filter { eq("email", email) }; count(io.github.jan.supabase.postgrest.query.Count.EXACT) }.countOrNull() ?: 0
-                if (emailCount > 0) { runOnUi { callback.onError("This Email is already registered.") }; return@launch }
+                // 1. Check if Email exists in profiles
+                val emailCount = SupabaseManager.client.from("profiles").select {
+                    filter { eq("email", email) }
+                    count(io.github.jan.supabase.postgrest.query.Count.EXACT)
+                }.countOrNull() ?: 0
+
+                if (emailCount > 0) {
+                    runOnUi { callback.onError("This Email is already registered.") }
+                    return@launch
+                }
+
+                // 2. Check if Name exists in household_members
+                val memberCount = SupabaseManager.client.from("household_members").select {
+                    filter { ilike("full_name", fullName) } // ilike ignores upper/lowercase differences
+                    count(io.github.jan.supabase.postgrest.query.Count.EXACT)
+                }.countOrNull() ?: 0
+
+                if (memberCount > 0) {
+                    runOnUi { callback.onError("This name is already registered as a member in another household.") }
+                    return@launch
+                }
+
+                // 3. Check if Name exists as a main account owner in profiles
+                val profileNameCount = SupabaseManager.client.from("profiles").select {
+                    filter { ilike("full_name", fullName) }
+                    count(io.github.jan.supabase.postgrest.query.Count.EXACT)
+                }.countOrNull() ?: 0
+
+                if (profileNameCount > 0) {
+                    runOnUi { callback.onError("This name is already registered as an account owner.") }
+                    return@launch
+                }
+
+                // If all checks pass, proceed
                 runOnUi { callback.onSuccess() }
-            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Validation error") } }
+            } catch (e: Exception) {
+                runOnUi { callback.onError(e.message ?: "Validation error") }
+            }
         }
     }
 
     @JvmStatic
-    fun checkAddressExists(houseNo: String, street: String, brgy: String, city: String, callback: SimpleCallback) {
+    fun checkAddressExists(houseNo: String, street: String, brgy: String, city: String, callback: AddressCheckCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val response = SupabaseManager.client.from("profiles").select(columns = Columns.list("house_number", "street")) { filter { ilike("barangay", brgy); ilike("city", city) } }.data
                 val type = object : TypeToken<List<AddressDTO>>() {}.type
                 val existingAddresses = gson.fromJson<List<AddressDTO>>(response, type) ?: emptyList()
                 var duplicateFound = false
-                for (item in existingAddresses) { if (item.house_number.equals(houseNo, ignoreCase = true) && item.street.equals(street, ignoreCase = true)) { duplicateFound = true; break } }
-                runOnUi { if (duplicateFound) callback.onError("Address already registered (Active or Archived)") else callback.onSuccess() }
-            } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Address validation error") } }
+                for (item in existingAddresses) {
+                    if (item.house_number.equals(houseNo, ignoreCase = true) && item.street.equals(street, ignoreCase = true)) {
+                        duplicateFound = true; break
+                    }
+                }
+                // ⭐ INSTEAD OF ERROR, WE JUST RETURN TRUE/FALSE
+                runOnUi { callback.onResult(duplicateFound) }
+            } catch (e: Exception) {
+                runOnUi { callback.onError(e.message ?: "Address validation error") }
+            }
         }
     }
 

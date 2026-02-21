@@ -94,22 +94,21 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 return;
             }
 
-            // ⭐ 2. VALIDATE CONTACT NUMBER (Must be 11 digits)
+            // 2. VALIDATE CONTACT NUMBER (Must be 11 digits)
             if (contact.length() != 11) {
                 etContact.setError("Contact number must be exactly 11 digits.");
                 etContact.requestFocus();
                 return;
             }
 
-            // ⭐ 3. VALIDATE EMAIL (Must contain @gmail.com)
-            // .toLowerCase() ensures "User@Gmail.com" is accepted as "user@gmail.com"
+            // 3. VALIDATE EMAIL (Must contain @gmail.com)
             if (!email.toLowerCase().endsWith("@gmail.com")) {
                 etEmail.setError("Email must be a valid @gmail.com address.");
                 etEmail.requestFocus();
                 return;
             }
 
-            // Construct Full Name
+            // Construct Full Name safely
             String fullName;
             if (cbNoMiddleName.isChecked() || mName.isEmpty()) {
                 fullName = fName + " " + lName;
@@ -119,7 +118,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            // ⭐ Call SupabaseJavaHelper checkUserExists
+            // ⭐ Call the upgraded SupabaseJavaHelper checkUserExists
             SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
                 @Override
                 public void onSuccess() {
@@ -133,6 +132,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 public void onError(String message) {
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                        // This will show the specific error (e.g., "This name is already registered as a member...")
                         Toast.makeText(getContext(), "Validation Failed: " + message, Toast.LENGTH_LONG).show();
                     }
                 }
