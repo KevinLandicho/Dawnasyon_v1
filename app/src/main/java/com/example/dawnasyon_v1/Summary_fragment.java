@@ -60,7 +60,7 @@ public class Summary_fragment extends BaseFragment {
         Button btnApplyToDonate = view.findViewById(R.id.btnApplyToDonate);
         CheckBox cbAnonymous = view.findViewById(R.id.checkAnonymous);
 
-        // Load Items
+        // Load Items into UI
         if (getArguments() != null) {
             itemsToDonate = (ArrayList<ItemForSummary>) getArguments().getSerializable(ARG_DONATION_ITEMS);
             if (itemsToDonate != null) {
@@ -68,6 +68,16 @@ public class Summary_fragment extends BaseFragment {
                     addItemRowToSummary(summaryContainer, item.name, item.quantityUnit);
                 }
             }
+        }
+
+        // ⭐ FIXED: Fetch variables OUTSIDE the lambda (click listener) so they are "effectively final"
+        final String rawDonationType = Donation_details_fragment.currentDonationType;
+        final String finalDonationType = (rawDonationType == null || rawDonationType.isEmpty()) ? "In-Kind" : rawDonationType;
+
+        final String finalItemDesc = Donation_details_fragment.currentItemDescription;
+
+        if (finalDonationType.equalsIgnoreCase("Relief Pack") && finalItemDesc != null && !finalItemDesc.isEmpty()) {
+            addItemRowToSummary(summaryContainer, "Contents", finalItemDesc);
         }
 
         // Donate Button Click
@@ -79,19 +89,19 @@ public class Summary_fragment extends BaseFragment {
 
             btnApplyToDonate.setEnabled(false);
 
-            // ⭐ TRANSLATE LOADING STATE
             String processingText = "Processing...";
             btnApplyToDonate.setText(processingText);
             TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, processingText);
 
             boolean isAnon = cbAnonymous != null && cbAnonymous.isChecked();
-            String refNumber = generateReferenceNumber(); // e.g. "D20250101-5921"
+            String refNumber = generateReferenceNumber();
 
-            // Call the Helper
+            // ⭐ Call the Helper using the final variables
             DonationHelper.submitDonation(
-                    refNumber,      // Maps to reference_number column
+                    refNumber,
                     itemsToDonate,
-                    "In-Kind",
+                    finalDonationType,
+                    finalItemDesc,
                     0.0,
                     isAnon,
                     new DonationHelper.DonationCallback() {
@@ -100,14 +110,12 @@ public class Summary_fragment extends BaseFragment {
                             if (getActivity() == null) return;
                             btnApplyToDonate.setEnabled(true);
 
-                            // ⭐ TRANSLATE RESET STATE
                             String confirmText = "Confirm Donation";
                             btnApplyToDonate.setText(confirmText);
                             TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, confirmText);
 
                             Toast.makeText(getContext(), "Donation Submitted!", Toast.LENGTH_SHORT).show();
 
-                            // Go to Reference/Thank You screen
                             launchReferenceFragment(refNumber);
                         }
 
@@ -116,7 +124,6 @@ public class Summary_fragment extends BaseFragment {
                             if (getActivity() == null) return;
                             btnApplyToDonate.setEnabled(true);
 
-                            // ⭐ TRANSLATE RESET STATE
                             String confirmText = "Confirm Donation";
                             btnApplyToDonate.setText(confirmText);
                             TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, confirmText);
@@ -127,16 +134,14 @@ public class Summary_fragment extends BaseFragment {
             );
         });
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC TEXT
         applyTagalogTranslation(view);
     }
 
     private void addItemRowToSummary(LinearLayout container, String name, String quantityUnit) {
         TextView textView = new TextView(getContext());
-        String fullText = name + " (" + quantityUnit + ")";
+        String fullText = name + ": " + quantityUnit; // Formatted nicely
         textView.setText(fullText);
 
-        // ⭐ TRANSLATE DYNAMIC ITEMS (e.g. "Rice (5 kg)" -> "Bigas (5 kg)")
         TranslationHelper.autoTranslate(getContext(), textView, fullText);
 
         textView.setTextSize(16);
@@ -162,7 +167,6 @@ public class Summary_fragment extends BaseFragment {
     private void launchReferenceFragment(String referenceNumber) {
         if (getActivity() != null) {
             try {
-                // Ensure Reference_fragment accepts the ID in its newInstance method
                 Fragment referenceFragment = Reference_fragment.newInstance(referenceNumber);
                 getActivity().getSupportFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container, referenceFragment)

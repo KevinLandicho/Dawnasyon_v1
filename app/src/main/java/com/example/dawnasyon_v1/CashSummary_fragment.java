@@ -166,11 +166,12 @@ public class CashSummary_fragment extends BaseFragment {
         btnConfirm.setText(savingText);
         TranslationHelper.autoTranslate(getContext(), btnConfirm, savingText);
 
-        // Use your existing DonationHelper
-        DonationHelper.INSTANCE.submitDonation(
+        // ⭐ FIXED: Added the `itemDesc` parameter (passed as null for Cash)
+        DonationHelper.submitDonation(
                 currentLinkId,
                 new ArrayList<>(),
                 "Cash",
+                null, // <-- This is the missing itemDesc parameter!
                 (double) mAmount,
                 false,
                 new DonationHelper.DonationCallback() {

@@ -25,6 +25,10 @@ public class DonationHistoryItem implements Serializable {
     @SerializedName("amount")
     private Double amount;
 
+    // ⭐ FIX: Added Item Description for Relief Packs
+    @SerializedName("item_description")
+    private String itemDescription;
+
     // ✅ FIX: Added List of Items
     @SerializedName("donation_items")
     private List<DonationItem> donationItems;
@@ -47,6 +51,9 @@ public class DonationHistoryItem implements Serializable {
     public String getType() { return type; }
     public Double getAmount() { return amount; }
 
+    // ⭐ This fixes the "cannot find symbol method getItemDescription()" error
+    public String getItemDescription() { return itemDescription; }
+
     // ✅ This fixes the "cannot resolve method getDonationItems" error
     public List<DonationItem> getDonationItems() { return donationItems; }
 
@@ -58,4 +65,5 @@ public class DonationHistoryItem implements Serializable {
     public void setFormattedDate(String date) { this.formattedDate = date; }
     public void setDisplayDescription(String desc) { this.displayDescription = desc; }
     public void setImageResId(int resId) { this.imageResId = resId; }
+    public void setItemDescription(String itemDescription) { this.itemDescription = itemDescription; }
 }

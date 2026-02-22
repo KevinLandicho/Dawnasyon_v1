@@ -72,9 +72,30 @@ public class DonationReceipt_fragment extends BaseFragment {
                 tvDate.setText(item.getFormattedDate());
 
                 if (itemsContainer != null) {
-                    if (item.getType() != null && item.getType().equalsIgnoreCase("Cash")) {
+                    String type = item.getType();
+
+                    if (type != null && type.equalsIgnoreCase("Cash")) {
                         addReceiptRow(itemsContainer, "Cash Donation", "₱" + item.getAmount());
+
+                    } else if (type != null && type.equalsIgnoreCase("Relief Pack")) {
+                        // ⭐ NEW: Specific logic for Relief Packs to show contents
+                        List<DonationItem> subItems = item.getDonationItems();
+                        if (subItems != null && !subItems.isEmpty()) {
+                            for (DonationItem sub : subItems) {
+                                addReceiptRow(itemsContainer, sub.getItemName(), sub.getQtyString());
+                            }
+                        } else {
+                            addReceiptRow(itemsContainer, "Relief Pack", "Details pending");
+                        }
+
+                        // Add the Specific Contents Row
+                        String details = (item.getItemDescription() != null && !item.getItemDescription().isEmpty())
+                                ? item.getItemDescription()
+                                : "Standard Contents";
+                        addReceiptRow(itemsContainer, "Contents", details);
+
                     } else {
+                        // Normal In-Kind logic
                         List<DonationItem> subItems = item.getDonationItems();
                         if (subItems != null && !subItems.isEmpty()) {
                             for (DonationItem sub : subItems) {

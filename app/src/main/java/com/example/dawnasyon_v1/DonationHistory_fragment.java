@@ -44,7 +44,6 @@ public class DonationHistory_fragment extends BaseFragment {
         if (rvHistory != null) {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
 
-            // ⭐ CLICK LISTENER: Opens the Receipt Fragment
             adapter = new DonationHistoryAdapter(historyList, item -> {
                 DonationReceipt_fragment receiptFragment = DonationReceipt_fragment.newInstance(item);
                 getParentFragmentManager().beginTransaction()
@@ -57,7 +56,6 @@ public class DonationHistory_fragment extends BaseFragment {
             loadDonationHistory();
         }
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT (Header, etc.)
         applyTagalogTranslation(view);
     }
 
@@ -101,8 +99,24 @@ public class DonationHistory_fragment extends BaseFragment {
             }
 
             String type = item.getType();
+
             if (type != null && type.equalsIgnoreCase("Cash")) {
                 item.setDisplayDescription("Cash Donation" + (item.getAmount() != null ? ": ₱" + item.getAmount() : ""));
+
+            } else if (type != null && type.equalsIgnoreCase("Relief Pack")) {
+                List<DonationItem> items = item.getDonationItems();
+                String qty = "";
+                if (items != null && !items.isEmpty()) {
+                    qty = items.get(0).getQtyString() + " ";
+                }
+
+                // ⭐ PERFECT FIX: Safely gets the description using your newly added getter!
+                String details = (item.getItemDescription() != null && !item.getItemDescription().isEmpty())
+                        ? item.getItemDescription()
+                        : "Standard Contents";
+
+                item.setDisplayDescription(qty + "Relief Pack(s)\nContents: " + details);
+
             } else {
                 List<DonationItem> items = item.getDonationItems();
                 if (items != null && !items.isEmpty()) {
@@ -114,8 +128,8 @@ public class DonationHistory_fragment extends BaseFragment {
                     item.setDisplayDescription("In-Kind Donation");
                 }
             }
-            // Combine description with status
-            item.setDisplayDescription(item.getDisplayDescription() + " (" + (item.getStatus() != null ? item.getStatus() : "Pending") + ")");
+
+            item.setDisplayDescription(item.getDisplayDescription() + "\nStatus: " + (item.getStatus() != null ? item.getStatus() : "Pending"));
             item.setImageResId(R.drawable.ic_profile_avatar);
             historyList.add(item);
         }

@@ -19,6 +19,7 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.fragment.app.Fragment;
 
 import com.example.dawnasyon_v1.Summary_fragment.ItemForSummary;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,7 +44,11 @@ public class Donation_details_fragment extends BaseFragment {
   private String fStatus;
   private int fImageRes;
 
-  // --- ⭐ NEW: Specific Unit Arrays ---
+  // ⭐ NEW: Temporary global variables to pass to the Summary/Database
+  public static String currentDonationType = "";
+  public static String currentItemDescription = "";
+
+  // --- ⭐ Specific Unit Arrays ---
   private static final String[] UNITS_WEIGHT = {"Kilo", "Sack", "Grams", "Tons"};
   private static final String[] UNITS_PIECES = {"PCS", "Box", "Case", "Tray"};
   private static final String[] UNITS_LIQUID = {"Liter", "Bottle", "Gallon", "Box"};
@@ -57,14 +62,12 @@ public class Donation_details_fragment extends BaseFragment {
     String description;
     int layoutType;
 
-    // Constructor for Items with Spinner
     ItemData(String name, String[] specificUnits) {
       this.name = name;
       this.specificUnits = specificUnits;
       this.layoutType = 1;
     }
 
-    // Constructor for Description Items (No Spinner)
     ItemData(String name, String description, int layoutType) {
       this.name = name;
       this.description = description;
@@ -95,10 +98,6 @@ public class Donation_details_fragment extends BaseFragment {
             new ItemData("Vitamins", UNITS_LIQUID),
             new ItemData("Cough Syrup", UNITS_LIQUID),
             new ItemData("First Aid Kit", UNITS_PACKS)
-    ));
-
-    PRESET_ITEMS.put("RELIEF PACKS", Arrays.asList(
-            new ItemData("Relief Pack", UNITS_PACKS)
     ));
   }
 
@@ -138,7 +137,6 @@ public class Donation_details_fragment extends BaseFragment {
 
     final String categoryKey = fTitle != null ? fTitle : "FOOD";
 
-    // Handle Cash specifically
     if (categoryKey.equals("CASH")) {
       if (getActivity() != null) {
         Fragment cashFragment = CashInfo_fragment.newInstance(fTitle, fDescription, fStatus, fImageRes);
@@ -156,6 +154,10 @@ public class Donation_details_fragment extends BaseFragment {
     customItemInputLayout = view.findViewById(R.id.customItemInputLayout);
     Button btnStep3 = view.findViewById(R.id.btnStep3);
 
+    LinearLayout reliefPackContainer = view.findViewById(R.id.reliefPackContainer);
+    TextInputEditText etPackQuantity = view.findViewById(R.id.etPackQuantity);
+    TextInputEditText etPackContents = view.findViewById(R.id.etPackContents);
+
     if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
     TextView txtTitle = view.findViewById(R.id.detailsTitle);
@@ -168,39 +170,70 @@ public class Donation_details_fragment extends BaseFragment {
     if(txtStatus != null) txtStatus.setText(fStatus);
     if(imgIcon != null) imgIcon.setImageResource(fImageRes);
 
-    List<ItemData> items = PRESET_ITEMS.get(categoryKey);
-    if (items != null) {
-      for (ItemData item : items) {
-        addPresetItem(item);
-      }
-    }
-
-    if (categoryKey.equals("HYGIENE KITS")) {
-      if(btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
+    if (categoryKey.equalsIgnoreCase("RELIEF PACKS")) {
+      if (itemInputsContainer != null) itemInputsContainer.setVisibility(View.GONE);
+      if (btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
+      if (customItemInputLayout != null) customItemInputLayout.setVisibility(View.GONE);
+      if (reliefPackContainer != null) reliefPackContainer.setVisibility(View.VISIBLE);
     } else {
-      if(btnAddCustomItem != null) {
-        btnAddCustomItem.setVisibility(View.VISIBLE);
-        btnAddCustomItem.setOnClickListener(v -> {
-          addCustomItemInput();
-          if(customItemInputLayout != null) customItemInputLayout.setVisibility(View.VISIBLE);
-        });
+      if (reliefPackContainer != null) reliefPackContainer.setVisibility(View.GONE);
+      if (itemInputsContainer != null) itemInputsContainer.setVisibility(View.VISIBLE);
+
+      List<ItemData> items = PRESET_ITEMS.get(categoryKey);
+      if (items != null) {
+        for (ItemData item : items) {
+          addPresetItem(item);
+        }
+      }
+
+      if (categoryKey.equals("HYGIENE KITS")) {
+        if(btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
+      } else {
+        if(btnAddCustomItem != null) {
+          btnAddCustomItem.setVisibility(View.VISIBLE);
+          btnAddCustomItem.setOnClickListener(v -> {
+            addCustomItemInput();
+            if(customItemInputLayout != null) customItemInputLayout.setVisibility(View.VISIBLE);
+          });
+        }
       }
     }
 
     if(btnStep3 != null) {
       btnStep3.setOnClickListener(v -> {
-        ArrayList<ItemForSummary> collectedItems = collectAllInputs();
+        ArrayList<ItemForSummary> collectedItems = new ArrayList<>();
 
-        if (collectedItems.isEmpty()) {
-          Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
-          return;
+        if (categoryKey.equalsIgnoreCase("RELIEF PACKS")) {
+          String quantityStr = etPackQuantity != null ? etPackQuantity.getText().toString().trim() : "";
+          String contents = etPackContents != null ? etPackContents.getText().toString().trim() : "";
+
+          if (quantityStr.isEmpty() || contents.isEmpty()) {
+            Toast.makeText(getContext(), "Please provide the quantity and specific contents.", Toast.LENGTH_SHORT).show();
+            return;
+          }
+
+          // ⭐ SEPARATE PARENT DATA AND CHILD ITEMS
+          currentDonationType = "Relief Pack";
+          currentItemDescription = contents; // To Donations table
+
+          collectedItems.add(new ItemForSummary("Relief Pack", quantityStr + " Pack(s)")); // To Items table
+
+        } else {
+          collectedItems = collectAllInputs();
+
+          if (collectedItems.isEmpty()) {
+            Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
+            return;
+          }
+
+          currentDonationType = categoryKey;
+          currentItemDescription = null;
         }
 
         launchSummaryFragment(collectedItems);
       });
     }
 
-    // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
     applyTagalogTranslation(view);
   }
 
@@ -209,7 +242,6 @@ public class Donation_details_fragment extends BaseFragment {
 
     View itemView;
     if (item.layoutType == 2) {
-      // Description Type (Hygiene Kits)
       itemView = inflater.inflate(R.layout.item_input_desc, itemInputsContainer, false);
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       TextView txtDesc = itemView.findViewById(R.id.txtItemDescription);
@@ -222,7 +254,6 @@ public class Donation_details_fragment extends BaseFragment {
         TranslationHelper.autoTranslate(getContext(), txtDesc, item.description);
       }
     } else {
-      // Standard Type (Food)
       itemView = inflater.inflate(R.layout.item_input, itemInputsContainer, false);
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       Spinner spinner = itemView.findViewById(R.id.spinnerUnit);
@@ -256,7 +287,6 @@ public class Donation_details_fragment extends BaseFragment {
       editName.setLayoutParams(originalName.getLayoutParams());
       parent.addView(editName, 0);
 
-      // Translate hint
       TranslationHelper.autoTranslate(getContext(), editName, "Enter Item");
 
       TextView btnPlus = customView.findViewById(R.id.btnPlus);
@@ -274,7 +304,6 @@ public class Donation_details_fragment extends BaseFragment {
         params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
       }
 
-      // Need to cast LayoutParams properly if using ConstraintLayout
       if (btnPlus != null) {
         ConstraintLayout.LayoutParams clParams = new ConstraintLayout.LayoutParams(dp35, dp35);
         clParams.topToTop = btnPlus.getId();
@@ -321,7 +350,6 @@ public class Donation_details_fragment extends BaseFragment {
     });
   }
 
-  // ⭐ UPDATED: Now accepts a specific String array
   private void setupUnitSpinner(Spinner spinner, String[] units) {
     if (spinner == null || units == null) return;
 

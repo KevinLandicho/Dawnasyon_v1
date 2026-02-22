@@ -27,6 +27,7 @@ object DonationHelper {
         refNumber: String,
         items: ArrayList<ItemForSummary>,
         type: String,
+        itemDesc: String?, // ⭐ NEW: Accepts the Relief Pack contents
         amount: Double,
         isAnonymous: Boolean,
         callback: DonationCallback
@@ -45,19 +46,18 @@ object DonationHelper {
                 }
 
                 // 2. Prepare Donation Data
-                // ✅ FIX: We map 'refNumber' to 'reference_number' column here
                 val donationData = DonationInsertDTO(
                     donor_id = currentUser.id,
                     type = type,
+                    item_description = itemDesc, // ⭐ Maps directly to your DB column
                     amount = amount,
                     is_anonymous = isAnonymous,
                     status = "Pending",
-                    reference_number = refNumber, // <--- Correct Column
-                    admin_notes = "" // Leave admin notes empty
+                    reference_number = refNumber,
+                    admin_notes = ""
                 )
 
                 // 3. Insert Donation & Get the new ID back
-                // We use "select()" after insert to retrieve the generated donation_id
                 val result = SupabaseManager.client
                     .from("donations")
                     .insert(donationData) {
@@ -123,10 +123,11 @@ object DonationHelper {
 data class DonationInsertDTO(
     val donor_id: String,
     val type: String,
+    val item_description: String?, // ⭐ NEW: Added to DTO to map to DB
     val amount: Double,
     val is_anonymous: Boolean,
     val status: String,
-    val reference_number: String, // ✅ Maps to your new DB column
+    val reference_number: String,
     val admin_notes: String?
 )
 
