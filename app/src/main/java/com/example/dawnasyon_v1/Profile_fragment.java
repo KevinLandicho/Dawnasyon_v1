@@ -3,7 +3,14 @@ package com.example.dawnasyon_v1;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.Rect;
 import android.location.Address;
 import android.location.Geocoder;
 import android.os.Bundle;
@@ -28,6 +35,9 @@ import com.google.android.material.button.MaterialButton;
 
 import okhttp3.OkHttpClient;
 
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -75,7 +85,7 @@ public class Profile_fragment extends BaseFragment {
         LinearLayout menuHistory = view.findViewById(R.id.menu_history);
         LinearLayout menuSuggestion = view.findViewById(R.id.menu_suggestion);
         LinearLayout menuPassword = view.findViewById(R.id.menu_password);
-        LinearLayout menuTerms = view.findViewById(R.id.menu_terms); // ⭐ ADDED TERMS MENU
+        LinearLayout menuTerms = view.findViewById(R.id.menu_terms);
         LinearLayout menuDelete = view.findViewById(R.id.menu_delete);
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
@@ -106,7 +116,7 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
-        setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions"); // ⭐ ADDED TERMS SETUP
+        setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions");
         setupMenuItem(menuDelete, R.drawable.ic_delete, "Delete account");
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
 
@@ -129,7 +139,7 @@ public class Profile_fragment extends BaseFragment {
         if (menuHistory != null) menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
         if (menuSuggestion != null) menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
         if (menuPassword != null) menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
-        if (menuTerms != null) menuTerms.setOnClickListener(v -> navigateToFragment(new TermsAndConditions_fragment())); // ⭐ ADDED TERMS CLICK LISTENER
+        if (menuTerms != null) menuTerms.setOnClickListener(v -> navigateToFragment(new TermsAndConditions_fragment()));
         if (menuDelete != null) menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
 
         // ⭐ LOGOUT CLICK
@@ -158,10 +168,18 @@ public class Profile_fragment extends BaseFragment {
                     if (profile.getCity() != null) fullAddress += profile.getCity();
                     if (detailAddress != null) detailAddress.setText(fullAddress);
 
-                    // Avatar
+                    // ⭐ AVATAR LOADING LOGIC (Updated for Custom URL + Circle Crop)
                     String avatarName = profile.getAvatarName();
-                    int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
-                    if (ivProfilePic != null) ivProfilePic.setImageResource(avatarResId);
+                    if (avatarName != null && avatarName.startsWith("http")) {
+                        // It's a custom uploaded URL - Fetch and crop it!
+                        if (ivProfilePic != null) {
+                            loadAndCircleCropImage(avatarName, ivProfilePic);
+                        }
+                    } else {
+                        // It's a standard local preset avatar
+                        int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
+                        if (ivProfilePic != null) ivProfilePic.setImageResource(avatarResId);
+                    }
 
                     boolean isVerified = Boolean.TRUE.equals(profile.getVerified());
                     String userType = profile.getType();
@@ -223,6 +241,75 @@ public class Profile_fragment extends BaseFragment {
         applyTagalogTranslation(view);
     }
 
+    // =========================================================================
+    // ⭐ NATIVE IMAGE DOWNLOADER & CIRCLE CROPPER
+    // =========================================================================
+
+    private void loadAndCircleCropImage(String urlString, ImageView imageView) {
+        new Thread(() -> {
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setDoInput(true);
+                connection.connect();
+                InputStream input = connection.getInputStream();
+                Bitmap rawBitmap = BitmapFactory.decodeStream(input);
+
+                if (rawBitmap != null) {
+                    // Apply the circle crop math
+                    Bitmap circleBitmap = getCircularBitmap(rawBitmap);
+
+                    // Post back to the main UI thread to show it
+                    new Handler(Looper.getMainLooper()).post(() -> {
+                        if (isAdded() && imageView != null) {
+                            imageView.setImageBitmap(circleBitmap);
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                Log.e("AvatarLoad", "Failed to load custom avatar: " + e.getMessage());
+            }
+        }).start();
+    }
+
+    private Bitmap getCircularBitmap(Bitmap bitmap) {
+        // Calculate the center crop square size
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int minEdge = Math.min(width, height);
+
+        // Create the empty output bitmap
+        Bitmap output = Bitmap.createBitmap(minEdge, minEdge, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(output);
+
+        final Paint paint = new Paint();
+        final Rect rect = new Rect(0, 0, minEdge, minEdge);
+
+        paint.setAntiAlias(true);
+        canvas.drawARGB(0, 0, 0, 0);
+        paint.setColor(Color.WHITE); // Mask color doesn't matter, just needs to be solid
+
+        // Draw the circle mask
+        canvas.drawCircle(minEdge / 2f, minEdge / 2f, minEdge / 2f, paint);
+
+        // Apply the PorterDuff Mode (This cuts the image to fit the circle drawn above)
+        paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
+
+        // Figure out where to crop if the image is a rectangle
+        int dx = (width - minEdge) / 2;
+        int dy = (height - minEdge) / 2;
+        Rect srcRect = new Rect(dx, dy, dx + minEdge, dy + minEdge);
+
+        // Draw the original image over the mask
+        canvas.drawBitmap(bitmap, srcRect, rect, paint);
+
+        return output;
+    }
+
+    // =========================================================================
+    // REST OF YOUR EXISTING CODE
+    // =========================================================================
+
     private void toggleBreakdown() {
         if (llBreakdownContainer == null) return;
         if (isExpanded) {
@@ -275,7 +362,6 @@ public class Profile_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ UPDATED: Hidden Points & Fixed Distance Logic
     private void calculatePriorityWithGeoRisk(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
         final int[] score = {10};
@@ -342,7 +428,6 @@ public class Profile_fragment extends BaseFragment {
     }
 
     private void updatePriorityUI(int score, String breakdownText) {
-        // ⭐ UPDATED: HIDE THE SCORE NUMBER, SHOW ONLY LEVEL & REASON
         tvPriorityScore.setVisibility(View.GONE);
         tvPriorityReason.setText(breakdownText.trim());
 
@@ -416,7 +501,6 @@ public class Profile_fragment extends BaseFragment {
                 btnAssign.setBackgroundColor(Color.parseColor("#FF9800"));
                 btnAssign.setPadding(16, 8, 16, 8);
 
-                // ⭐ FIXED CLICK LISTENER
                 btnAssign.setOnClickListener(v -> {
                     if (currentUserId.isEmpty()) return;
                     new AlertDialog.Builder(getContext()).setTitle("Assign Proxy").setMessage("Set " + member.getFull_name() + " as proxy?").setPositiveButton("Yes", (dialog, which) -> {
@@ -427,12 +511,10 @@ public class Profile_fragment extends BaseFragment {
                                 if(getContext() != null) {
                                     SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() {
                                         @Override public void onLoaded(Profile profile) {
-                                            // ⭐ HIDE LOADING HERE
                                             if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                                             if(profile != null) loadFamilyMembers(true, profile, "");
                                         }
                                         @Override public void onError(String msg) {
-                                            // ⭐ HIDE LOADING HERE TOO
                                             if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                                         }
                                     });
