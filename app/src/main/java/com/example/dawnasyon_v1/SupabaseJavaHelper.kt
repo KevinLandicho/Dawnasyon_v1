@@ -68,6 +68,7 @@ object SupabaseJavaHelper {
     interface ProfileUpdateCallback { fun onSuccess(); fun onError(message: String) }
     interface TrackingCallback { fun onLoaded(data: DonationTrackingDTO?) }
     interface ApplicationHistoryCallback { fun onLoaded(data: List<ApplicationHistoryDTO>); fun onError(message: String) }
+    interface BrgyInfoCallback { fun onSuccess(info: BrgyInfoDTO); fun onError(message: String) } // ⭐ NEW INTERFACE
 
     // ====================================================
     // ⭐ LOGIN FUNCTION
@@ -563,6 +564,28 @@ object SupabaseJavaHelper {
         }
     }
 
+    // ====================================================
+    // ⭐ FETCH BARANGAY INFO FOR DIALOG
+    // ====================================================
+    @JvmStatic
+    fun fetchBrgyInfo(callback: BrgyInfoCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val result = SupabaseManager.client.from("barangay_info")
+                    .select { filter { eq("id", 1) } }
+                    .decodeSingleOrNull<BrgyInfoDTO>()
+
+                if (result != null) {
+                    runOnUi { callback.onSuccess(result) }
+                } else {
+                    runOnUi { callback.onError("No Barangay information found.") }
+                }
+            } catch (e: Exception) {
+                runOnUi { callback.onError(e.message ?: "Failed to load Barangay Info") }
+            }
+        }
+    }
+
     @JvmStatic
     fun archiveAccount(callback: RegistrationCallback) {
         val client = SupabaseManager.client
@@ -599,3 +622,15 @@ object SupabaseJavaHelper {
 @Serializable data class DonationTrackingDTO(val donation_id: Long, val donation_status: String?, val donation_date: String?, val inventory_status: String?, val quantity_on_hand: Int?, val date_claimed: String?, val batch_name: String?)
 @Serializable data class ApplicationHistoryDTO(val status: String, val created_at: String, val relief_drives: ReliefDriveNameDTO?)
 @Serializable data class ReliefDriveNameDTO(val name: String)
+
+// ⭐ DTO FOR BARANGAY INFO
+@Serializable
+data class BrgyInfoDTO(
+    val office_address: String?,
+    val office_hours: String?,
+    val contact_numbers: String?,
+    val email: String?,
+    val punong_barangay: String?,
+    val councilors: String?,
+    val sk_chairperson: String?
+)

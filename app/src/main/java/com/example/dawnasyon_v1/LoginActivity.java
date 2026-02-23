@@ -25,8 +25,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.textfield.TextInputEditText;
 
-import java.util.List;
-
 import kotlin.Unit;
 
 public class LoginActivity extends AppCompatActivity {
@@ -70,6 +68,16 @@ public class LoginActivity extends AppCompatActivity {
         btnSignin = findViewById(R.id.btnSignin);
         btnSignup = findViewById(R.id.btnSignup);
         btnForgot = findViewById(R.id.btnForgot);
+
+        // ⭐ NEW: Initialize Barangay Info Button
+        View btnBrgyInfo = findViewById(R.id.btnBrgyInfo);
+        if (btnBrgyInfo != null) {
+            btnBrgyInfo.setOnClickListener(v -> {
+                hideKeyboard();
+                BrgyInfoDialog dialog = new BrgyInfoDialog();
+                dialog.show(getSupportFragmentManager(), "BrgyInfoDialog");
+            });
+        }
 
         // Sign In Button Listener
         btnSignin.setOnClickListener(v -> {
@@ -142,7 +150,6 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
-        // This translates hints, labels, and initial button text
         TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 

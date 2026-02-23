@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="24dp"
+    app:cardBackgroundColor="@android:color/white"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="8dp">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fadeScrollbars="false"
+        android:padding="20dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="OFFICE INFORMATION"
+                android:textColor="#27869B"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="2dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="16dp"
+                android:background="#27869B" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Office Address:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="12dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Office Hours:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_hours" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="12dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Contact Numbers:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_contact" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="12dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Email:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_email" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="20dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:text="BARANGAY OFFICIALS"
+                android:textColor="#333333"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Punong Barangay:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_punong_brgy" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="12dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Barangay Councilors:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_councilors" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:layout_marginBottom="12dp" android:layout_marginStart="16dp" android:lineSpacingExtra="4dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_brgy_section">
+                <View android:layout_width="4dp" android:layout_height="match_parent" android:background="#F5901A" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SK Chairperson:" android:textStyle="bold" android:textColor="#333333" android:padding="8dp"/>
+            </LinearLayout>
+            <TextView android:id="@+id/tv_sk_chair" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:layout_marginBottom="24dp" android:textColor="#555555" android:textSize="14sp" android:text="Loading..."/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_close_dialog"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="#27869B"
+                android:text="Close"
+                android:textAllCaps="false"
+                android:textSize="16sp"
+                app:cornerRadius="8dp" />
+
+        </LinearLayout>
+    </ScrollView>
+</androidx.cardview.widget.CardView>
