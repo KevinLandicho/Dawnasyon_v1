@@ -317,12 +317,16 @@ public class LiveMap_fragment extends BaseFragment {
         int color = Color.GRAY;
         int circleColor = Color.GRAY;
 
+        // ⭐ NEW: Flag to control if the circle should be drawn
+        boolean shouldDrawZone = true;
+
         // ⭐ UPDATED LOGIC TO MATCH DB TYPES
         String typeLower = type.toLowerCase();
 
         if (typeLower.contains("fire")) {
             color = Color.RED;
             circleColor = Color.argb(60, 255, 0, 0);
+            shouldDrawZone = false; // 🚫 REMOVE ZONE IF IT IS A FIRE
         } else if (typeLower.contains("flood") || typeLower.contains("typhoon")) {
             color = Color.BLUE;
             circleColor = Color.argb(60, 0, 0, 255);
@@ -335,7 +339,11 @@ public class LiveMap_fragment extends BaseFragment {
         marker.setIcon(iconBox);
         map.getOverlays().add(marker);
 
-        drawGroundZeroCircle(point, circleColor);
+        // ⭐ ONLY DRAW CIRCLE IF NOT FIRE
+        if (shouldDrawZone) {
+            drawGroundZeroCircle(point, circleColor);
+        }
+
         map.invalidate();
     }
 
