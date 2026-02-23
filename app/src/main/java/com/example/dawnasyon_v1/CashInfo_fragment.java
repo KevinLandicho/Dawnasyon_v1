@@ -117,8 +117,9 @@ public class CashInfo_fragment extends BaseFragment {
     }
 
     private void goToSummary(int amount) {
-        if (amount < 100) {
-            Toast.makeText(getContext(), "Minimum donation is PHP 100.", Toast.LENGTH_SHORT).show();
+        // ⭐ CHANGED: Removed the 100 peso limit, just checks if amount is greater than 0
+        if (amount <= 0) {
+            Toast.makeText(getContext(), "Please enter a valid amount greater than 0.", Toast.LENGTH_SHORT).show();
             return;
         }
 
