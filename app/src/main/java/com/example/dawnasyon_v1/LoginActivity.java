@@ -142,10 +142,10 @@ public class LoginActivity extends AppCompatActivity {
             });
         });
 
-        // Window Insets
+        // ⭐ FIXED: Added WindowInsetsCompat.Type.ime() to handle the keyboard pushing the layout up!
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
+            Insets insetsToApply = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
+            v.setPadding(insetsToApply.left, insetsToApply.top, insetsToApply.right, insetsToApply.bottom);
             return insets;
         });
 
