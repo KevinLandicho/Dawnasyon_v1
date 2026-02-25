@@ -53,7 +53,7 @@ public class ApplicationTracker_fragment extends BaseFragment {
         setupRecyclerView();
         loadApplications();
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC VIEWS (e.g., Empty Text)
+        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC VIEWS
         applyTagalogTranslation(view);
     }
 
@@ -108,10 +108,12 @@ public class ApplicationTracker_fragment extends BaseFragment {
     private void showProcessDialog(ApplicationHistoryDTO app) {
         String title = (app.getRelief_drives() != null) ? app.getRelief_drives().getName() : "Relief Operation";
 
+        // ⭐ UPDATED: Pass the proof_photo URL from the DTO to the Dialog
         TrackerDetailsDialog_Fragment dialog = TrackerDetailsDialog_Fragment.newInstance(
                 title,
                 app.getStatus(),
-                app.getCreated_at()
+                app.getCreated_at(),
+                app.getProof_photo() // This ensures the dialog gets the image URL
         );
         dialog.show(getParentFragmentManager(), "TrackerDetails");
     }
@@ -172,7 +174,7 @@ public class ApplicationTracker_fragment extends BaseFragment {
             if (status.equals("PENDING")) {
                 holder.tvStatus.setTextColor(Color.parseColor("#E65100"));
                 holder.cardStatus.setCardBackgroundColor(Color.parseColor("#FFF3E0"));
-            } else if (status.equals("APPROVED") || status.equals("CLAIMED")) {
+            } else if (status.equals("APPROVED") || status.equals("READY") || status.equals("CLAIMED")) {
                 holder.tvStatus.setTextColor(Color.parseColor("#2E7D32"));
                 holder.cardStatus.setCardBackgroundColor(Color.parseColor("#E8F5E9"));
             } else {

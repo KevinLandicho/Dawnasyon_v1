@@ -12,22 +12,26 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
+import com.bumptech.glide.Glide; // Ensure Glide is in build.gradle
+
 public class TrackerDetailsDialog_Fragment extends DialogFragment {
 
-    private String driveTitle, status, date;
+    private String driveTitle, status, date, proofUrl;
 
-    public static TrackerDetailsDialog_Fragment newInstance(String title, String status, String date) {
+    public static TrackerDetailsDialog_Fragment newInstance(String title, String status, String date, String proofUrl) {
         TrackerDetailsDialog_Fragment fragment = new TrackerDetailsDialog_Fragment();
         Bundle args = new Bundle();
         args.putString("title", title);
         args.putString("status", status);
         args.putString("date", date);
+        args.putString("proof", proofUrl);
         fragment.setArguments(args);
         return fragment;
     }
@@ -39,6 +43,7 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
             driveTitle = getArguments().getString("title");
             status = getArguments().getString("status");
             date = getArguments().getString("date");
+            proofUrl = getArguments().getString("proof");
         }
     }
 
@@ -72,22 +77,41 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
         View line1 = view.findViewById(R.id.line1);
         View line2 = view.findViewById(R.id.line2);
 
+        // ⭐ Proof Image Views
+        LinearLayout layoutProof = view.findViewById(R.id.layout_proof_container);
+        ImageView ivProofImage = view.findViewById(R.id.iv_proof_image);
+
         tvHeader.setText(driveTitle);
         btnClose.setOnClickListener(v -> dismiss());
 
         setupStepper(status, ivStep1, ivStep2, ivStep3, line1, line2);
 
-        // ⭐ CLICK LISTENERS (Updated Texts)
-        ivStep1.setOnClickListener(v -> showStepDetails("Step 1: Application Submitted",
-                "Your application was received on " + date + ". It has been sent to the Barangay Admin."));
+        // ⭐ CLICK LISTENERS
+        ivStep1.setOnClickListener(v -> {
+            layoutProof.setVisibility(View.GONE);
+            showStepDetails("Step 1: Application Submitted",
+                    "Your application was received on " + date + ". It has been sent to the Barangay Admin.");
+        });
 
-        ivStep2.setOnClickListener(v -> showStepDetails("Step 2: Admin Approval",
-                "PENDING: The admin is currently reviewing your household record.\n\nAPPROVED: You are eligible! You will receive a QR Code to present at the venue."));
+        ivStep2.setOnClickListener(v -> {
+            layoutProof.setVisibility(View.GONE);
+            showStepDetails("Step 2: Admin Approval",
+                    "PENDING: The admin is currently reviewing your household record.\n\nAPPROVED: You are eligible! You will receive a QR Code to present at the venue.");
+        });
 
-        ivStep3.setOnClickListener(v -> showStepDetails("Step 3: Claiming Status",
-                "READY: Present your QR Code at the distribution site.\n\nCLAIMED: You have successfully received your relief pack."));
+        ivStep3.setOnClickListener(v -> {
+            if (status.equalsIgnoreCase("Claimed") && proofUrl != null && !proofUrl.isEmpty()) {
+                // ⭐ Show the Proof Image inside the dialog instead of a popup
+                layoutProof.setVisibility(View.VISIBLE);
+                Glide.with(this).load(proofUrl).into(ivProofImage);
+            } else {
+                layoutProof.setVisibility(View.GONE);
+                showStepDetails("Step 3: Claiming Status",
+                        "READY: Present your QR Code at the distribution site.\n\nCLAIMED: You have successfully received your relief pack.");
+            }
+        });
 
-        // ⭐ MANUAL TRANSLATION (Since this is a DialogFragment, not BaseFragment)
+        // ⭐ MANUAL TRANSLATION
         if (getContext() != null) {
             SharedPreferences prefs = getContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
             boolean isTagalog = prefs.getBoolean("is_tagalog", false);
@@ -102,45 +126,34 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
         int colorGray = Color.parseColor("#E0E0E0"); // Inactive
         int colorOrange = Color.parseColor("#FF9800"); // In Progress
 
-        // 1. Reset everything to Gray first
         iv1.setColorFilter(colorGray);
         iv2.setColorFilter(colorGray);
         iv3.setColorFilter(colorGray);
         l1.setBackgroundColor(colorGray);
         l2.setBackgroundColor(colorGray);
 
-        // Reset Icons
         iv1.setImageResource(R.drawable.ic_check_circle);
         iv2.setImageResource(R.drawable.ic_circle_outline);
         iv3.setImageResource(R.drawable.ic_circle_outline);
 
-        // ---------------------------------------------------------
-        // LOGIC FLOW
-        // ---------------------------------------------------------
-
-        // STEP 1: APPLIED (Always Green because record exists)
         iv1.setColorFilter(colorGreen);
         iv1.setImageResource(R.drawable.ic_check_circle);
 
         if (status.equalsIgnoreCase("Pending")) {
-            // STEP 2: PENDING APPROVAL
-            l1.setBackgroundColor(colorOrange);       // Line turning Orange
-            iv2.setColorFilter(colorOrange);          // Step 2 Orange
-            iv2.setImageResource(R.drawable.ic_sync); // Hourglass/Sync Icon
+            l1.setBackgroundColor(colorOrange);
+            iv2.setColorFilter(colorOrange);
+            iv2.setImageResource(R.drawable.ic_sync);
         }
         else if (status.equalsIgnoreCase("Approved") || status.equalsIgnoreCase("Ready")) {
-            // STEP 2: APPROVED (DONE)
             l1.setBackgroundColor(colorGreen);
             iv2.setColorFilter(colorGreen);
             iv2.setImageResource(R.drawable.ic_check_circle);
 
-            // STEP 3: READY TO CLAIM (WAITING)
-            l2.setBackgroundColor(colorOrange);       // Line turning Orange
-            iv3.setColorFilter(colorOrange);          // Step 3 Orange
-            iv3.setImageResource(R.drawable.ic_circle_outline); // Waiting Circle
+            l2.setBackgroundColor(colorOrange);
+            iv3.setColorFilter(colorOrange);
+            iv3.setImageResource(R.drawable.ic_circle_outline);
         }
         else if (status.equalsIgnoreCase("Claimed")) {
-            // STEP 3: CLAIMED (ALL DONE)
             l1.setBackgroundColor(colorGreen);
             iv2.setColorFilter(colorGreen);
             iv2.setImageResource(R.drawable.ic_check_circle);
@@ -150,7 +163,6 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
             iv3.setImageResource(R.drawable.ic_check_circle);
         }
         else if (status.equalsIgnoreCase("Rejected") || status.equalsIgnoreCase("Declined")) {
-            // SPECIAL CASE: REJECTED
             l1.setBackgroundColor(Color.RED);
             iv2.setColorFilter(Color.RED);
         }
@@ -165,12 +177,10 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
                 .setPositiveButton("Got it", null)
                 .show();
 
-        // ⭐ TRANSLATE THE POP-UP DIALOG CONTENT TOO
         SharedPreferences prefs = getContext().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
         boolean isTagalog = prefs.getBoolean("is_tagalog", false);
 
         if (isTagalog && dialog.getWindow() != null) {
-            // This scans the standard Android dialog layout and translates the Title, Message, and Button
             TranslationHelper.translateViewHierarchy(getContext(), dialog.getWindow().getDecorView());
         }
     }

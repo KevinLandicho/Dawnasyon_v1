@@ -13,7 +13,6 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.storage.storage
-// ⭐ REQUIRED IMPORTS FOR THE FIX
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.coroutines.CoroutineScope
@@ -68,7 +67,7 @@ object SupabaseJavaHelper {
     interface ProfileUpdateCallback { fun onSuccess(); fun onError(message: String) }
     interface TrackingCallback { fun onLoaded(data: DonationTrackingDTO?) }
     interface ApplicationHistoryCallback { fun onLoaded(data: List<ApplicationHistoryDTO>); fun onError(message: String) }
-    interface BrgyInfoCallback { fun onSuccess(info: BrgyInfoDTO); fun onError(message: String) } // ⭐ NEW INTERFACE
+    interface BrgyInfoCallback { fun onSuccess(info: BrgyInfoDTO); fun onError(message: String) }
 
     // ====================================================
     // ⭐ LOGIN FUNCTION
@@ -90,7 +89,7 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ LOGOUT FUNCTION (With Token Cleanup)
+    // ⭐ LOGOUT FUNCTION
     // ====================================================
     @JvmStatic
     fun logoutUser(callback: SimpleCallback) {
@@ -189,7 +188,6 @@ object SupabaseJavaHelper {
             val cacheKey = "cache_profile_${currentUser.id}"
 
             try {
-                // Try cache first
                 val cachedProfile = loadFromCache<Profile>(context, cacheKey, Profile::class.java)
                 if (cachedProfile != null) { runOnUi { callback.onLoaded(cachedProfile) } }
             } catch (e: Exception) { }
@@ -212,7 +210,6 @@ object SupabaseJavaHelper {
         if (context == null) return
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // Try load from cache first
                 val type = object : TypeToken<MutableList<Announcement>>() {}.type
                 val cachedData: MutableList<Announcement>? = loadFromCache(context, "cache_announcements", type)
                 if (cachedData != null && cachedData.isNotEmpty()) { runOnUi { callback.onSuccess(cachedData) } }
@@ -267,7 +264,7 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FETCH APPLICATION HISTORY
+    // ⭐ FETCH APPLICATION HISTORY (Updated with Direct Join)
     // ====================================================
     @JvmStatic
     fun fetchUserApplications(context: Context?, callback: ApplicationHistoryCallback) {
@@ -276,8 +273,10 @@ object SupabaseJavaHelper {
             val currentUser = SupabaseManager.client.auth.currentUserOrNull()
             if (currentUser == null) return@launch
             try {
+                // ⭐ JOIN: We pull relief_drives(name) AND relief_transactions(proof_photo)
+                // This works because of the Foreign Key you added (application_id -> app_id)
                 val result = SupabaseManager.client.from("relief_applications")
-                    .select(columns = Columns.raw("status, created_at, drive_id, relief_drives(name)")) {
+                    .select(columns = Columns.raw("status, created_at, drive_id, relief_drives(name), relief_transactions(proof_photo)")) {
                         filter { eq("user_id", currentUser.id) }
                         order("created_at", order = Order.DESCENDING)
                     }.data
@@ -363,9 +362,6 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ====================================================
-    // ⭐ UPDATED: UPDATE PROFILE WITH JSON OBJECT (Fixes Serialization Error)
-    // ====================================================
     @JvmStatic
     fun updateUserProfile(
         context: Context,
@@ -382,7 +378,6 @@ object SupabaseJavaHelper {
             try {
                 val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
 
-                // 1. Geocode Address to get Coordinates
                 var lat: Double? = null
                 var long: Double? = null
 
@@ -392,17 +387,11 @@ object SupabaseJavaHelper {
                     val addresses = geocoder.getFromLocationName(fullAddress, 1)
 
                     if (addresses != null && addresses.isNotEmpty()) {
-                        val location = addresses[0]
-                        lat = location.latitude
-                        long = location.longitude
-                        Log.d("GeoProfile", "Found coords: $lat, $long")
+                        lat = addresses[0].latitude
+                        long = addresses[0].longitude
                     }
-                } catch (e: Exception) {
-                    Log.e("GeoProfile", "Geocoding failed: ${e.message}")
-                }
+                } catch (e: Exception) { Log.e("GeoProfile", "Geocoding failed") }
 
-                // 2. ⭐ FIX: Use buildJsonObject instead of Map<String, Any>
-                // This avoids the "Serializer for class 'Any' is not found" crash
                 val jsonPayload = buildJsonObject {
                     put("full_name", fullName)
                     put("contact_number", contactNumber)
@@ -418,7 +407,6 @@ object SupabaseJavaHelper {
                     }
                 }
 
-                // 3. Update Database using JSON payload
                 SupabaseManager.client.from("profiles").update(jsonPayload) {
                     filter { eq("id", currentUser.id) }
                 }
@@ -454,7 +442,6 @@ object SupabaseJavaHelper {
     fun checkUserExists(fullName: String, email: String, callback: SimpleCallback) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Check if Email exists in profiles
                 val emailCount = SupabaseManager.client.from("profiles").select {
                     filter { eq("email", email) }
                     count(io.github.jan.supabase.postgrest.query.Count.EXACT)
@@ -465,9 +452,8 @@ object SupabaseJavaHelper {
                     return@launch
                 }
 
-                // 2. Check if Name exists in household_members
                 val memberCount = SupabaseManager.client.from("household_members").select {
-                    filter { ilike("full_name", fullName) } // ilike ignores upper/lowercase differences
+                    filter { ilike("full_name", fullName) }
                     count(io.github.jan.supabase.postgrest.query.Count.EXACT)
                 }.countOrNull() ?: 0
 
@@ -476,7 +462,6 @@ object SupabaseJavaHelper {
                     return@launch
                 }
 
-                // 3. Check if Name exists as a main account owner in profiles
                 val profileNameCount = SupabaseManager.client.from("profiles").select {
                     filter { ilike("full_name", fullName) }
                     count(io.github.jan.supabase.postgrest.query.Count.EXACT)
@@ -487,7 +472,6 @@ object SupabaseJavaHelper {
                     return@launch
                 }
 
-                // If all checks pass, proceed
                 runOnUi { callback.onSuccess() }
             } catch (e: Exception) {
                 runOnUi { callback.onError(e.message ?: "Validation error") }
@@ -508,7 +492,6 @@ object SupabaseJavaHelper {
                         duplicateFound = true; break
                     }
                 }
-                // ⭐ INSTEAD OF ERROR, WE JUST RETURN TRUE/FALSE
                 runOnUi { callback.onResult(duplicateFound) }
             } catch (e: Exception) {
                 runOnUi { callback.onError(e.message ?: "Address validation error") }
@@ -564,9 +547,6 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ====================================================
-    // ⭐ FETCH BARANGAY INFO FOR DIALOG
-    // ====================================================
     @JvmStatic
     fun fetchBrgyInfo(callback: BrgyInfoCallback) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -620,10 +600,23 @@ object SupabaseJavaHelper {
 @Serializable data class NameDTO(val full_name: String)
 @Serializable data class ProfileDTO(val id: String, val email: String, val full_name: String, val contact_number: String, val house_number: String, val street: String, val barangay: String, val city: String, val province: String, val zip_code: String, val face_embedding: String?, val type: String, val avatar_name: String?)
 @Serializable data class DonationTrackingDTO(val donation_id: Long, val donation_status: String?, val donation_date: String?, val inventory_status: String?, val quantity_on_hand: Int?, val date_claimed: String?, val batch_name: String?)
-@Serializable data class ApplicationHistoryDTO(val status: String, val created_at: String, val relief_drives: ReliefDriveNameDTO?)
-@Serializable data class ReliefDriveNameDTO(val name: String)
 
-// ⭐ DTO FOR BARANGAY INFO
+// ⭐ DTO CLASSES FOR APPLICATION HISTORY
+@Serializable
+data class ApplicationHistoryDTO(
+    val status: String,
+    val created_at: String,
+    val relief_drives: ReliefDriveNameDTO?,
+    // Supabase returns joined rows as a List
+    val relief_transactions: List<TransactionProofDTO>? = null
+) {
+    // ⭐ Helper method for Java code to easily get the photo URL
+    fun getProof_photo(): String? = relief_transactions?.firstOrNull()?.proof_photo
+}
+
+@Serializable data class ReliefDriveNameDTO(val name: String)
+@Serializable data class TransactionProofDTO(val proof_photo: String?)
+
 @Serializable
 data class BrgyInfoDTO(
     val office_address: String?,
