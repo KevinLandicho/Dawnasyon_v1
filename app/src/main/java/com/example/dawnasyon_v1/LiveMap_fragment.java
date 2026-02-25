@@ -142,13 +142,13 @@ public class LiveMap_fragment extends BaseFragment {
         map.setMultiTouchControls(true);
 
         GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
-        map.getController().setZoom(16.5);
+        map.getController().setZoom(16.0); // Adjusted zoom to see the whole new polygon
         map.getController().setCenter(startPoint);
 
         drawStaLuciaBorder();
         addMapTapListener();
 
-        // ⭐ FETCH REAL ALERTS (Now updated to catch all disaster types)
+        // ⭐ FETCH REAL ALERTS
         fetchSupabaseAnnouncements();
 
         setupWindTiles();
@@ -316,11 +316,7 @@ public class LiveMap_fragment extends BaseFragment {
 
         int color = Color.GRAY;
         int circleColor = Color.GRAY;
-
-        // ⭐ NEW: Flag to control if the circle should be drawn
         boolean shouldDrawZone = true;
-
-        // ⭐ UPDATED LOGIC TO MATCH DB TYPES
         String typeLower = type.toLowerCase();
 
         if (typeLower.contains("fire")) {
@@ -368,30 +364,137 @@ public class LiveMap_fragment extends BaseFragment {
         map.getOverlays().add(0, circle);
     }
 
-    // --- STANDARD SETUP FUNCTIONS ---
+    // =========================================================================
+    // ⭐ EXACT BORDER COORDINATES FROM YOUR JSON DATA
+    // =========================================================================
     private void drawStaLuciaBorder() {
         List<GeoPoint> borderPoints = new ArrayList<>();
-        borderPoints.add(new GeoPoint(14.7135, 121.0550));
-        borderPoints.add(new GeoPoint(14.7120, 121.0580));
-        borderPoints.add(new GeoPoint(14.7100, 121.0605));
-        borderPoints.add(new GeoPoint(14.7070, 121.0620));
-        borderPoints.add(new GeoPoint(14.7030, 121.0625));
-        borderPoints.add(new GeoPoint(14.6990, 121.0610));
-        borderPoints.add(new GeoPoint(14.6975, 121.0580));
-        borderPoints.add(new GeoPoint(14.6970, 121.0550));
-        borderPoints.add(new GeoPoint(14.6990, 121.0520));
-        borderPoints.add(new GeoPoint(14.7020, 121.0505));
-        borderPoints.add(new GeoPoint(14.7060, 121.0500));
-        borderPoints.add(new GeoPoint(14.7090, 121.0515));
-        borderPoints.add(new GeoPoint(14.7115, 121.0530));
+
+        // Parsed directly from the JSON Polygon coordinates you provided
+        borderPoints.add(new GeoPoint(14.7100798, 121.0460252));
+        borderPoints.add(new GeoPoint(14.7100253, 121.0459659));
+        borderPoints.add(new GeoPoint(14.7099749, 121.0459745));
+        borderPoints.add(new GeoPoint(14.7098262, 121.0459465));
+        borderPoints.add(new GeoPoint(14.7097706, 121.0459681));
+        borderPoints.add(new GeoPoint(14.7096370, 121.0464922));
+        borderPoints.add(new GeoPoint(14.7095276, 121.0466762));
+        borderPoints.add(new GeoPoint(14.7094310, 121.0467645));
+        borderPoints.add(new GeoPoint(14.7093433, 121.0467944));
+        borderPoints.add(new GeoPoint(14.7091885, 121.0467319));
+        borderPoints.add(new GeoPoint(14.7091216, 121.0466418));
+        borderPoints.add(new GeoPoint(14.7090729, 121.0465472));
+        borderPoints.add(new GeoPoint(14.7089880, 121.0465237));
+        borderPoints.add(new GeoPoint(14.7088616, 121.0465728));
+        borderPoints.add(new GeoPoint(14.7087975, 121.0466027));
+        borderPoints.add(new GeoPoint(14.7084147, 121.0467387));
+        borderPoints.add(new GeoPoint(14.7079836, 121.0468267));
+        borderPoints.add(new GeoPoint(14.7074933, 121.0468812));
+        borderPoints.add(new GeoPoint(14.7070541, 121.0471720));
+        borderPoints.add(new GeoPoint(14.7063696, 121.0471759));
+        borderPoints.add(new GeoPoint(14.7061633, 121.0472437));
+        borderPoints.add(new GeoPoint(14.7061441, 121.0472436));
+        borderPoints.add(new GeoPoint(14.7053168, 121.0474573));
+        borderPoints.add(new GeoPoint(14.7050443, 121.0468975));
+        borderPoints.add(new GeoPoint(14.7045940, 121.0455003));
+        borderPoints.add(new GeoPoint(14.7040567, 121.0467778));
+        borderPoints.add(new GeoPoint(14.7033249, 121.0468517));
+        borderPoints.add(new GeoPoint(14.7032275, 121.0475163));
+        borderPoints.add(new GeoPoint(14.7023954, 121.0478970));
+        borderPoints.add(new GeoPoint(14.7022652, 121.0480415));
+        borderPoints.add(new GeoPoint(14.7021705, 121.0484921));
+        borderPoints.add(new GeoPoint(14.7021386, 121.0489154));
+        borderPoints.add(new GeoPoint(14.7021220, 121.0491729));
+        borderPoints.add(new GeoPoint(14.7021884, 121.0493874));
+        borderPoints.add(new GeoPoint(14.7023129, 121.0496878));
+        borderPoints.add(new GeoPoint(14.7023637, 121.0497494));
+        borderPoints.add(new GeoPoint(14.7025537, 121.0499797));
+        borderPoints.add(new GeoPoint(14.7027505, 121.0500954));
+        borderPoints.add(new GeoPoint(14.7029572, 121.0502169));
+        borderPoints.add(new GeoPoint(14.7034527, 121.0508987));
+        borderPoints.add(new GeoPoint(14.7036095, 121.0509168));
+        borderPoints.add(new GeoPoint(14.7038397, 121.0507792));
+        borderPoints.add(new GeoPoint(14.7040487, 121.0510553));
+        borderPoints.add(new GeoPoint(14.7040803, 121.0526141));
+        borderPoints.add(new GeoPoint(14.7041024, 121.0526078));
+        borderPoints.add(new GeoPoint(14.7045010, 121.0529031));
+        borderPoints.add(new GeoPoint(14.7045240, 121.0546220));
+        borderPoints.add(new GeoPoint(14.7045504, 121.0558686));
+        borderPoints.add(new GeoPoint(14.7045937, 121.0571199));
+        borderPoints.add(new GeoPoint(14.7054296, 121.0571029));
+        borderPoints.add(new GeoPoint(14.7058723, 121.0566337));
+        borderPoints.add(new GeoPoint(14.7061468, 121.0563795));
+        borderPoints.add(new GeoPoint(14.7066667, 121.0559899));
+        borderPoints.add(new GeoPoint(14.7069037, 121.0558208));
+        borderPoints.add(new GeoPoint(14.7070507, 121.0557445));
+        borderPoints.add(new GeoPoint(14.7071274, 121.0556805));
+        borderPoints.add(new GeoPoint(14.7072759, 121.0555469));
+        borderPoints.add(new GeoPoint(14.7073983, 121.0554690));
+        borderPoints.add(new GeoPoint(14.7074988, 121.0554247));
+        borderPoints.add(new GeoPoint(14.7075871, 121.0554233));
+        borderPoints.add(new GeoPoint(14.7077537, 121.0554575));
+        borderPoints.add(new GeoPoint(14.7078776, 121.0554126));
+        borderPoints.add(new GeoPoint(14.7079840, 121.0553388));
+        borderPoints.add(new GeoPoint(14.7080800, 121.0552610));
+        borderPoints.add(new GeoPoint(14.7081649, 121.0551989));
+        borderPoints.add(new GeoPoint(14.7082791, 121.0551175));
+        borderPoints.add(new GeoPoint(14.7084132, 121.0549467));
+        borderPoints.add(new GeoPoint(14.7084652, 121.0548694));
+        borderPoints.add(new GeoPoint(14.7085260, 121.0547631));
+        borderPoints.add(new GeoPoint(14.7085573, 121.0546857));
+        borderPoints.add(new GeoPoint(14.7085807, 121.0545717));
+        borderPoints.add(new GeoPoint(14.7085961, 121.0540730));
+        borderPoints.add(new GeoPoint(14.7086014, 121.0537644));
+        borderPoints.add(new GeoPoint(14.7086144, 121.0536182));
+        borderPoints.add(new GeoPoint(14.7086515, 121.0534558));
+        borderPoints.add(new GeoPoint(14.7086689, 121.0533687));
+        borderPoints.add(new GeoPoint(14.7087281, 121.0532613));
+        borderPoints.add(new GeoPoint(14.7088245, 121.0531113));
+        borderPoints.add(new GeoPoint(14.7089032, 121.0529276));
+        borderPoints.add(new GeoPoint(14.7089945, 121.0525775));
+        borderPoints.add(new GeoPoint(14.7089998, 121.0523764));
+        borderPoints.add(new GeoPoint(14.7091065, 121.0522702));
+        borderPoints.add(new GeoPoint(14.7093546, 121.0522217));
+        borderPoints.add(new GeoPoint(14.7095521, 121.0521196));
+        borderPoints.add(new GeoPoint(14.7095925, 121.0520531));
+        borderPoints.add(new GeoPoint(14.7095800, 121.0519725));
+        borderPoints.add(new GeoPoint(14.7095020, 121.0518074));
+        borderPoints.add(new GeoPoint(14.7094322, 121.0517011));
+        borderPoints.add(new GeoPoint(14.7095386, 121.0514618));
+        borderPoints.add(new GeoPoint(14.7097725, 121.0511934));
+        borderPoints.add(new GeoPoint(14.7100520, 121.0510239));
+        borderPoints.add(new GeoPoint(14.7103830, 121.0508377));
+        borderPoints.add(new GeoPoint(14.7104971, 121.0506484));
+        borderPoints.add(new GeoPoint(14.7104382, 121.0501809));
+        borderPoints.add(new GeoPoint(14.7103452, 121.0497111));
+        borderPoints.add(new GeoPoint(14.7104269, 121.0493054));
+        borderPoints.add(new GeoPoint(14.7103735, 121.0491101));
+        borderPoints.add(new GeoPoint(14.7103636, 121.0490738));
+        borderPoints.add(new GeoPoint(14.7101643, 121.0487580));
+        borderPoints.add(new GeoPoint(14.7099462, 121.0485135));
+        borderPoints.add(new GeoPoint(14.7098081, 121.0483451));
+        borderPoints.add(new GeoPoint(14.7097397, 121.0481756));
+        borderPoints.add(new GeoPoint(14.7097442, 121.0480841));
+        borderPoints.add(new GeoPoint(14.7098479, 121.0478966));
+        borderPoints.add(new GeoPoint(14.7099683, 121.0476511));
+        borderPoints.add(new GeoPoint(14.7100075, 121.0475299));
+        borderPoints.add(new GeoPoint(14.7099971, 121.0473701));
+        borderPoints.add(new GeoPoint(14.7099751, 121.0471017));
+        borderPoints.add(new GeoPoint(14.7099718, 121.0467400));
+        borderPoints.add(new GeoPoint(14.7099967, 121.0463109));
+        borderPoints.add(new GeoPoint(14.7100018, 121.0461331));
+        borderPoints.add(new GeoPoint(14.7100518, 121.0460581));
+        borderPoints.add(new GeoPoint(14.7100798, 121.0460252));
 
         Polygon polygon = new Polygon();
         polygon.setPoints(borderPoints);
-        polygon.setFillColor(Color.argb(30, 255, 140, 0));
-        polygon.setStrokeColor(Color.RED);
-        polygon.setStrokeWidth(4.0f);
+
+        // ⭐ Restored the "Cyberpunk/High-Tech" Cyan Look you prefer
+        polygon.setFillColor(Color.argb(35, 0, 255, 255)); // Transparent Cyan Glow
+        polygon.setStrokeColor(Color.CYAN);                // Cyan Border
+        polygon.setStrokeWidth(5.0f);
         polygon.setTitle("Brgy. Sta. Lucia Boundary");
-        map.getOverlays().add(polygon);
+
+        map.getOverlays().add(0, polygon);
         map.invalidate();
     }
 
