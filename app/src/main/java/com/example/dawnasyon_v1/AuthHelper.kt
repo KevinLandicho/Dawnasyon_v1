@@ -122,7 +122,8 @@ object AuthHelper {
                     id_image_url = uploadedIdUrl,
                     qr_code_url = qrCodeUrl,
                     face_embedding = if (faceData.isNotEmpty()) faceData else null,
-                    type = userType
+                    type = userType,
+                    notes = RegistrationCache.notes // ⭐ ADDED THIS LINE TO PUSH NOTES TO DB
                 )
 
                 client.from("profiles").insert(profile)

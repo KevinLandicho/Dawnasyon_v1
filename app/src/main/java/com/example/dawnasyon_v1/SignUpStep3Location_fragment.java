@@ -2,6 +2,7 @@ package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -22,6 +23,10 @@ public class SignUpStep3Location_fragment extends BaseFragment {
     private EditText etHouseNo, etZip;
     private AutoCompleteTextView dropdownProv, dropdownCity, dropdownBrgy, dropdownStreet;
     private Button btnSubmit, btnPrevious;
+
+    // ⭐ Variables to hold data passed from the Cache
+    private String extractedAddress = "";
+    private String existingNotes = "";
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -46,6 +51,13 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
         btnSubmit = view.findViewById(R.id.btn_submit);
         btnPrevious = view.findViewById(R.id.btn_previous);
+
+        // ⭐ FETCH DATA DIRECTLY FROM CACHE, NOT ARGUMENTS
+        extractedAddress = RegistrationCache.extractedAddress != null ? RegistrationCache.extractedAddress : "";
+        existingNotes = RegistrationCache.nameMismatchNotes != null ? RegistrationCache.nameMismatchNotes : "";
+
+        // Log to prove the cache has the address
+        Log.d("SignUpMismatch", "Cache Extracted Address: [" + extractedAddress + "]");
 
         // 1. Load Data
         PhLocationHelper.loadData(requireContext());
@@ -72,6 +84,48 @@ public class SignUpStep3Location_fragment extends BaseFragment {
                 Toast.makeText(getContext(), "Please fill in all address fields", Toast.LENGTH_SHORT).show();
                 return;
             }
+
+            // ⭐ 3. ADDRESS MISMATCH LOGIC
+            // Combine all the address components the user typed to match the ID format
+            String typedAddress = house + " " + street + " " + brgy + " " + city;
+
+            // Start fresh with ONLY the name mismatch notes from Step 1
+            String currentNotes = existingNotes;
+
+            // If we successfully extracted an address from the ID, compare it!
+            if (!extractedAddress.isEmpty()) {
+                // Normalize by converting to uppercase and changing Ñ to N for fairer comparison
+                String normalizedScanned = extractedAddress.toUpperCase().replace("Ñ", "N");
+                String normalizedTypedStreet = street.toUpperCase().replace("Ñ", "N");
+                String normalizedTypedHouse = house.toUpperCase();
+                String normalizedTypedBrgy = brgy.toUpperCase();
+                String normalizedTypedCity = city.toUpperCase();
+
+                // Check if the extracted address contains ALL the key parts the user typed
+                boolean hasMismatch = false;
+
+                if (!normalizedScanned.contains(normalizedTypedHouse)) {
+                    hasMismatch = true;
+                }
+                if (!normalizedScanned.contains(normalizedTypedStreet)) {
+                    hasMismatch = true;
+                }
+                if (!normalizedScanned.contains(normalizedTypedBrgy)) {
+                    hasMismatch = true;
+                }
+                if (!normalizedScanned.contains(normalizedTypedCity)) {
+                    hasMismatch = true;
+                }
+
+                if (hasMismatch) {
+                    String addressMismatch = "⚠️ ADDRESS MISMATCH: User typed [" + typedAddress + "], but ID showed [" + extractedAddress + "].\n";
+                    Log.w("SignUpMismatch", addressMismatch); // ⭐ Print warning to Logcat
+                    currentNotes += addressMismatch; // Append to notes
+                }
+            }
+
+            // Save all gathered notes back to the Cache to be uploaded to Supabase
+            RegistrationCache.notes = currentNotes;
 
             // ⭐ TRANSLATE LOADING STATE
             String verifyingText = "Verifying Address...";

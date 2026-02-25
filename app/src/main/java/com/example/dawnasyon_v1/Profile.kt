@@ -36,5 +36,8 @@ data class Profile(
     val priority_score: Int? = 0,
     val risk_zone: String? = null,
     val account_status: String? = "Pending",
-    val rejection_reason: String? = null
+    val rejection_reason: String? = null,
+
+    // ⭐ ADDED NOTES FIELD HERE TO SAVE ID MISMATCH WARNINGS
+    val notes: String? = null
 )

@@ -2,6 +2,7 @@ package com.example.dawnasyon_v1;
 
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log; // ⭐ ADDED IMPORT FOR LOGCAT
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,6 +24,11 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
     private ImageView ivIdPreview;
 
     private Uri finalIdUri;
+
+    // ⭐ Variables to hold original scanned data
+    private String originalFName = "";
+    private String originalLName = "";
+    private String extractedAddress = "";
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
@@ -49,12 +55,14 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         }
 
         if (getArguments() != null) {
-            String fName = getArguments().getString("FNAME", "");
-            String lName = getArguments().getString("LNAME", "");
+            // ⭐ Get Scanned Data from Bundle
+            originalFName = getArguments().getString("FNAME", "");
+            originalLName = getArguments().getString("LNAME", "");
             String mName = getArguments().getString("MNAME", "");
+            extractedAddress = getArguments().getString("EXTRACTED_ADDRESS", "");
 
-            if (!fName.isEmpty()) etFirstName.setText(fName);
-            if (!lName.isEmpty()) etLastName.setText(lName);
+            if (!originalFName.isEmpty()) etFirstName.setText(originalFName);
+            if (!originalLName.isEmpty()) etLastName.setText(originalLName);
 
             if (!mName.isEmpty()) {
                 etMiddleName.setText(mName);
@@ -124,7 +132,8 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 public void onSuccess() {
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-                        proceedToNextStep(fullName, contact, email);
+                        // ⭐ Pass the individually typed names for mismatch comparison
+                        proceedToNextStep(fullName, contact, email, fName, lName);
                     }
                 }
 
@@ -145,7 +154,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         applyTagalogTranslation(view);
     }
 
-    private void proceedToNextStep(String fullName, String contact, String email) {
+    private void proceedToNextStep(String fullName, String contact, String email, String typedFName, String typedLName) {
         RegistrationCache.tempFullName = fullName;
         RegistrationCache.tempContact = contact;
         RegistrationCache.tempEmail = email;
@@ -154,6 +163,36 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             RegistrationCache.tempIdImageUri = finalIdUri.toString();
         }
 
+        // ⭐ Generate Name Mismatch Note with smarter validation
+        String nameMismatchNote = "";
+        if (!originalFName.isEmpty() && !originalLName.isEmpty()) {
+
+            // Normalize names (uppercase and remove extra spaces) for fairer comparison
+            String normTypedFName = typedFName.toUpperCase().replaceAll("\\s+", " ");
+            String normTypedLName = typedLName.toUpperCase().replaceAll("\\s+", " ");
+            String normScannedFName = originalFName.toUpperCase().replaceAll("\\s+", " ");
+            String normScannedLName = originalLName.toUpperCase().replaceAll("\\s+", " ");
+
+            boolean hasMismatch = false;
+
+            // Check if what they typed is significantly different from what was scanned
+            if (!normScannedFName.contains(normTypedFName) && !normTypedFName.contains(normScannedFName)) {
+                hasMismatch = true;
+            }
+            if (!normScannedLName.contains(normTypedLName) && !normTypedLName.contains(normScannedLName)) {
+                hasMismatch = true;
+            }
+
+            if (hasMismatch) {
+                nameMismatchNote = "⚠️ NAME MISMATCH: User typed [" + typedFName + " " + typedLName + "], but ID showed [" + originalFName + " " + originalLName + "].\n";
+                // ⭐ LOGCAT PRINT FOR TESTING
+                Log.w("SignUpMismatch", nameMismatchNote);
+            }
+        }
+
+        // ⭐ CRITICAL FIX: Save the note directly to the Cache so Step 3 can grab it!
+        RegistrationCache.nameMismatchNotes = nameMismatchNote;
+
         Fragment nextFragment;
         if ("Overseas".equals(RegistrationCache.userType)) {
             nextFragment = new SignUpStepAccount_fragment();
@@ -161,6 +200,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             nextFragment = new SignUpStep2Household_fragment();
         }
 
+        // Proceed to next fragment
         getParentFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container_signup, nextFragment)
                 .addToBackStack(null)

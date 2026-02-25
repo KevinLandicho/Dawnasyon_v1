@@ -62,130 +62,48 @@
                     android:fontFamily="@font/dongle"
                     android:text="@string/valid_id"
                     android:textColor="@color/black"
-                    android:textSize="32sp"
+                    android:textSize="38sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
 
-                <TextView
-                    android:id="@+id/lbl_fast_approval"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/banner_qc_id"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
+                    android:backgroundTint="#FFF3E0"
                     android:background="@drawable/bg_badge_light"
-                    android:fontFamily="@font/dongle"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="8dp"
-                    android:text="Fast Approval (Recommended)"
-                    android:textColor="#27869B"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/tv_title" />
-                <LinearLayout
-                    android:id="@+id/row_fast_1"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_fast_approval">
+                    android:orientation="vertical"
+                    android:padding="16dp"
+                    app:layout_constraintTop_toBottomOf="@id/tv_title">
 
-                    <Button
-                        android:id="@+id/btn_national_id"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="55dp"
-                        android:layout_marginEnd="6dp"
-                        android:layout_weight="1"
-                        android:backgroundTint="#E0E0E0"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:fontFamily="@font/dongle"
-                        android:text="National ID"
-                        android:textColor="@color/black"
-                        android:textSize="18sp"
-                        app:cornerRadius="8dp"
-                        app:strokeColor="#CCCCCC" />
+                        android:text="Accepted ID Type"
+                        android:textColor="#F5901A"
+                        android:textSize="20sp"
+                        android:textStyle="bold" />
 
-                    <Button
-                        android:id="@+id/btn_qc_id"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="55dp"
-                        android:layout_marginStart="6dp"
-                        android:layout_weight="1"
-                        android:backgroundTint="#E0E0E0"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
                         android:fontFamily="@font/dongle"
-                        android:text="Quezon City ID"
-                        android:textColor="@color/black"
-                        android:textSize="18sp"
-                        app:cornerRadius="8dp"
-                        app:strokeColor="#CCCCCC" />
-                </LinearLayout>
+                        android:text="Quezon City ID (QCitizen Card)"
+                        android:textColor="#27869B"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
 
-                <Button
-                    android:id="@+id/btn_brgy_id"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="55dp"
-                    android:layout_marginTop="8dp"
-                    android:backgroundTint="#E0E0E0"
-                    android:fontFamily="@font/dongle"
-                    android:text="Barangay ID"
-                    android:textColor="@color/black"
-                    android:textSize="18sp"
-                    app:cornerRadius="8dp"
-                    app:strokeColor="#CCCCCC"
-                    app:layout_constraintTop_toBottomOf="@id/row_fast_1"/>
-
-                <TextView
-                    android:id="@+id/lbl_standard"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:fontFamily="@font/dongle"
-                    android:text="Other Valid IDs"
-                    android:textColor="#444444"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/btn_brgy_id" />
-
-                <LinearLayout
-                    android:id="@+id/row_standard"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:orientation="horizontal"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_standard">
-
-                    <Button
-                        android:id="@+id/btn_passport"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="55dp"
-                        android:layout_marginEnd="6dp"
-                        android:layout_weight="1"
-                        android:backgroundTint="#E0E0E0"
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
                         android:fontFamily="@font/dongle"
-                        android:text="Passport"
-                        android:textColor="@color/black"
-                        android:textSize="18sp"
-                        app:cornerRadius="8dp"
-                        app:strokeColor="#CCCCCC" />
-
-                    <Button
-                        android:id="@+id/btn_license"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="55dp"
-                        android:layout_marginStart="6dp"
-                        android:layout_weight="1"
-                        android:backgroundTint="#E0E0E0"
-                        android:fontFamily="@font/dongle"
-                        android:text="Driver's License"
-                        android:textColor="@color/black"
-                        android:textSize="18sp"
-                        app:cornerRadius="8dp"
-                        app:strokeColor="#CCCCCC" />
+                        android:text="As per barangay policy, only the QCitizen Card is accepted for application."
+                        android:textColor="#555555"
+                        android:textSize="20sp" />
                 </LinearLayout>
 
                 <TextView
@@ -199,7 +117,7 @@
                     android:textSize="32sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/row_standard" />
+                    app:layout_constraintTop_toBottomOf="@id/banner_qc_id" />
 
                 <TextView
                     android:id="@+id/tv_scan_subtitle"
@@ -207,7 +125,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:fontFamily="@font/dongle"
-                    android:text="@string/take_a_clear_photo_of_your_selected_id"
+                    android:text="Take a clear photo of the front of your QCitizen Card."
                     android:textColor="#444444"
                     android:textSize="20sp"
                     app:layout_constraintStart_toStartOf="parent"

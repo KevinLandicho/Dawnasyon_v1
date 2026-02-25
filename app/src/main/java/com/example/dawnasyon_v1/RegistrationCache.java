@@ -21,6 +21,11 @@ public class RegistrationCache {
     public static String userType = "Resident";
     public static String tempIdImageUri = "";
 
+    // ⭐ ADDED: To store Name and Address mismatch warnings
+    public static String notes = "";
+    public static String extractedAddress = "";
+    public static String nameMismatchNotes = "";
+
     // Household Members List
     public static List<HouseholdMember> tempHouseholdList = new ArrayList<>();
 
@@ -36,6 +41,7 @@ public class RegistrationCache {
         tempProvince = "";
         tempZip = "";
         tempIdImageUri = "";
+        notes = ""; // ⭐ Reset notes
         tempHouseholdList.clear();
     }
 }
