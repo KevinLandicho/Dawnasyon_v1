@@ -1,6 +1,7 @@
 package com.example.dawnasyon_v1;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -18,8 +19,13 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
+import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -35,8 +41,10 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import org.osmdroid.config.Configuration;
@@ -54,7 +62,9 @@ import org.osmdroid.views.overlay.TilesOverlay;
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider;
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -92,6 +102,22 @@ public class LiveMap_fragment extends BaseFragment {
     // BRGY STA. LUCIA COORDINATES
     private static final double STA_LUCIA_LAT = 14.7046;
     private static final double STA_LUCIA_LON = 121.0560;
+
+    // ⭐ IMAGE UPLOAD VARIABLES
+    private Uri selectedImageUri = null;
+    private TextView tvImageStatus;
+
+    // IMAGE PICKER LAUNCHER
+    private final ActivityResultLauncher<String> imagePickerLauncher =
+            registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+                if (uri != null) {
+                    selectedImageUri = uri;
+                    if (tvImageStatus != null) {
+                        tvImageStatus.setText("Image Selected ✓");
+                        tvImageStatus.setTextColor(Color.parseColor("#2E7D32")); // Green success
+                    }
+                }
+            });
 
     private final ActivityResultLauncher<String[]> locationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -142,13 +168,16 @@ public class LiveMap_fragment extends BaseFragment {
         map.setMultiTouchControls(true);
 
         GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
-        map.getController().setZoom(16.0); // Adjusted zoom to see the whole new polygon
+        map.getController().setZoom(16.0);
         map.getController().setCenter(startPoint);
 
         drawStaLuciaBorder();
         addMapTapListener();
 
-        // ⭐ FETCH REAL ALERTS
+        // Let user know they can long press to report
+        Toast.makeText(getContext(), "Tip: Long-press anywhere on the map to Report an Emergency.", Toast.LENGTH_LONG).show();
+
+        // ⭐ FETCH REAL ALERTS (Approved only)
         fetchSupabaseAnnouncements();
 
         setupWindTiles();
@@ -202,8 +231,7 @@ public class LiveMap_fragment extends BaseFragment {
     }
 
     private void fetchSupabaseAnnouncements() {
-        // We select * to ensure we get latitude and longitude columns
-        String url = SUPABASE_URL + "/rest/v1/announcements?select=*&status=eq.Pending";
+        String url = SUPABASE_URL + "/rest/v1/announcements?select=*&status=eq.Approved";
 
         Request request = new Request.Builder()
                 .url(url)
@@ -223,7 +251,6 @@ public class LiveMap_fragment extends BaseFragment {
                         String type = item.optString("type", "General");
                         String typeLower = type.toLowerCase();
 
-                        // ⭐ FIX: Use .contains() instead of .equals() to catch "Typhoon/Flood Disaster"
                         if (typeLower.contains("fire") ||
                                 typeLower.contains("flood") ||
                                 typeLower.contains("typhoon") ||
@@ -234,12 +261,10 @@ public class LiveMap_fragment extends BaseFragment {
                             String affected = item.optString("affected_street", "");
                             String location = item.optString("location", "");
 
-                            // ⭐ 1. CHECK FOR DIRECT LATITUDE/LONGITUDE FIRST
                             double lat = item.optDouble("latitude", 0.0);
                             double lon = item.optDouble("longitude", 0.0);
 
                             if (lat != 0.0 && lon != 0.0) {
-                                // If coordinates exist in DB, use them directly! (Precise & Fast)
                                 GeoPoint point = new GeoPoint(lat, lon);
                                 String finalAffected = affected.isEmpty() ? location : affected;
                                 new Handler(Looper.getMainLooper()).post(() ->
@@ -247,7 +272,6 @@ public class LiveMap_fragment extends BaseFragment {
                                 );
                             }
                             else {
-                                // ⭐ 2. FALLBACK: USE GEOCODER IF COORDINATES ARE MISSING
                                 String targetLocation = "";
                                 if (!affected.isEmpty() && !affected.equalsIgnoreCase("null") && !affected.equalsIgnoreCase("N/A")) {
                                     targetLocation = affected;
@@ -261,14 +285,11 @@ public class LiveMap_fragment extends BaseFragment {
 
                                 try {
                                     List<Address> addresses = null;
-
-                                    // Try Specific Search
                                     try {
                                         String query1 = targetLocation + ", Sta. Lucia, Quezon City, Philippines";
                                         addresses = geocoder.getFromLocationName(query1, 1);
                                     } catch (Exception e) {}
 
-                                    // Try Broader Search
                                     if (addresses == null || addresses.isEmpty()) {
                                         try {
                                             String query2 = targetLocation + ", Quezon City, Philippines";
@@ -278,8 +299,6 @@ public class LiveMap_fragment extends BaseFragment {
 
                                     if (addresses != null && !addresses.isEmpty()) {
                                         Address addr = addresses.get(0);
-
-                                        // Safety Check to ensure it's nearby
                                         if ((addr.getLocality() != null && addr.getLocality().contains("Quezon")) ||
                                                 (addr.getAddressLine(0) != null && addr.getAddressLine(0).contains("Quezon")) ||
                                                 (addr.getLatitude() > 14.0 && addr.getLatitude() < 15.0)) {
@@ -307,6 +326,9 @@ public class LiveMap_fragment extends BaseFragment {
         marker.setTitle("⚠️ " + type.toUpperCase() + ": " + title);
 
         String snippet = "Affected: " + (affected == null || affected.isEmpty() ? "See Map" : affected);
+        if (body != null && !body.isEmpty()) {
+            snippet += "\nDetails: " + body;
+        }
         marker.setSnippet(snippet);
 
         GradientDrawable iconBox = new GradientDrawable();
@@ -322,7 +344,7 @@ public class LiveMap_fragment extends BaseFragment {
         if (typeLower.contains("fire")) {
             color = Color.RED;
             circleColor = Color.argb(60, 255, 0, 0);
-            shouldDrawZone = false; // 🚫 REMOVE ZONE IF IT IS A FIRE
+            shouldDrawZone = false;
         } else if (typeLower.contains("flood") || typeLower.contains("typhoon")) {
             color = Color.BLUE;
             circleColor = Color.argb(60, 0, 0, 255);
@@ -335,7 +357,6 @@ public class LiveMap_fragment extends BaseFragment {
         marker.setIcon(iconBox);
         map.getOverlays().add(marker);
 
-        // ⭐ ONLY DRAW CIRCLE IF NOT FIRE
         if (shouldDrawZone) {
             drawGroundZeroCircle(point, circleColor);
         }
@@ -345,7 +366,7 @@ public class LiveMap_fragment extends BaseFragment {
 
     private void drawGroundZeroCircle(GeoPoint center, int fillColor) {
         List<GeoPoint> circlePoints = new ArrayList<>();
-        double radius = 0.0005; // ~50 meters
+        double radius = 0.0005;
 
         for (int i = 0; i < 360; i += 10) {
             double angle = Math.toRadians(i);
@@ -370,7 +391,6 @@ public class LiveMap_fragment extends BaseFragment {
     private void drawStaLuciaBorder() {
         List<GeoPoint> borderPoints = new ArrayList<>();
 
-        // Parsed directly from the JSON Polygon coordinates you provided
         borderPoints.add(new GeoPoint(14.7100798, 121.0460252));
         borderPoints.add(new GeoPoint(14.7100253, 121.0459659));
         borderPoints.add(new GeoPoint(14.7099749, 121.0459745));
@@ -488,9 +508,8 @@ public class LiveMap_fragment extends BaseFragment {
         Polygon polygon = new Polygon();
         polygon.setPoints(borderPoints);
 
-        // ⭐ Restored the "Cyberpunk/High-Tech" Cyan Look you prefer
-        polygon.setFillColor(Color.argb(35, 0, 255, 255)); // Transparent Cyan Glow
-        polygon.setStrokeColor(Color.CYAN);                // Cyan Border
+        polygon.setFillColor(Color.argb(35, 0, 255, 255));
+        polygon.setStrokeColor(Color.CYAN);
         polygon.setStrokeWidth(5.0f);
         polygon.setTitle("Brgy. Sta. Lucia Boundary");
 
@@ -505,11 +524,167 @@ public class LiveMap_fragment extends BaseFragment {
                 addSelectedLocationMarker(p);
                 return true;
             }
+
             @Override
-            public boolean longPressHelper(GeoPoint p) { return false; }
+            public boolean longPressHelper(GeoPoint p) {
+                showReportEmergencyDialog(p);
+                return true;
+            }
         };
         map.getOverlays().add(new MapEventsOverlay(receiver));
     }
+
+    // =========================================================================
+    // ⭐ NEW FEATURE: PIN & REPORT EMERGENCY LOGIC WITH IMAGE UPLOAD
+    // =========================================================================
+    private void showReportEmergencyDialog(GeoPoint p) {
+        Context context = getContext();
+        if (context == null) return;
+
+        // Reset variables for new report
+        selectedImageUri = null;
+
+        LinearLayout layout = new LinearLayout(context);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setPadding(60, 40, 60, 20);
+
+        String[] emergencyTypes = {"Fire", "Flood", "Earthquake"};
+        Spinner spinner = new Spinner(context);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, emergencyTypes);
+        spinner.setAdapter(adapter);
+        layout.addView(spinner);
+
+        EditText inputDetails = new EditText(context);
+        inputDetails.setHint("Add extra details (optional)");
+        inputDetails.setPadding(20, 40, 20, 40);
+        layout.addView(inputDetails);
+
+        // Image Selection Button
+        Button btnSelectImage = new Button(context);
+        btnSelectImage.setText("Attach Proof Photo");
+        btnSelectImage.setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
+        layout.addView(btnSelectImage);
+
+        // Image Status Text
+        tvImageStatus = new TextView(context);
+        tvImageStatus.setText("No image attached");
+        tvImageStatus.setPadding(0, 10, 0, 20);
+        layout.addView(tvImageStatus);
+
+        new AlertDialog.Builder(context)
+                .setTitle("Report Emergency Here?")
+                .setMessage("Are you sure you want to drop an emergency pin at this location?")
+                .setView(layout)
+                .setPositiveButton("Report Alert", (dialog, which) -> {
+                    String selectedType = spinner.getSelectedItem().toString() + " Alert";
+                    String details = inputDetails.getText().toString().trim();
+                    submitEmergencyReport(context, p, selectedType, details);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    // Helper to read bytes for uploading
+    private byte[] getBytes(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
+        int bufferSize = 1024;
+        byte[] buffer = new byte[bufferSize];
+        int len;
+        while ((len = inputStream.read(buffer)) != -1) {
+            byteBuffer.write(buffer, 0, len);
+        }
+        return byteBuffer.toByteArray();
+    }
+
+    private void submitEmergencyReport(Context safeContext, GeoPoint p, String type, String details) {
+        Toast.makeText(safeContext, "Uploading report...", Toast.LENGTH_SHORT).show();
+
+        new Thread(() -> {
+            try {
+                // 1. Upload image if one was selected
+                String uploadedImageUrl = null;
+                if (selectedImageUri != null) {
+                    try {
+                        InputStream is = safeContext.getContentResolver().openInputStream(selectedImageUri);
+                        if (is != null) {
+                            byte[] bytes = getBytes(is);
+                            String filename = "report_" + System.currentTimeMillis() + ".jpg";
+
+                            RequestBody imgBody = RequestBody.create(bytes, MediaType.parse("image/jpeg"));
+                            Request imgRequest = new Request.Builder()
+                                    // Make sure you have a bucket named "reports" set to Public in Supabase!
+                                    .url(SUPABASE_URL + "/storage/v1/object/reports/" + filename)
+                                    .addHeader("apikey", SUPABASE_KEY)
+                                    .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                                    .post(imgBody)
+                                    .build();
+
+                            try (Response imgResponse = client.newCall(imgRequest).execute()) {
+                                if (imgResponse.isSuccessful()) {
+                                    uploadedImageUrl = SUPABASE_URL + "/storage/v1/object/public/reports/" + filename;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        Log.e("UploadError", "Image upload failed: " + e.getMessage());
+                    }
+                }
+
+                // 2. Reverse Geocode for street name
+                String affectedStreet = "Pinned Location";
+                try {
+                    Geocoder geocoder = new Geocoder(safeContext, Locale.getDefault());
+                    List<Address> addresses = geocoder.getFromLocation(p.getLatitude(), p.getLongitude(), 1);
+                    if (addresses != null && !addresses.isEmpty()) {
+                        affectedStreet = addresses.get(0).getAddressLine(0);
+                    }
+                } catch (Exception ignored) {}
+
+                // 3. Build the JSON Payload for Database
+                JSONObject json = new JSONObject();
+                json.put("type", type);
+                json.put("title", "Citizen Report");
+                json.put("body", details);
+                json.put("latitude", p.getLatitude());
+                json.put("longitude", p.getLongitude());
+                json.put("affected_street", affectedStreet);
+                json.put("status", "Pending");
+
+                if (uploadedImageUrl != null) {
+                    json.put("image_url", uploadedImageUrl);
+                }
+
+                RequestBody body = RequestBody.create(
+                        json.toString(), MediaType.parse("application/json; charset=utf-8"));
+
+                Request request = new Request.Builder()
+                        .url(SUPABASE_URL + "/rest/v1/announcements")
+                        .addHeader("apikey", SUPABASE_KEY)
+                        .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                        .addHeader("Prefer", "return=minimal")
+                        .post(body)
+                        .build();
+
+                // 4. Send Database Request
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        new Handler(Looper.getMainLooper()).post(() -> {
+                            Toast.makeText(safeContext, "Emergency reported! Waiting for Admin approval.", Toast.LENGTH_LONG).show();
+                        });
+                    } else {
+                        new Handler(Looper.getMainLooper()).post(() ->
+                                Toast.makeText(safeContext, "Failed to report. Status: " + response.code(), Toast.LENGTH_SHORT).show()
+                        );
+                    }
+                }
+            } catch (Exception e) {
+                new Handler(Looper.getMainLooper()).post(() ->
+                        Toast.makeText(safeContext, "Network Error: " + e.getMessage(), Toast.LENGTH_SHORT).show()
+                );
+            }
+        }).start();
+    }
+    // =========================================================================
 
     private void addSelectedLocationMarker(GeoPoint p) {
         if (selectedLocationMarker != null) map.getOverlays().remove(selectedLocationMarker);
