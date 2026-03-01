@@ -8,6 +8,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -28,6 +29,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 public class SignUpStep0IDscan_fragment extends BaseFragment {
 
     private Button btnScanStart, btnUploadId;
+    private TextView tvHowToQcid; // ⭐ NEW
 
     // Variables to hold extracted data
     private Uri capturedImageUri = null;
@@ -83,9 +85,18 @@ public class SignUpStep0IDscan_fragment extends BaseFragment {
 
         btnScanStart = view.findViewById(R.id.btn_scan_start);
         btnUploadId = view.findViewById(R.id.btn_upload_id);
+        tvHowToQcid = view.findViewById(R.id.tv_how_to_qcid); // ⭐ NEW
 
         btnScanStart.setOnClickListener(v -> startDocumentScan());
         btnUploadId.setOnClickListener(v -> galleryLauncher.launch("image/*"));
+
+        // ⭐ NEW: Click listener for QCID Link
+        tvHowToQcid.setOnClickListener(v -> {
+            String url = "https://quezoncity.gov.ph/qcitizen-guides/how-to-apply-for-qcitizen-id-for-residents/";
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setData(Uri.parse(url));
+            startActivity(i);
+        });
 
         // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);

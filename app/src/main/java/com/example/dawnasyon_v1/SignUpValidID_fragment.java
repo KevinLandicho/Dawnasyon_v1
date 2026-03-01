@@ -2,12 +2,14 @@ package com.example.dawnasyon_v1;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -31,6 +33,7 @@ import java.util.regex.Pattern;
 public class SignUpValidID_fragment extends BaseFragment {
 
     private Button btnStartScan, btnPrevious;
+    private TextView tvHowToQcid; // ⭐ NEW
 
     // Hardcoded to QC ID as per client request
     private final String selectedIdType = "QC_ID";
@@ -92,9 +95,18 @@ public class SignUpValidID_fragment extends BaseFragment {
 
         btnStartScan = view.findViewById(R.id.btn_start_scan);
         btnPrevious = view.findViewById(R.id.btn_previous);
+        tvHowToQcid = view.findViewById(R.id.tv_how_to_qcid); // ⭐ NEW
 
         btnStartScan.setOnClickListener(v -> showScanOptionsDialog());
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // ⭐ NEW: Click listener for QCID Link
+        tvHowToQcid.setOnClickListener(v -> {
+            String url = "https://quezoncity.gov.ph/qcitizen-guides/how-to-apply-for-a-qcitizen-id/";
+            Intent i = new Intent(Intent.ACTION_VIEW);
+            i.setData(Uri.parse(url));
+            startActivity(i);
+        });
 
         // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
