@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.location.Address;
@@ -16,6 +17,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -113,7 +115,7 @@ public class LiveMap_fragment extends BaseFragment {
                 if (uri != null) {
                     selectedImageUri = uri;
                     if (tvImageStatus != null) {
-                        tvImageStatus.setText("Image Selected ✓");
+                        tvImageStatus.setText("📸 Image Selected ✓");
                         tvImageStatus.setTextColor(Color.parseColor("#2E7D32")); // Green success
                     }
                 }
@@ -174,8 +176,8 @@ public class LiveMap_fragment extends BaseFragment {
         drawStaLuciaBorder();
         addMapTapListener();
 
-        // Let user know they can long press to report
-        Toast.makeText(getContext(), "Tip: Long-press anywhere on the map to Report an Emergency.", Toast.LENGTH_LONG).show();
+        // Updated instructions for the new tap-to-pin interaction
+        Toast.makeText(getContext(), "Tip: Tap anywhere to drop a pin, then tap the pin again to Report an Emergency.", Toast.LENGTH_LONG).show();
 
         // ⭐ FETCH REAL ALERTS (Approved only)
         fetchSupabaseAnnouncements();
@@ -521,21 +523,56 @@ public class LiveMap_fragment extends BaseFragment {
         MapEventsReceiver receiver = new MapEventsReceiver() {
             @Override
             public boolean singleTapConfirmedHelper(GeoPoint p) {
+                // Pin the location on a single tap
                 addSelectedLocationMarker(p);
                 return true;
             }
 
             @Override
             public boolean longPressHelper(GeoPoint p) {
-                showReportEmergencyDialog(p);
-                return true;
+                // Disabled long press based on user request
+                return false;
             }
         };
         map.getOverlays().add(new MapEventsOverlay(receiver));
     }
 
     // =========================================================================
-    // ⭐ NEW FEATURE: PIN & REPORT EMERGENCY LOGIC WITH IMAGE UPLOAD
+    // ⭐ TAP-TO-PIN LOGIC
+    // =========================================================================
+    private void addSelectedLocationMarker(GeoPoint p) {
+        if (selectedLocationMarker != null) map.getOverlays().remove(selectedLocationMarker);
+
+        selectedLocationMarker = new Marker(map);
+        selectedLocationMarker.setPosition(p);
+        selectedLocationMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+        selectedLocationMarker.setTitle("📍 Selected Location");
+
+        DecimalFormat df = new DecimalFormat("#.#####");
+        String coords = df.format(p.getLatitude()) + ", " + df.format(p.getLongitude());
+
+        // Instructional snippet
+        selectedLocationMarker.setSnippet("Coords: " + coords + "\n👉 TAP THIS PIN AGAIN TO REPORT INCIDENT");
+
+        // ⭐ NEW: Clicking the marker itself opens the report dialog
+        selectedLocationMarker.setOnMarkerClickListener((marker, mapView) -> {
+            if (!marker.isInfoWindowShown()) {
+                marker.showInfoWindow();
+            } else {
+                // Tap again! Open the custom report dialog
+                showReportEmergencyDialog(marker.getPosition());
+            }
+            return true;
+        });
+
+        map.getOverlays().add(selectedLocationMarker);
+        map.invalidate();
+        selectedLocationMarker.showInfoWindow();
+    }
+
+
+    // =========================================================================
+    // ⭐ BEAUTIFUL PROGRAMMATIC UI FOR EMERGENCY REPORT
     // =========================================================================
     private void showReportEmergencyDialog(GeoPoint p) {
         Context context = getContext();
@@ -544,44 +581,111 @@ public class LiveMap_fragment extends BaseFragment {
         // Reset variables for new report
         selectedImageUri = null;
 
+        // Main Container
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(60, 40, 60, 20);
+        layout.setPadding(60, 50, 60, 40);
+        layout.setBackgroundColor(Color.WHITE);
 
+        // Title
+        TextView tvTitle = new TextView(context);
+        tvTitle.setText("🚨 Report Emergency");
+        tvTitle.setTextSize(22f);
+        tvTitle.setTextColor(Color.parseColor("#C62828")); // Dark Red
+        tvTitle.setTypeface(null, Typeface.BOLD);
+        tvTitle.setPadding(0, 0, 0, 20);
+        layout.addView(tvTitle);
+
+        // Subtitle
+        TextView tvSub = new TextView(context);
+        tvSub.setText("Please select the type of emergency and provide details to alert the barangay.");
+        tvSub.setTextColor(Color.DKGRAY);
+        tvSub.setPadding(0, 0, 0, 40);
+        layout.addView(tvSub);
+
+        // Spinner (Emergency Type)
         String[] emergencyTypes = {"Fire", "Flood", "Earthquake"};
         Spinner spinner = new Spinner(context);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, emergencyTypes);
         spinner.setAdapter(adapter);
-        layout.addView(spinner);
 
+        // Spinner Styling
+        GradientDrawable spinnerBg = new GradientDrawable();
+        spinnerBg.setColor(Color.parseColor("#F5F5F5"));
+        spinnerBg.setCornerRadius(12f);
+        spinnerBg.setStroke(2, Color.parseColor("#E0E0E0"));
+        spinner.setBackground(spinnerBg);
+        spinner.setPadding(20, 20, 20, 20);
+
+        LinearLayout.LayoutParams spinParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        spinParams.setMargins(0, 0, 0, 30);
+        layout.addView(spinner, spinParams);
+
+        // EditText (Details)
         EditText inputDetails = new EditText(context);
-        inputDetails.setHint("Add extra details (optional)");
-        inputDetails.setPadding(20, 40, 20, 40);
-        layout.addView(inputDetails);
+        inputDetails.setHint("Add details (e.g., 'House on fire', 'Waist-deep flood')...");
+        inputDetails.setHintTextColor(Color.GRAY);
+        inputDetails.setTextColor(Color.BLACK);
+        inputDetails.setTextSize(15f);
+        inputDetails.setGravity(Gravity.TOP | Gravity.START);
+        inputDetails.setMinLines(3);
+
+        // EditText Styling
+        GradientDrawable etBg = new GradientDrawable();
+        etBg.setColor(Color.parseColor("#FAFAFA"));
+        etBg.setCornerRadius(16f);
+        etBg.setStroke(2, Color.parseColor("#CCCCCC"));
+        inputDetails.setBackground(etBg);
+        inputDetails.setPadding(30, 30, 30, 30);
+
+        LinearLayout.LayoutParams etParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        etParams.setMargins(0, 0, 0, 40);
+        layout.addView(inputDetails, etParams);
 
         // Image Selection Button
         Button btnSelectImage = new Button(context);
         btnSelectImage.setText("Attach Proof Photo");
+        btnSelectImage.setTextColor(Color.WHITE);
+        btnSelectImage.setAllCaps(false);
+
+        // Button Styling
+        GradientDrawable btnBg = new GradientDrawable();
+        btnBg.setColor(Color.parseColor("#1976D2")); // Blue
+        btnBg.setCornerRadius(16f);
+        btnSelectImage.setBackground(btnBg);
+
         btnSelectImage.setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
-        layout.addView(btnSelectImage);
+        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        btnParams.setMargins(0, 0, 0, 15);
+        layout.addView(btnSelectImage, btnParams);
 
         // Image Status Text
         tvImageStatus = new TextView(context);
         tvImageStatus.setText("No image attached");
-        tvImageStatus.setPadding(0, 10, 0, 20);
+        tvImageStatus.setTextColor(Color.GRAY);
+        tvImageStatus.setTextSize(12f);
+        tvImageStatus.setGravity(Gravity.CENTER);
         layout.addView(tvImageStatus);
 
-        new AlertDialog.Builder(context)
-                .setTitle("Report Emergency Here?")
-                .setMessage("Are you sure you want to drop an emergency pin at this location?")
+        // Create Dialog
+        AlertDialog dialog = new AlertDialog.Builder(context)
                 .setView(layout)
-                .setPositiveButton("Report Alert", (dialog, which) -> {
-                    String selectedType = spinner.getSelectedItem().toString() + " Alert";
-                    String details = inputDetails.getText().toString().trim();
-                    submitEmergencyReport(context, p, selectedType, details);
-                })
+                .setPositiveButton("Submit Report", null) // Set to null to prevent auto-dismiss
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+
+        // Show Dialog & Style default buttons
+        dialog.show();
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#C62828"));
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.GRAY);
+
+        // Handle Submit Click
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String selectedType = spinner.getSelectedItem().toString() + " Alert";
+            String details = inputDetails.getText().toString().trim();
+            submitEmergencyReport(context, p, selectedType, details);
+            dialog.dismiss(); // Dismiss only after we trigger the submit logic
+        });
     }
 
     // Helper to read bytes for uploading
@@ -685,20 +789,6 @@ public class LiveMap_fragment extends BaseFragment {
         }).start();
     }
     // =========================================================================
-
-    private void addSelectedLocationMarker(GeoPoint p) {
-        if (selectedLocationMarker != null) map.getOverlays().remove(selectedLocationMarker);
-        selectedLocationMarker = new Marker(map);
-        selectedLocationMarker.setPosition(p);
-        selectedLocationMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-        selectedLocationMarker.setTitle("Selected Location");
-        DecimalFormat df = new DecimalFormat("#.#####");
-        String coords = df.format(p.getLatitude()) + ", " + df.format(p.getLongitude());
-        selectedLocationMarker.setSnippet("Coords: " + coords + "\nTap Street View to see this area.");
-        map.getOverlays().add(selectedLocationMarker);
-        map.invalidate();
-        selectedLocationMarker.showInfoWindow();
-    }
 
     private void openGoogleMapsStreetView() {
         double lat, lon;
