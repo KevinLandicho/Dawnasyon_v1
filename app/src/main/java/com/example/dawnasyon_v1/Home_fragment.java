@@ -146,7 +146,7 @@ public class Home_fragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // This triggers the auto-translation scanner for this screen
+        // ⭐ RESTORED: Auto-translation exactly as you requested
         applyTagalogTranslation(view);
     }
 
@@ -243,6 +243,12 @@ public class Home_fragment extends BaseFragment {
                 for (Announcement item : data) {
                     boolean showIt = true;
                     boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
+                    boolean isGeneral = (item.getType() == null || item.getType().equalsIgnoreCase("General"));
+
+                    // ⭐ PREVENTS MAP REPORTS (FIRE/FLOOD) FROM CLUTTERING HOME FEED
+                    if (!isDrive && !isGeneral) {
+                        continue;
+                    }
 
                     // 1. Street Filter
                     if (isDrive) {
@@ -378,18 +384,26 @@ public class Home_fragment extends BaseFragment {
 
     private void applyFilters(String query) {
         List<Announcement> filteredList = new ArrayList<>();
-        String lowerCaseQuery = (query != null) ? query.toLowerCase().trim() : "";
+
+        // ⭐ MORE EFFICIENT SEARCH: Splits by space so it finds keywords even if out of order
+        String[] keywords = query != null ? query.toLowerCase().trim().split("\\s+") : new String[0];
 
         for (Announcement item : fullAnnouncementList) {
             boolean matchesSearch = true;
             boolean matchesBookmark = true;
             boolean matchesCategory = true;
 
-            // 1. Search Logic
-            if (!lowerCaseQuery.isEmpty()) {
-                boolean titleMatch = item.getTitle() != null && item.getTitle().toLowerCase().contains(lowerCaseQuery);
-                boolean descMatch = item.getDescription() != null && item.getDescription().toLowerCase().contains(lowerCaseQuery);
-                matchesSearch = titleMatch || descMatch;
+            // 1. Smarter Search Logic
+            if (keywords.length > 0 && !keywords[0].isEmpty()) {
+                String title = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
+                String desc = item.getDescription() != null ? item.getDescription().toLowerCase() : "";
+
+                for (String keyword : keywords) {
+                    if (!title.contains(keyword) && !desc.contains(keyword)) {
+                        matchesSearch = false;
+                        break; // If even one keyword is missing, skip it
+                    }
+                }
             }
 
             // 2. Bookmark Logic
@@ -489,7 +503,9 @@ public class Home_fragment extends BaseFragment {
         item.setLiked(newState);
         int currentCount = item.getLikeCount();
         item.setLikeCount(newState ? currentCount + 1 : Math.max(0, currentCount - 1));
-        announcementAdapter.notifyItemChanged(position);
+
+        // ⭐ PREVENTS TEXT GLITCH: Uses a payload to ONLY update the heart icon
+        announcementAdapter.notifyItemChanged(position, "LIKE_UPDATE");
 
         SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SupabaseJavaHelper.SimpleCallback() {
             @Override
@@ -499,7 +515,7 @@ public class Home_fragment extends BaseFragment {
                 if (isAdded()) {
                     item.setLiked(currentState);
                     item.setLikeCount(currentCount);
-                    announcementAdapter.notifyItemChanged(position);
+                    announcementAdapter.notifyItemChanged(position, "LIKE_UPDATE");
                     Toast.makeText(getContext(), "Failed to like", Toast.LENGTH_SHORT).show();
                 }
             }
@@ -516,7 +532,8 @@ public class Home_fragment extends BaseFragment {
             announcementAdapter.notifyItemRemoved(position);
             updatePlaceholder(announcementList.isEmpty());
         } else {
-            announcementAdapter.notifyItemChanged(position);
+            // ⭐ PREVENTS TEXT GLITCH: Uses a payload to ONLY update the bookmark icon
+            announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
         }
 
         SupabaseJavaHelper.toggleBookmark(item.getPostId(), newState, new SupabaseJavaHelper.SimpleCallback() {
@@ -527,13 +544,12 @@ public class Home_fragment extends BaseFragment {
                 if (isAdded()) {
                     item.setBookmarked(currentState);
                     if (showBookmarksOnly && !newState) loadUserProfileAndAnnouncements();
-                    else announcementAdapter.notifyItemChanged(position);
+                    else announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
                 }
             }
         });
     }
 
-    // ⭐ UPDATED: Shows Custom Dialog to allow Image Upload
     private void showApplyDialog(Announcement announcement) {
         if (announcement.isApplied()) {
             Toast.makeText(getContext(), "You have already applied to this drive!", Toast.LENGTH_SHORT).show();
@@ -548,33 +564,25 @@ public class Home_fragment extends BaseFragment {
             return;
         }
 
-        // Use the new DialogFragment to handle image picking
         ApplyWithImageDialogFragment dialog = new ApplyWithImageDialogFragment();
         dialog.setOnConfirmListener(imageBytes -> {
-
-            // Show simple loading feedback
             Toast.makeText(getContext(), "Submitting Application...", Toast.LENGTH_SHORT).show();
-
             if (announcement.getLinkedDriveId() == null) {
                 Toast.makeText(getContext(), "Error: Drive not linked.", Toast.LENGTH_SHORT).show();
                 return;
             }
-
             if (imageBytes != null) {
-                // Upload Image, then Apply
                 SupabaseJavaHelper.uploadApplicationImage(imageBytes, publicUrl -> {
                     submitApplication(announcement, publicUrl);
                     return null;
                 });
             } else {
-                // Just Apply (No Image)
                 submitApplication(announcement, null);
             }
         });
         dialog.show(getParentFragmentManager(), "ApplyImageDialog");
     }
 
-    // ⭐ Helper to reduce nested callbacks
     private void submitApplication(Announcement announcement, String imageUrl) {
         SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), imageUrl, new SupabaseJavaHelper.ApplicationCallback() {
             @Override
