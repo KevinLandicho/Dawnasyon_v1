@@ -3,6 +3,9 @@ package com.example.dawnasyon_v1;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,13 +36,25 @@ import com.github.mikephil.charting.data.RadarDataSet;
 import com.github.mikephil.charting.data.RadarEntry;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.PercentFormatter;
+import com.github.mikephil.charting.highlight.Highlight;
+import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
-import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public class Dashboard_fragment extends BaseFragment {
@@ -64,12 +79,16 @@ public class Dashboard_fragment extends BaseFragment {
 
     private String currentFilter = "all";
 
+    // ⭐ SUPABASE CONFIGURATION FOR DIRECT FETCHING
+    private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
+    private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
+    private final OkHttpClient client = new OkHttpClient();
+
     private final int COLOR_DEEP_ORANGE = Color.parseColor("#E65100");
     private final int COLOR_VIBRANT_ORANGE = Color.parseColor("#F5901A");
     private final int COLOR_MED_ORANGE = Color.parseColor("#FFB74D");
     private final int COLOR_SOFT_ORANGE = Color.parseColor("#FFCC80");
     private final int COLOR_LIGHT_ORANGE = Color.parseColor("#FFE0B2");
-    private final int COLOR_PALE_ORANGE = Color.parseColor("#FFF3E0");
     private final int COLOR_TEAL = Color.parseColor("#27869B");
     private final int COLOR_ACTIVE = Color.parseColor("#4CAF50");
     private final int COLOR_INACTIVE = Color.parseColor("#9E9E9E");
@@ -124,7 +143,6 @@ public class Dashboard_fragment extends BaseFragment {
         };
 
         if (btnLiveMap != null) btnLiveMap.setOnClickListener(mapClickListener);
-        if (chartAffected != null) chartAffected.setOnClickListener(mapClickListener);
 
         if (iconFilter != null) {
             iconFilter.setOnClickListener(this::showFilterMenu);
@@ -132,7 +150,6 @@ public class Dashboard_fragment extends BaseFragment {
 
         loadRealData(view, currentFilter);
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR DASHBOARD
         applyTagalogTranslation(view);
     }
 
@@ -156,17 +173,12 @@ public class Dashboard_fragment extends BaseFragment {
         popup.show();
     }
 
-    // ⭐ HELPER: Sorts map by value descending and takes Top 5
     private Map<String, Integer> getTop5(Map<String, Integer> data) {
         if (data == null || data.isEmpty()) return new HashMap<>();
 
-        // Convert Map to List
         List<Map.Entry<String, Integer>> list = new ArrayList<>(data.entrySet());
-
-        // Sort by Value (Descending)
         Collections.sort(list, (o1, o2) -> o2.getValue().compareTo(o1.getValue()));
 
-        // Keep Top 5
         Map<String, Integer> sortedMap = new LinkedHashMap<>();
         int count = 0;
         for (Map.Entry<String, Integer> entry : list) {
@@ -175,6 +187,38 @@ public class Dashboard_fragment extends BaseFragment {
             count++;
         }
         return sortedMap;
+    }
+
+    private Map<String, Integer> categorizeInventory(Map<String, Integer> rawInventory) {
+        Map<String, Integer> categorized = new LinkedHashMap<>();
+        int packs = 0, food = 0, medicine = 0, hygiene = 0, others = 0;
+
+        if (rawInventory != null) {
+            for (Map.Entry<String, Integer> entry : rawInventory.entrySet()) {
+                String key = entry.getKey().toLowerCase();
+                int qty = entry.getValue();
+
+                if (key.contains("pack") || key.contains("relief pack") || key.contains("ayuda")) {
+                    packs += qty;
+                } else if (key.contains("rice") || key.contains("instant noodle") || key.contains("noodle") || key.contains("can good") || key.contains("canned") || key.contains("biscuit") || key.contains("water") || key.contains("food")) {
+                    food += qty;
+                } else if (key.contains("pain reliever") || key.contains("vitamin") || key.contains("cough syrup") || key.contains("first aid kit") || key.contains("medicine") || key.contains("paracetamol")) {
+                    medicine += qty;
+                } else if (key.contains("body care") || key.contains("sanitation") || key.contains("laundry") || key.contains("protection") || key.contains("hygiene") || key.contains("soap") || key.contains("kit")) {
+                    hygiene += qty;
+                } else {
+                    others += qty;
+                }
+            }
+        }
+
+        if (packs > 0) categorized.put("Relief Packs", packs);
+        if (food > 0) categorized.put("Food & Water", food);
+        if (medicine > 0) categorized.put("Medicine", medicine);
+        if (hygiene > 0) categorized.put("Hygiene Kits", hygiene);
+        if (others > 0) categorized.put("Others", others);
+
+        return categorized;
     }
 
     private void loadRealData(View view, String filterType) {
@@ -186,13 +230,13 @@ public class Dashboard_fragment extends BaseFragment {
                 if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                 if (!isAdded()) return;
 
-                // ⭐ FILTER TOP 5 FOR RELIEF STATUS
-                Map<String, Integer> topInventory = getTop5(inventory);
-                updatePieChart(chartRelief, topInventory);
+                Map<String, Integer> categorizedInventory = categorizeInventory(inventory);
+                updatePieChart(chartRelief, categorizedInventory, "Relief\nItems");
+                updateListUI(llReliefList, categorizedInventory, "Category");
 
-                // ⭐ FILTER TOP 5 FOR AFFECTED AREAS
                 Map<String, Integer> topAreas = getTop5(areas);
-                updatePieChart(chartAffected, topAreas);
+                updatePieChart(chartAffected, topAreas, "Affected\nAreas");
+                updateListUI(llAffectedList, topAreas, "Street");
 
                 updateUserActivityChart(metrics.getActive_users(), metrics.getTotal_users());
                 updateLineChart(chartDonations, donations);
@@ -205,13 +249,11 @@ public class Dashboard_fragment extends BaseFragment {
                 }
                 updateLineChart(chartFamilies, familiesFloat);
 
-                // ⭐ Update lists with Top 5 as well
-                updateListUI(llReliefList, topInventory, "Item");
-                updateListUI(llAffectedList, topAreas, "Street");
-
-                updateAnalyticsUI(view, metrics);
-
                 updateRadarChart(impact);
+
+                int reliefPacksCount = categorizedInventory.containsKey("Relief Packs") ? categorizedInventory.get("Relief Packs") : 0;
+
+                fetchActiveAffectedFamiliesAndUpdateUI(view, metrics, reliefPacksCount);
             }
 
             @Override
@@ -222,133 +264,89 @@ public class Dashboard_fragment extends BaseFragment {
         });
     }
 
-    private void setupUserActivityChart() {
-        if (chartUserActivity == null) return;
-        chartUserActivity.setUsePercentValues(true);
-        chartUserActivity.getDescription().setEnabled(false);
-        chartUserActivity.setExtraOffsets(5, 10, 5, 5);
-        chartUserActivity.setDragDecelerationFrictionCoef(0.95f);
-        chartUserActivity.setDrawHoleEnabled(true);
-        chartUserActivity.setHoleColor(Color.WHITE);
-        chartUserActivity.setTransparentCircleRadius(61f);
-        chartUserActivity.setHoleRadius(50f);
-        chartUserActivity.setEntryLabelColor(Color.WHITE);
-        chartUserActivity.setCenterText("User\nActivity");
-        chartUserActivity.setCenterTextSize(10f);
-        chartUserActivity.setDrawEntryLabels(false);
-        Legend l = chartUserActivity.getLegend();
-        l.setEnabled(false);
+    private void fetchActiveAffectedFamiliesAndUpdateUI(View view, DashboardMetrics metrics, int reliefPacksCount) {
+        String url = SUPABASE_URL + "/rest/v1/announcements?select=families_affected,event_date&status=eq.Approved";
+        Request request = new Request.Builder()
+                .url(url)
+                .addHeader("apikey", SUPABASE_KEY)
+                .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                .build();
+
+        new Thread(() -> {
+            try (Response response = client.newCall(request).execute()) {
+                int activeAffected = 0;
+                if (response.isSuccessful() && response.body() != null) {
+                    String json = response.body().string();
+                    JSONArray array = new JSONArray(json);
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+                    Calendar cal = Calendar.getInstance();
+                    cal.set(Calendar.HOUR_OF_DAY, 0);
+                    cal.set(Calendar.MINUTE, 0);
+                    cal.set(Calendar.SECOND, 0);
+                    cal.set(Calendar.MILLISECOND, 0);
+
+                    cal.add(Calendar.DAY_OF_YEAR, -45);
+                    Date activeThreshold = cal.getTime();
+
+                    for (int i = 0; i < array.length(); i++) {
+                        JSONObject obj = array.getJSONObject(i);
+                        int fam = obj.optInt("families_affected", 0);
+                        String eDateStr = obj.optString("event_date", "");
+
+                        if (fam > 0 && !eDateStr.isEmpty() && !eDateStr.equals("null")) {
+                            try {
+                                String targetDateStr = eDateStr;
+
+                                if (eDateStr.toLowerCase().contains("to")) {
+                                    String[] parts = eDateStr.toLowerCase().split("to");
+                                    if (parts.length > 1) {
+                                        targetDateStr = parts[1].trim();
+                                    }
+                                }
+
+                                Date eDate = sdf.parse(targetDateStr.trim());
+                                if (eDate != null && !eDate.before(activeThreshold)) {
+                                    activeAffected += fam;
+                                }
+                            } catch (Exception e) {}
+                        }
+                    }
+                }
+
+                int finalAffected = activeAffected;
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    if (isAdded()) {
+                        updateAnalyticsUI(view, metrics, finalAffected, reliefPacksCount);
+                    }
+                });
+
+            } catch (Exception e) {
+                new Handler(Looper.getMainLooper()).post(() -> {
+                    if (isAdded()) {
+                        updateAnalyticsUI(view, metrics, metrics.getTotal_affected(), reliefPacksCount);
+                    }
+                });
+            }
+        }).start();
     }
 
-    private void updateUserActivityChart(int activeCount, int totalCount) {
-        if (chartUserActivity == null) return;
-        int inactiveCount = Math.max(0, totalCount - activeCount);
-        List<PieEntry> entries = new ArrayList<>();
-        ArrayList<Integer> colors = new ArrayList<>();
-        if (activeCount > 0) {
-            entries.add(new PieEntry((float) activeCount, "Active"));
-            colors.add(COLOR_ACTIVE);
-        }
-        if (inactiveCount > 0) {
-            entries.add(new PieEntry((float) inactiveCount, "Inactive"));
-            colors.add(COLOR_INACTIVE);
-        }
-        if (entries.isEmpty()) {
-            entries.add(new PieEntry(1f, "No Data"));
-            colors.add(Color.LTGRAY);
-        }
-        PieDataSet dataSet = new PieDataSet(entries, "Activity");
-        dataSet.setColors(colors);
-        dataSet.setSliceSpace(3f);
-        dataSet.setSelectionShift(5f);
-        dataSet.setDrawValues(false);
-        PieData data = new PieData(dataSet);
-        data.setValueFormatter(new PercentFormatter(chartUserActivity));
-        data.setValueTextSize(11f);
-        data.setValueTextColor(Color.WHITE);
-        chartUserActivity.setData(data);
-        chartUserActivity.setCenterText("Active:\n" + activeCount);
-        chartUserActivity.invalidate();
-    }
 
-    private void setupImpactRadarChart() {
-        chartImpact.getDescription().setEnabled(false);
-        chartImpact.setWebLineWidth(1f);
-        chartImpact.setWebColor(Color.LTGRAY);
-        chartImpact.setWebLineWidthInner(1f);
-        chartImpact.setWebColorInner(Color.LTGRAY);
-        chartImpact.setWebAlpha(100);
-        chartImpact.getLegend().setEnabled(false);
-        chartImpact.getYAxis().setEnabled(false);
-        chartImpact.getXAxis().setTextSize(9f);
-        chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(new String[]{}));
-        chartImpact.getXAxis().setTextColor(Color.DKGRAY);
-    }
-
-    private void updateRadarChart(Map<String, Integer> data) {
-        if (data == null || data.isEmpty()) {
-            chartImpact.clear();
-            if (tvImpactCount != null) tvImpactCount.setText("0");
-            return;
-        }
-        List<RadarEntry> entries = new ArrayList<>();
-        List<String> labels = new ArrayList<>();
-        int totalHelped = 0;
-        for (Map.Entry<String, Integer> entry : data.entrySet()) {
-            entries.add(new RadarEntry(entry.getValue()));
-            labels.add(entry.getKey());
-            totalHelped += entry.getValue();
-        }
-        if (tvImpactCount != null) tvImpactCount.setText(String.valueOf(totalHelped));
-
-        RadarDataSet set = new RadarDataSet(entries, "Impact");
-        set.setColor(COLOR_VIBRANT_ORANGE);
-        set.setFillColor(COLOR_SOFT_ORANGE);
-        set.setDrawFilled(true);
-        set.setFillAlpha(100);
-        set.setDrawValues(true);
-
-        RadarData radarData = new RadarData(set);
-        chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        chartImpact.setData(radarData);
-        chartImpact.invalidate();
-    }
-
-    private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {
-        if (container == null) return;
-        container.removeAllViews();
-        TextView header = new TextView(getContext());
-        header.setText(labelTitle + "          Count");
-        header.setTypeface(null, android.graphics.Typeface.BOLD);
-        container.addView(header);
-
-        if (data == null || data.isEmpty()) return;
-        int colorIndex = 0;
-        for (Map.Entry<String, Integer> entry : data.entrySet()) {
-            TextView itemRow = new TextView(getContext());
-            itemRow.setText("● " + entry.getKey() + "   " + entry.getValue());
-            itemRow.setTextColor(ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length]);
-            container.addView(itemRow);
-            colorIndex++;
-        }
-    }
-
-    private void updateAnalyticsUI(View view, DashboardMetrics metrics) {
+    private void updateAnalyticsUI(View view, DashboardMetrics metrics, int totalAffected, int reliefPacks) {
         int totalPopulation = metrics.getTotal_families();
-        int reliefPacks = metrics.getTotal_packs();
-        int totalAffected = metrics.getTotal_affected();
 
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
         if (tvPercentage != null) tvPercentage.setText(String.valueOf(totalPopulation));
 
-        int denominator = (totalAffected == 0) ? 1 : totalAffected;
         int coveragePercent = 0;
 
         if (totalAffected > 0) {
-            coveragePercent = (reliefPacks * 100) / totalAffected;
+            coveragePercent = (int) (((float) reliefPacks / totalAffected) * 100);
         } else {
             coveragePercent = 100;
         }
+
+        if (coveragePercent > 100) coveragePercent = 100;
 
         int deficit = Math.max(0, totalAffected - reliefPacks);
 
@@ -402,27 +400,218 @@ public class Dashboard_fragment extends BaseFragment {
         if(txtAffectedFamilies != null) txtAffectedFamilies.setText(totalAffected + " Families Affected");
         if(txtRiskDesc != null) txtRiskDesc.setText("Based on recent reports");
 
-        // ⭐ TRANSLATE DYNAMIC TEXT
         if(txtRiskDesc != null) TranslationHelper.autoTranslate(getContext(), txtRiskDesc, txtRiskDesc.getText().toString());
         if(txtPrediction != null) TranslationHelper.autoTranslate(getContext(), txtPrediction, txtPrediction.getText().toString());
         if(txtInsight != null) TranslationHelper.autoTranslate(getContext(), txtInsight, txtInsight.getText().toString());
     }
 
-    private void updatePieChart(PieChart chart, Map<String, Integer> data) {
+    // =========================================================
+    // ⭐ FIX: TEXT OVERLAPPING LIST UI (HARD TRUNCATION)
+    // =========================================================
+    private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {
+        if (container == null) return;
+        container.removeAllViews();
+        TextView header = new TextView(getContext());
+        header.setText(labelTitle + "          Count");
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        container.addView(header);
+
+        if (data == null || data.isEmpty()) return;
+        int colorIndex = 0;
+        for (Map.Entry<String, Integer> entry : data.entrySet()) {
+            TextView itemRow = new TextView(getContext());
+
+            // ⭐ FIX: Hard chop the string itself if it's too long so it NEVER touches the chart
+            String label = entry.getKey();
+            if (label != null && label.length() > 16) {
+                label = label.substring(0, 16) + "..";
+            }
+
+            itemRow.setText("● " + label + "   " + entry.getValue());
+            itemRow.setTextColor(ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length]);
+
+            itemRow.setSingleLine(true);
+            itemRow.setEllipsize(TextUtils.TruncateAt.END);
+
+            container.addView(itemRow);
+            colorIndex++;
+        }
+    }
+
+    private void setupReliefPieChart() {
+        chartRelief.setDrawHoleEnabled(true);
+        chartRelief.setHoleColor(Color.WHITE);
+        chartRelief.setHoleRadius(65f);
+        chartRelief.setTransparentCircleRadius(70f);
+        chartRelief.setDrawEntryLabels(false);
+        chartRelief.getDescription().setEnabled(false);
+        chartRelief.getLegend().setEnabled(false);
+        chartRelief.setCenterTextSize(11f);
+        chartRelief.setCenterTextColor(Color.DKGRAY);
+        chartRelief.setCenterText("Relief\nItems");
+
+        chartRelief.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+                PieEntry pe = (PieEntry) e;
+                String label = pe.getLabel();
+                if (label != null && label.length() > 12) {
+                    label = label.substring(0, 12) + "..";
+                }
+                chartRelief.setCenterText(label + "\n" + (int) pe.getValue());
+            }
+            @Override
+            public void onNothingSelected() {
+                chartRelief.setCenterText("Relief\nItems");
+            }
+        });
+    }
+
+    private void setupAffectedPieChart() {
+        chartAffected.setDrawHoleEnabled(true);
+        chartAffected.setHoleColor(Color.WHITE);
+        chartAffected.setHoleRadius(65f);
+        chartAffected.setTransparentCircleRadius(70f);
+        chartAffected.setDrawEntryLabels(false);
+        chartAffected.getDescription().setEnabled(false);
+        chartAffected.getLegend().setEnabled(false);
+        chartAffected.setCenterTextSize(11f);
+        chartAffected.setCenterTextColor(Color.DKGRAY);
+        chartAffected.setCenterText("Affected\nAreas");
+
+        chartAffected.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+                PieEntry pe = (PieEntry) e;
+                String label = pe.getLabel();
+                if (label != null && label.length() > 12) {
+                    label = label.substring(0, 12) + "..";
+                }
+                chartAffected.setCenterText(label + "\n" + (int) pe.getValue());
+            }
+            @Override
+            public void onNothingSelected() {
+                chartAffected.setCenterText("Affected\nAreas");
+            }
+        });
+    }
+
+    private void setupUserActivityChart() {
+        if (chartUserActivity == null) return;
+        chartUserActivity.setDrawHoleEnabled(true);
+        chartUserActivity.setHoleColor(Color.WHITE);
+        chartUserActivity.setHoleRadius(65f);
+        chartUserActivity.setTransparentCircleRadius(70f);
+        chartUserActivity.setDrawEntryLabels(false);
+        chartUserActivity.getDescription().setEnabled(false);
+        chartUserActivity.getLegend().setEnabled(false);
+        chartUserActivity.setCenterTextSize(11f);
+        chartUserActivity.setCenterTextColor(Color.DKGRAY);
+        chartUserActivity.setCenterText("User\nActivity");
+
+        chartUserActivity.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+                PieEntry pe = (PieEntry) e;
+                chartUserActivity.setCenterText(pe.getLabel() + "\n" + (int) pe.getValue());
+            }
+            @Override
+            public void onNothingSelected() {
+                chartUserActivity.setCenterText("User\nActivity");
+            }
+        });
+    }
+
+    private void updateUserActivityChart(int activeCount, int totalCount) {
+        if (chartUserActivity == null) return;
+        int inactiveCount = Math.max(0, totalCount - activeCount);
+        List<PieEntry> entries = new ArrayList<>();
+        ArrayList<Integer> colors = new ArrayList<>();
+        if (activeCount > 0) {
+            entries.add(new PieEntry((float) activeCount, "Active"));
+            colors.add(COLOR_ACTIVE);
+        }
+        if (inactiveCount > 0) {
+            entries.add(new PieEntry((float) inactiveCount, "Inactive"));
+            colors.add(COLOR_INACTIVE);
+        }
+        if (entries.isEmpty()) {
+            entries.add(new PieEntry(1f, "No Data"));
+            colors.add(Color.LTGRAY);
+        }
+        PieDataSet dataSet = new PieDataSet(entries, "Activity");
+        dataSet.setColors(colors);
+        dataSet.setSliceSpace(3f);
+        dataSet.setSelectionShift(5f);
+        dataSet.setDrawValues(false);
+        PieData data = new PieData(dataSet);
+        chartUserActivity.setData(data);
+
+        chartUserActivity.invalidate();
+    }
+
+    private void updatePieChart(PieChart chart, Map<String, Integer> data, String defaultCenterText) {
         if (data == null || data.isEmpty()) return;
         List<PieEntry> entries = new ArrayList<>();
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             entries.add(new PieEntry(entry.getValue(), entry.getKey()));
         }
+        PieDataSet set;
         if (chart.getData() != null && chart.getData().getDataSet() != null) {
-            PieDataSet set = (PieDataSet) chart.getData().getDataSet();
+            set = (PieDataSet) chart.getData().getDataSet();
             set.setValues(entries);
-            set.setColors(ORANGE_SCALE_COLORS);
-            set.setDrawValues(false);
-            chart.getData().notifyDataChanged();
-            chart.notifyDataSetChanged();
-            chart.invalidate();
+        } else {
+            set = new PieDataSet(entries, "");
         }
+        set.setColors(ORANGE_SCALE_COLORS);
+        set.setDrawValues(false);
+        PieData pieData = new PieData(set);
+        chart.setData(pieData);
+        chart.setCenterText(defaultCenterText);
+        chart.invalidate();
+    }
+
+    private void setupImpactRadarChart() {
+        chartImpact.getDescription().setEnabled(false);
+        chartImpact.setWebLineWidth(1f);
+        chartImpact.setWebColor(Color.LTGRAY);
+        chartImpact.setWebLineWidthInner(1f);
+        chartImpact.setWebColorInner(Color.LTGRAY);
+        chartImpact.setWebAlpha(100);
+        chartImpact.getLegend().setEnabled(false);
+        chartImpact.getYAxis().setEnabled(false);
+        chartImpact.getXAxis().setTextSize(9f);
+        chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(new String[]{}));
+        chartImpact.getXAxis().setTextColor(Color.DKGRAY);
+    }
+
+    private void updateRadarChart(Map<String, Integer> data) {
+        if (data == null || data.isEmpty()) {
+            chartImpact.clear();
+            if (tvImpactCount != null) tvImpactCount.setText("0");
+            return;
+        }
+        List<RadarEntry> entries = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        int totalHelped = 0;
+        for (Map.Entry<String, Integer> entry : data.entrySet()) {
+            entries.add(new RadarEntry(entry.getValue()));
+            labels.add(entry.getKey());
+            totalHelped += entry.getValue();
+        }
+        if (tvImpactCount != null) tvImpactCount.setText(String.valueOf(totalHelped));
+
+        RadarDataSet set = new RadarDataSet(entries, "Impact");
+        set.setColor(COLOR_VIBRANT_ORANGE);
+        set.setFillColor(COLOR_SOFT_ORANGE);
+        set.setDrawFilled(true);
+        set.setFillAlpha(100);
+        set.setDrawValues(true);
+
+        RadarData radarData = new RadarData(set);
+        chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
+        chartImpact.setData(radarData);
+        chartImpact.invalidate();
     }
 
     private void updateLineChart(LineChart chart, Map<String, Float> data) {
@@ -447,32 +636,6 @@ public class Dashboard_fragment extends BaseFragment {
             chart.notifyDataSetChanged();
             chart.invalidate();
         }
-    }
-
-    private void setupReliefPieChart() {
-        List<PieEntry> entries = new ArrayList<>();
-        entries.add(new PieEntry(1f, ""));
-        PieDataSet dataSet = new PieDataSet(entries, "");
-        dataSet.setColors(ORANGE_SCALE_COLORS);
-        PieData data = new PieData(dataSet);
-        chartRelief.setData(data);
-        chartRelief.setDrawEntryLabels(false);
-        dataSet.setDrawValues(false);
-        chartRelief.getDescription().setEnabled(false);
-        chartRelief.getLegend().setEnabled(false);
-    }
-
-    private void setupAffectedPieChart() {
-        List<PieEntry> entries = new ArrayList<>();
-        entries.add(new PieEntry(1f, ""));
-        PieDataSet dataSet = new PieDataSet(entries, "");
-        dataSet.setColors(ORANGE_SCALE_COLORS);
-        PieData data = new PieData(dataSet);
-        chartAffected.setData(data);
-        chartAffected.setDrawEntryLabels(false);
-        dataSet.setDrawValues(false);
-        chartAffected.getDescription().setEnabled(false);
-        chartAffected.getLegend().setEnabled(false);
     }
 
     private void setupFamiliesLineChart() {
