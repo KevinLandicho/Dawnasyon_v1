@@ -16,8 +16,10 @@ import com.bumptech.glide.Glide;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.TimeZone;
 
 public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapter.AnnouncementViewHolder> {
@@ -26,11 +28,13 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     private OnItemClickListener listener;
     private Context context;
 
+    // ⭐ NEW: Tracks which posts are expanded
+    private Set<Integer> expandedPositions = new HashSet<>();
+
     public interface OnItemClickListener {
         void onApplyClick(Announcement announcement);
         void onLikeClick(Announcement announcement, int position);
         void onBookmarkClick(Announcement announcement, int position);
-        // ⭐ NEW: Listener for clicking the whole card
         void onCardClick(Announcement announcement);
     }
 
@@ -48,6 +52,40 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         return new AnnouncementViewHolder(view);
     }
 
+    // ⭐ MAGIC GLITCH FIX: Prevents text from translating and scrambling again when clicking Heart/Bookmark
+    @Override
+    public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position, @NonNull List<Object> payloads) {
+        if (!payloads.isEmpty()) {
+            for (Object payload : payloads) {
+                Announcement item = announcementList.get(position);
+
+                if (payload.equals("LIKE_UPDATE")) {
+                    holder.tvLikeCount.setText(item.getLikeCount() + " likes");
+                    if (item.isLiked()) {
+                        holder.btnHeart.setImageResource(R.drawable.ic_heart_filled_red);
+                        holder.btnHeart.setColorFilter(Color.RED);
+                    } else {
+                        holder.btnHeart.clearColorFilter();
+                        holder.btnHeart.setImageResource(R.drawable.ic_heart_outline);
+                    }
+                } else if (payload.equals("BOOKMARK_UPDATE")) {
+                    if (item.isBookmarked()) {
+                        holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_filled);
+                        holder.btnBookmark.setColorFilter(Color.parseColor("#F5901A"));
+                    } else {
+                        holder.btnBookmark.clearColorFilter();
+                        holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_outline);
+                    }
+                } else if (payload.equals("EXPAND_UPDATE")) {
+                    boolean isExpanded = expandedPositions.contains(position);
+                    holder.description.setMaxLines(isExpanded ? Integer.MAX_VALUE : 3);
+                }
+            }
+        } else {
+            super.onBindViewHolder(holder, position, payloads);
+        }
+    }
+
     @Override
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position) {
         Announcement item = announcementList.get(position);
@@ -61,6 +99,19 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         TranslationHelper.autoTranslate(context, holder.description, item.getDescription());
 
         holder.timestamp.setText(formatDateTime(item.getCreated_at(), true));
+
+        // ⭐ EXPANDABLE TEXT LOGIC: Limit to 3 lines initially. Tap to show full text.
+        boolean isExpanded = expandedPositions.contains(position);
+        holder.description.setMaxLines(isExpanded ? Integer.MAX_VALUE : 3);
+
+        holder.description.setOnClickListener(v -> {
+            if (expandedPositions.contains(position)) {
+                expandedPositions.remove(position); // Collapse
+            } else {
+                expandedPositions.add(position); // Expand
+            }
+            notifyItemChanged(position, "EXPAND_UPDATE");
+        });
 
         // 2. Image Logic
         if (item.getImageUrl() != null && !item.getImageUrl().trim().isEmpty()) {
@@ -115,7 +166,7 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                 holder.layoutDates.setVisibility(View.GONE);
             }
 
-            // ⭐ NEW: Make the card clickable for details
+            // Make the card clickable for details
             holder.itemView.setOnClickListener(v -> listener.onCardClick(item));
 
         } else {
@@ -155,6 +206,7 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
 
     public void updateData(List<Announcement> newAnnouncements) {
         this.announcementList = newAnnouncements;
+        this.expandedPositions.clear(); // Reset expansions when the list is filtered or refreshed
         notifyDataSetChanged();
     }
 
