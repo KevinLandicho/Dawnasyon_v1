@@ -358,7 +358,7 @@
 
                 <include layout="@layout/item_profile_menu" android:id="@+id/menu_terms" />
 
-                <include layout="@layout/item_profile_menu" android:id="@+id/menu_delete" />
+
                 <include layout="@layout/item_profile_menu" android:id="@+id/menu_logout" />
             </LinearLayout>
         </androidx.cardview.widget.CardView>

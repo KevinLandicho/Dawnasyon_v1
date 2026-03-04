@@ -87,7 +87,7 @@ public class Profile_fragment extends BaseFragment {
         LinearLayout menuSuggestion = view.findViewById(R.id.menu_suggestion);
         LinearLayout menuPassword = view.findViewById(R.id.menu_password);
         LinearLayout menuTerms = view.findViewById(R.id.menu_terms);
-        LinearLayout menuDelete = view.findViewById(R.id.menu_delete);
+
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
         // ⭐ STANDALONE LANGUAGE BUTTON (Placed at the top of your XML)
@@ -125,7 +125,7 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
         setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions");
-        setupMenuItem(menuDelete, R.drawable.ic_delete, "Delete account");
+
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
 
         // Initial Language Button Setup
@@ -160,7 +160,6 @@ public class Profile_fragment extends BaseFragment {
         if (menuSuggestion != null) menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
         if (menuPassword != null) menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         if (menuTerms != null) menuTerms.setOnClickListener(v -> navigateToFragment(new TermsAndConditions_fragment()));
-        if (menuDelete != null) menuDelete.setOnClickListener(v -> navigateToFragment(new DeleteAccount_fragment()));
 
         // ⭐ LOGOUT CLICK
         if (menuLogout != null) menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
