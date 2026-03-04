@@ -189,6 +189,24 @@ object AuthHelper {
         }
     }
 
+    // ⭐ NEW: VERIFY OTP FOR FORGOT PASSWORD
+    @JvmStatic
+    fun verifyResetOTP(email: String, otpCode: String, callback: SimpleCallback) {
+        val client = SupabaseManager.client
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                client.auth.verifyEmailOtp(
+                    type = OtpType.Email.RECOVERY,
+                    email = email,
+                    token = otpCode
+                )
+                withContext(Dispatchers.Main) { callback.onSuccess() }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) { callback.onError(e.message ?: "Invalid OTP") }
+            }
+        }
+    }
+
     @JvmStatic
     fun fetchHouseholdMembers(callback: (List<HouseholdMember>?) -> Unit) {
         val client = SupabaseManager.client
@@ -243,7 +261,6 @@ object AuthHelper {
         }
     }
 
-    // ⭐ 10. FIXED: DEEP LINK HANDLER (Increased Polling Time)
     @JvmStatic
     fun handleDeepLink(intent: android.content.Intent, onRecovery: () -> Unit) {
         val client = SupabaseManager.client
@@ -251,11 +268,8 @@ object AuthHelper {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Let Supabase handle the intent
                 client.handleDeeplinks(intent)
 
-                // 2. WAIT for session (Increased to 20 checks = 10 seconds)
-                // This gives slow networks enough time to log in before we check
                 var sessionFound = false
                 for (i in 1..1) {
                     if (client.auth.currentSessionOrNull() != null) {
@@ -265,7 +279,6 @@ object AuthHelper {
                     delay(500)
                 }
 
-                // 3. Trigger popup if we have a session OR it looks like a recovery link
                 val urlString = uri.toString()
                 val fragment = uri.fragment ?: ""
                 val isRecoveryLink = urlString.contains("type=recovery") ||
@@ -277,7 +290,6 @@ object AuthHelper {
                         onRecovery()
                     }
                 } else if (isRecoveryLink) {
-                    // Fallback: Show popup anyway so user doesn't think it failed silently
                     withContext(Dispatchers.Main) {
                         onRecovery()
                     }
@@ -288,14 +300,13 @@ object AuthHelper {
         }
     }
 
-    // ⭐ 11. UPDATE PASSWORD (Safe Check)
     @JvmStatic
     fun updateUserPassword(newPass: String, callback: SimpleCallback) {
         val client = SupabaseManager.client
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 if (client.auth.currentSessionOrNull() == null) {
-                    withContext(Dispatchers.Main) { callback.onError("Session expired. Please click the email link again.") }
+                    withContext(Dispatchers.Main) { callback.onError("Session expired. Please request a new code.") }
                     return@launch
                 }
 
