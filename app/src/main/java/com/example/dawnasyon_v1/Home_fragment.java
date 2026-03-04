@@ -528,9 +528,8 @@ public class Home_fragment extends BaseFragment {
         item.setBookmarked(newState);
 
         if (showBookmarksOnly && !newState) {
-            announcementList.remove(position);
-            announcementAdapter.notifyItemRemoved(position);
-            updatePlaceholder(announcementList.isEmpty());
+            // ⭐ CRASH FIX: Safely re-runs the filter instead of incorrectly removing from list
+            applyFilters(searchView.getQuery().toString());
         } else {
             // ⭐ PREVENTS TEXT GLITCH: Uses a payload to ONLY update the bookmark icon
             announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
@@ -543,8 +542,11 @@ public class Home_fragment extends BaseFragment {
             public void onError(String msg) {
                 if (isAdded()) {
                     item.setBookmarked(currentState);
-                    if (showBookmarksOnly && !newState) loadUserProfileAndAnnouncements();
-                    else announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
+                    if (showBookmarksOnly && !newState) {
+                        applyFilters(searchView.getQuery().toString()); // Revert visual state if failed
+                    } else {
+                        announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
+                    }
                 }
             }
         });
