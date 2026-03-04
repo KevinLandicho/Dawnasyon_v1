@@ -44,18 +44,15 @@ public class Donation_details_fragment extends BaseFragment {
   private String fStatus;
   private int fImageRes;
 
-  // ⭐ NEW: Temporary global variables to pass to the Summary/Database
   public static String currentDonationType = "";
   public static String currentItemDescription = "";
 
-  // --- ⭐ Specific Unit Arrays ---
   private static final String[] UNITS_WEIGHT = {"Kilo", "Sack", "Grams", "Tons"};
   private static final String[] UNITS_PIECES = {"PCS", "Box", "Case", "Tray"};
   private static final String[] UNITS_LIQUID = {"Liter", "Bottle", "Gallon", "Box"};
   private static final String[] UNITS_PACKS  = {"Pack", "Set", "Box"};
   private static final String[] UNITS_GENERIC = {"PCS", "Set", "Box"};
 
-  // --- Data Structure ---
   private static class ItemData {
     String name;
     String[] specificUnits;
@@ -212,28 +209,22 @@ public class Donation_details_fragment extends BaseFragment {
             return;
           }
 
-          // ⭐ SEPARATE PARENT DATA AND CHILD ITEMS
           currentDonationType = "Relief Pack";
-          currentItemDescription = contents; // To Donations table
-
-          collectedItems.add(new ItemForSummary("Relief Pack", quantityStr + " Pack(s)")); // To Items table
+          currentItemDescription = contents;
+          collectedItems.add(new ItemForSummary("Relief Pack", quantityStr + " Pack(s)"));
 
         } else {
           collectedItems = collectAllInputs();
-
           if (collectedItems.isEmpty()) {
             Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
             return;
           }
-
           currentDonationType = categoryKey;
           currentItemDescription = null;
         }
-
         launchSummaryFragment(collectedItems);
       });
     }
-
     applyTagalogTranslation(view);
   }
 
@@ -245,30 +236,20 @@ public class Donation_details_fragment extends BaseFragment {
       itemView = inflater.inflate(R.layout.item_input_desc, itemInputsContainer, false);
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       TextView txtDesc = itemView.findViewById(R.id.txtItemDescription);
-      if (txtName != null) {
-        txtName.setText(item.name);
-        TranslationHelper.autoTranslate(getContext(), txtName, item.name);
-      }
-      if (txtDesc != null) {
-        txtDesc.setText(item.description);
-        TranslationHelper.autoTranslate(getContext(), txtDesc, item.description);
-      }
+      if (txtName != null) txtName.setText(item.name);
+      if (txtDesc != null) txtDesc.setText(item.description);
     } else {
       itemView = inflater.inflate(R.layout.item_input, itemInputsContainer, false);
       TextView txtName = itemView.findViewById(R.id.txtItemName);
       Spinner spinner = itemView.findViewById(R.id.spinnerUnit);
-      if (txtName != null) {
-        txtName.setText(item.name);
-        TranslationHelper.autoTranslate(getContext(), txtName, item.name);
-      }
-
+      if (txtName != null) txtName.setText(item.name);
       setupUnitSpinner(spinner, item.specificUnits);
     }
-
     setupQuantityControls(itemView);
     itemInputsContainer.addView(itemView);
   }
 
+  // ⭐ FIX: REMOVED OVERLAPPING BUTTONS
   private void addCustomItemInput() {
     if (customItemInputLayout == null) return;
 
@@ -280,39 +261,42 @@ public class Donation_details_fragment extends BaseFragment {
       parent.removeView(originalName);
 
       EditText editName = new EditText(requireContext());
-      editName.setId(R.id.txtItemName);
+      editName.setId(View.generateViewId());
       editName.setHint("Enter Item");
       editName.setTextSize(16f);
       editName.setBackground(null);
-      editName.setLayoutParams(originalName.getLayoutParams());
-      parent.addView(editName, 0);
 
-      TranslationHelper.autoTranslate(getContext(), editName, "Enter Item");
+      ConstraintLayout.LayoutParams editParams = new ConstraintLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT);
+      editParams.startToEnd = View.generateViewId(); // We will put closeBtn here
+      editParams.endToStart = R.id.spinnerUnit;
+      editParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
+      editParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+      editParams.setMarginStart(10);
 
-      TextView btnPlus = customView.findViewById(R.id.btnPlus);
+      editName.setLayoutParams(editParams);
+      parent.addView(editName);
+
+      // Create Close Button
       TextView closeBtn = new TextView(requireContext());
-      closeBtn.setText("X");
+      closeBtn.setId(View.generateViewId());
+      closeBtn.setText("✕");
       closeBtn.setTextSize(18f);
-      closeBtn.setPadding(10, 10, 10, 10);
+      closeBtn.setPadding(15, 10, 15, 10);
+      closeBtn.setTextColor(android.graphics.Color.RED);
 
-      int dp35 = (int) (35 * getResources().getDisplayMetrics().density);
-      ConstraintLayout.LayoutParams params = new ConstraintLayout.LayoutParams(dp35, dp35);
+      ConstraintLayout.LayoutParams clParams = new ConstraintLayout.LayoutParams(
+              ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 
-      if(btnPlus != null) {
-        params.topToTop = btnPlus.getId();
-        params.bottomToBottom = btnPlus.getId();
-        params.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-      }
+      // ⭐ FIX: Place the X button on the far LEFT to avoid overlapping the plus button on the right
+      clParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+      clParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
+      clParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
 
-      if (btnPlus != null) {
-        ConstraintLayout.LayoutParams clParams = new ConstraintLayout.LayoutParams(dp35, dp35);
-        clParams.topToTop = btnPlus.getId();
-        clParams.bottomToBottom = btnPlus.getId();
-        clParams.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
-        parent.addView(closeBtn, clParams);
-      } else {
-        parent.addView(closeBtn);
-      }
+      closeBtn.setLayoutParams(clParams);
+      parent.addView(closeBtn);
+
+      // Re-adjust the EditName to be to the right of the Close Button
+      ((ConstraintLayout.LayoutParams) editName.getLayoutParams()).startToEnd = closeBtn.getId();
 
       closeBtn.setOnClickListener(v -> customItemInputLayout.removeView(customView));
     }
@@ -320,7 +304,6 @@ public class Donation_details_fragment extends BaseFragment {
     Spinner spinner = customView.findViewById(R.id.spinnerUnit);
     setupUnitSpinner(spinner, UNITS_GENERIC);
     setupQuantityControls(customView);
-
     customItemInputLayout.addView(customView);
   }
 
@@ -328,11 +311,8 @@ public class Donation_details_fragment extends BaseFragment {
     View vMinus = itemView.findViewById(R.id.btnMinus);
     View vQty = itemView.findViewById(R.id.txtQty);
     View vPlus = itemView.findViewById(R.id.btnPlus);
-
     if (vMinus == null || vQty == null || vPlus == null) return;
-
     TextView txtQty = (TextView) vQty;
-
     if (txtQty.getText().toString().isEmpty()) txtQty.setText("0");
 
     vMinus.setOnClickListener(v -> {
@@ -352,7 +332,6 @@ public class Donation_details_fragment extends BaseFragment {
 
   private void setupUnitSpinner(Spinner spinner, String[] units) {
     if (spinner == null || units == null) return;
-
     ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, units);
     spinner.setAdapter(adapter);
   }
@@ -370,17 +349,17 @@ public class Donation_details_fragment extends BaseFragment {
       View view = container.getChildAt(i);
       TextView txtQty = view.findViewById(R.id.txtQty);
       if (txtQty == null) continue;
-
       int qty = 0;
       try { qty = Integer.parseInt(txtQty.getText().toString()); } catch (Exception e) {}
-
       if (qty > 0) {
-        TextView txtName = view.findViewById(R.id.txtItemName);
-        String name = (txtName != null) ? txtName.getText().toString() : "Unknown";
+        // Find the name (could be TextView or EditText)
+        View nameView = view.findViewById(R.id.txtItemName);
+        String name = "Unknown";
+        if (nameView instanceof TextView) name = ((TextView) nameView).getText().toString();
+        else if (nameView instanceof EditText) name = ((EditText) nameView).getText().toString();
 
         Spinner spinner = view.findViewById(R.id.spinnerUnit);
         String unit = (spinner != null) ? spinner.getSelectedItem().toString() : "";
-
         items.add(new ItemForSummary(name, qty + " " + unit));
       }
     }
