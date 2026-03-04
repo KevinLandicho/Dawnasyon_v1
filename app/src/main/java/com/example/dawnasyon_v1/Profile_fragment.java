@@ -3,6 +3,7 @@ package com.example.dawnasyon_v1;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -89,6 +90,9 @@ public class Profile_fragment extends BaseFragment {
         LinearLayout menuDelete = view.findViewById(R.id.menu_delete);
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
+        // ⭐ STANDALONE LANGUAGE BUTTON (Placed at the top of your XML)
+        Button btnLanguage = view.findViewById(R.id.btn_language);
+
         Button btnEditProfile = view.findViewById(R.id.btn_edit_profile);
         Button btnViewQR = view.findViewById(R.id.btn_view_qr);
         MaterialButton btnPinLocation = view.findViewById(R.id.btn_pin_location);
@@ -111,6 +115,10 @@ public class Profile_fragment extends BaseFragment {
 
         if (cardPriority != null) cardPriority.setOnClickListener(v -> toggleBreakdown());
 
+        // ⭐ Get Current Language Preference
+        SharedPreferences prefs = requireActivity().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
+        boolean isTagalogEnabled = prefs.getBoolean("is_tagalog", false);
+
         // ⭐ 2. Setup Menu Icons & Titles
         setupMenuItem(menuTracker, R.drawable.ic_assignment, "Application tracker");
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
@@ -119,6 +127,18 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions");
         setupMenuItem(menuDelete, R.drawable.ic_delete, "Delete account");
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
+
+        // Initial Language Button Setup
+        if (btnLanguage != null) {
+            btnLanguage.setText(isTagalogEnabled ? "TAGALOG" : "ENGLISH");
+            if (btnLanguage instanceof MaterialButton) {
+                if (isTagalogEnabled) {
+                    ((MaterialButton) btnLanguage).setIconResource(R.drawable.ic_check_circle);
+                } else {
+                    ((MaterialButton) btnLanguage).setIcon(null);
+                }
+            }
+        }
 
         // ⭐ 3. Setup Click Listeners
         btnEditProfile.setOnClickListener(v -> navigateToFragment(new EditProfile_fragment()));
@@ -145,6 +165,11 @@ public class Profile_fragment extends BaseFragment {
         // ⭐ LOGOUT CLICK
         if (menuLogout != null) menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
 
+        // ⭐ LANGUAGE TOGGLE CLICK
+        if (btnLanguage != null) {
+            btnLanguage.setOnClickListener(v -> toggleLanguage(prefs, btnLanguage, view));
+        }
+
         // ⭐ 4. Load Data
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
@@ -168,15 +193,13 @@ public class Profile_fragment extends BaseFragment {
                     if (profile.getCity() != null) fullAddress += profile.getCity();
                     if (detailAddress != null) detailAddress.setText(fullAddress);
 
-                    // ⭐ AVATAR LOADING LOGIC (Updated for Custom URL + Circle Crop)
+                    // ⭐ AVATAR LOADING LOGIC
                     String avatarName = profile.getAvatarName();
                     if (avatarName != null && avatarName.startsWith("http")) {
-                        // It's a custom uploaded URL - Fetch and crop it!
                         if (ivProfilePic != null) {
                             loadAndCircleCropImage(avatarName, ivProfilePic);
                         }
                     } else {
-                        // It's a standard local preset avatar
                         int avatarResId = AvatarHelper.getDrawableId(getContext(), avatarName);
                         if (ivProfilePic != null) ivProfilePic.setImageResource(avatarResId);
                     }
@@ -240,6 +263,35 @@ public class Profile_fragment extends BaseFragment {
         // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
         applyTagalogTranslation(view);
     }
+
+    // =========================================================================
+    // ⭐ LANGUAGE SWITCHER LOGIC
+    // =========================================================================
+    private void toggleLanguage(SharedPreferences prefs, Button btnLanguage, View rootView) {
+        boolean currentTagalog = prefs.getBoolean("is_tagalog", false);
+        boolean newTagalog = !currentTagalog;
+
+        // Save the new preference
+        prefs.edit().putBoolean("is_tagalog", newTagalog).apply();
+
+        // Apply Translation globally to the view
+        TranslationHelper.translateViewHierarchy(getContext(), rootView);
+
+        // Update the UI of the button specifically so it doesn't get stuck
+        if (btnLanguage != null) {
+            btnLanguage.setText(newTagalog ? "TAGALOG" : "ENGLISH");
+            if (btnLanguage instanceof MaterialButton) {
+                if (newTagalog) {
+                    ((MaterialButton) btnLanguage).setIconResource(R.drawable.ic_check_circle);
+                } else {
+                    ((MaterialButton) btnLanguage).setIcon(null);
+                }
+            }
+        }
+
+        Toast.makeText(getContext(), newTagalog ? "Tagalog Mode ON" : "English Mode ON", Toast.LENGTH_SHORT).show();
+    }
+
 
     // =========================================================================
     // ⭐ NATIVE IMAGE DOWNLOADER & CIRCLE CROPPER
