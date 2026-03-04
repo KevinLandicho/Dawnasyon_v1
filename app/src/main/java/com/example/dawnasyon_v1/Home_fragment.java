@@ -618,6 +618,11 @@ public class Home_fragment extends BaseFragment {
     }
 
     private void setupSearch() {
+        TextView searchText = searchView.findViewById(androidx.appcompat.R.id.search_src_text);
+        if (searchText != null) {
+            searchText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14); // Locks to 14dp
+        }
+
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) { applyFilters(query); return true; }
