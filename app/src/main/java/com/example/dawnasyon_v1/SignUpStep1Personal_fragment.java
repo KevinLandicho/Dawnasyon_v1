@@ -2,7 +2,7 @@ package com.example.dawnasyon_v1;
 
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log; // ⭐ ADDED IMPORT FOR LOGCAT
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -50,7 +50,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
 
-        if ("Overseas".equals(RegistrationCache.userType)) {
+        if ("Overseas".equalsIgnoreCase(RegistrationCache.userType)) {
             ivIdPreview.setVisibility(View.GONE);
         }
 
@@ -87,7 +87,7 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         });
 
-        // --- NEXT BUTTON WITH STRICT VALIDATION ---
+        // --- NEXT BUTTON WITH STRICT LOCAL VALIDATION ---
         btnNext.setOnClickListener(v -> {
             // Trim inputs to remove leading/trailing spaces
             String fName = etFirstName.getText().toString().trim();
@@ -102,16 +102,39 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 return;
             }
 
-            // 2. VALIDATE CONTACT NUMBER (Must be 11 digits)
-            if (contact.length() != 11) {
-                etContact.setError("Contact number must be exactly 11 digits.");
-                etContact.requestFocus();
+            // ⭐ 2. VALIDATE CONTACT NUMBER BASED ON USER TYPE
+            if ("Resident".equalsIgnoreCase(RegistrationCache.userType) || "Non-Resident".equalsIgnoreCase(RegistrationCache.userType)) {
+                // Philippine number rules
+                if (contact.length() != 11) {
+                    etContact.setError("Contact number must be exactly 11 digits.");
+                    etContact.requestFocus();
+                    return;
+                }
+                if (!contact.startsWith("09")) {
+                    etContact.setError("Contact number must start with '09'.");
+                    etContact.requestFocus();
+                    return;
+                }
+            } else {
+                // Overseas number rules (basic sanity check)
+                if (contact.length() < 7) {
+                    etContact.setError("Please enter a valid contact number.");
+                    etContact.requestFocus();
+                    return;
+                }
+            }
+
+            // 3. VALIDATE EMAIL DOMAIN (Must contain @gmail.com)
+            if (!email.toLowerCase().endsWith("@gmail.com")) {
+                etEmail.setError("Email must be a valid @gmail.com address.");
+                etEmail.requestFocus();
                 return;
             }
 
-            // 3. VALIDATE EMAIL (Must contain @gmail.com)
-            if (!email.toLowerCase().endsWith("@gmail.com")) {
-                etEmail.setError("Email must be a valid @gmail.com address.");
+            // ⭐ 4. VALIDATE GMAIL LENGTH (Must be at least 6 characters before the @)
+            String usernamePart = email.split("@")[0];
+            if (usernamePart.length() < 6) {
+                etEmail.setError("Fake email detected. Gmail usernames must be at least 6 characters.");
                 etEmail.requestFocus();
                 return;
             }
@@ -126,32 +149,37 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            // ⭐ Call the upgraded SupabaseJavaHelper checkUserExists
-            SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
-                @Override
-                public void onSuccess() {
-                    if (isAdded()) {
-                        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-                        // ⭐ Pass the individually typed names for mismatch comparison
-                        proceedToNextStep(fullName, contact, email, fName, lName);
-                    }
-                }
-
-                @Override
-                public void onError(String message) {
-                    if (isAdded()) {
-                        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-                        // This will show the specific error (e.g., "This name is already registered as a member...")
-                        Toast.makeText(getContext(), "Validation Failed: " + message, Toast.LENGTH_LONG).show();
-                    }
-                }
-            });
+            // ⭐ Skip the external API and go straight to your Supabase check
+            checkSupabaseAndProceed(fullName, email, contact, fName, lName);
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
         // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
+    }
+
+    // ========================================================================
+    // NORMAL DATABASE CHECK & NAVIGATION
+    // ========================================================================
+    private void checkSupabaseAndProceed(String fullName, String email, String contact, String fName, String lName) {
+        SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                if (isAdded()) {
+                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                    proceedToNextStep(fullName, contact, email, fName, lName);
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                if (isAdded()) {
+                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                    Toast.makeText(getContext(), "Validation Failed: " + message, Toast.LENGTH_LONG).show();
+                }
+            }
+        });
     }
 
     private void proceedToNextStep(String fullName, String contact, String email, String typedFName, String typedLName) {
@@ -167,7 +195,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         String nameMismatchNote = "";
         if (!originalFName.isEmpty() && !originalLName.isEmpty()) {
 
-            // Normalize names (uppercase and remove extra spaces) for fairer comparison
             String normTypedFName = typedFName.toUpperCase().replaceAll("\\s+", " ");
             String normTypedLName = typedLName.toUpperCase().replaceAll("\\s+", " ");
             String normScannedFName = originalFName.toUpperCase().replaceAll("\\s+", " ");
@@ -175,7 +202,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             boolean hasMismatch = false;
 
-            // Check if what they typed is significantly different from what was scanned
             if (!normScannedFName.contains(normTypedFName) && !normTypedFName.contains(normScannedFName)) {
                 hasMismatch = true;
             }
@@ -185,22 +211,19 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (hasMismatch) {
                 nameMismatchNote = "⚠️ NAME MISMATCH: User typed [" + typedFName + " " + typedLName + "], but ID showed [" + originalFName + " " + originalLName + "].\n";
-                // ⭐ LOGCAT PRINT FOR TESTING
                 Log.w("SignUpMismatch", nameMismatchNote);
             }
         }
 
-        // ⭐ CRITICAL FIX: Save the note directly to the Cache so Step 3 can grab it!
         RegistrationCache.nameMismatchNotes = nameMismatchNote;
 
         Fragment nextFragment;
-        if ("Overseas".equals(RegistrationCache.userType)) {
+        if ("Overseas".equalsIgnoreCase(RegistrationCache.userType)) {
             nextFragment = new SignUpStepAccount_fragment();
         } else {
             nextFragment = new SignUpStep2Household_fragment();
         }
 
-        // Proceed to next fragment
         getParentFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container_signup, nextFragment)
                 .addToBackStack(null)
