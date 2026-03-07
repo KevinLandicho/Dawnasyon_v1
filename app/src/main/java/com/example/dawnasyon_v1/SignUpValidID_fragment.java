@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 public class SignUpValidID_fragment extends BaseFragment {
 
     private Button btnStartScan, btnPrevious;
-    private TextView tvHowToQcid; // ⭐ NEW
+    private TextView tvHowToQcid;
 
     // Hardcoded to QC ID as per client request
     private final String selectedIdType = "QC_ID";
@@ -95,12 +95,12 @@ public class SignUpValidID_fragment extends BaseFragment {
 
         btnStartScan = view.findViewById(R.id.btn_start_scan);
         btnPrevious = view.findViewById(R.id.btn_previous);
-        tvHowToQcid = view.findViewById(R.id.tv_how_to_qcid); // ⭐ NEW
+        tvHowToQcid = view.findViewById(R.id.tv_how_to_qcid);
 
         btnStartScan.setOnClickListener(v -> showScanOptionsDialog());
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ NEW: Click listener for QCID Link
+        // ⭐ Click listener for QCID Link
         tvHowToQcid.setOnClickListener(v -> {
             String url = "https://quezoncity.gov.ph/qcitizen-guides/how-to-apply-for-a-qcitizen-id/";
             Intent i = new Intent(Intent.ACTION_VIEW);
@@ -119,11 +119,9 @@ public class SignUpValidID_fragment extends BaseFragment {
             InputImage image = InputImage.fromFilePath(requireContext(), uri);
             TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-            // ⭐ TRANSLATE LOADING STATE
-            String verifyingText = "Verifying Authenticity...";
-            btnStartScan.setText(verifyingText);
-            TranslationHelper.autoTranslate(getContext(), btnStartScan, verifyingText);
-
+            // ⭐ FIX: Set text directly. Do NOT call TranslationHelper here.
+            // It causes a massive race condition when the translation finishes late.
+            btnStartScan.setText("Verifying Authenticity...");
             btnStartScan.setEnabled(false);
 
             recognizer.process(image)
@@ -132,26 +130,41 @@ public class SignUpValidID_fragment extends BaseFragment {
                         if (isContentValid(visionText.getText())) {
                             // 2. If valid, proceed to extraction
                             parseQCID(visionText.getText().split("\n"));
+                            resetScanButton(); // Reset before moving to next page
                             proceedToStep1();
                         } else {
                             // 3. If invalid, reject
                             showInvalidIdDialog();
-
-                            // ⭐ TRANSLATE RESET STATE
-                            String startText = "Start Scan";
-                            btnStartScan.setText(startText);
-                            TranslationHelper.autoTranslate(getContext(), btnStartScan, startText);
-
-                            btnStartScan.setEnabled(true);
-                            capturedImageUri = null;
                         }
                     })
                     .addOnFailureListener(e -> {
                         Toast.makeText(getContext(), "Verification Failed. Try again.", Toast.LENGTH_SHORT).show();
-                        btnStartScan.setEnabled(true);
+                        resetScanButton();
+                        capturedImageUri = null;
                     });
 
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "Error loading image. Try again.", Toast.LENGTH_SHORT).show();
+            resetScanButton();
+            capturedImageUri = null;
+        }
+    }
+
+    // ⭐ BULLETPROOF RESET HELPER
+    private void resetScanButton() {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                String startText = "Start Scan";
+                btnStartScan.setText(startText);
+                btnStartScan.setEnabled(true);
+
+                // Re-translate ONLY the safe default text
+                if (getContext() != null) {
+                    TranslationHelper.autoTranslate(getContext(), btnStartScan, startText);
+                }
+            });
+        }
     }
 
     // ⭐ STRICT QC ID VALIDATION
@@ -168,7 +181,12 @@ public class SignUpValidID_fragment extends BaseFragment {
         new AlertDialog.Builder(getContext())
                 .setTitle("Incorrect ID Type")
                 .setMessage("The scanned image does not appear to be a Quezon City ID (QCitizen Card).\n\nPlease ensure you captured a clear photo of the correct document.")
-                .setPositiveButton("Try Again", null)
+                // ⭐ Reset happens securely when "Try Again" is clicked
+                .setPositiveButton("Try Again", (dialog, which) -> {
+                    resetScanButton();
+                    capturedImageUri = null;
+                })
+                .setCancelable(false) // Prevents clicking outside
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .show();
     }
@@ -202,10 +220,10 @@ public class SignUpValidID_fragment extends BaseFragment {
         args.putString("LNAME", extractLName);
         args.putString("MNAME", extractMName);
 
-        // ⭐ PASS THE EXTRACTED ADDRESS via Arguments (just in case Step 1 needs it)
+        // PASS THE EXTRACTED ADDRESS via Arguments
         args.putString("EXTRACTED_ADDRESS", extractAddress);
 
-        // ⭐ CRITICAL FIX: Save the address globally to the Cache so Step 3 can actually see it!
+        // CRITICAL FIX: Save the address globally to the Cache
         RegistrationCache.extractedAddress = extractAddress;
 
         if (capturedImageUri != null) args.putString("ID_IMAGE_URI", capturedImageUri.toString());
@@ -266,12 +284,10 @@ public class SignUpValidID_fragment extends BaseFragment {
                 .replaceAll("WIDOWED", " ");
 
         // Step 1: Remove the dates that usually bleed into the front of the address
-        // This removes things like "2027/05/11" or the mangled "2027106 11" from your example
         cleanText = cleanText.replaceAll("\\d{4}/\\d{2}/\\d{2}", " ");
-        cleanText = cleanText.replaceAll("20\\d{5}\\s*\\d*", " "); // Targets mangled dates starting with 20
+        cleanText = cleanText.replaceAll("20\\d{5}\\s*\\d*", " ");
 
         // Step 2: Extract everything starting from the first standalone number (House Number)
-        // Look for a number (like 53) that might have a letter (like B) right after it
         Pattern addressStartPattern = Pattern.compile("(?<!\\d)\\d{1,4}\\s*[A-Z]?\\s+[A-ZÑ]+");
         Matcher startMatcher = addressStartPattern.matcher(cleanText);
 
@@ -305,7 +321,7 @@ public class SignUpValidID_fragment extends BaseFragment {
         // Make the cut
         potentialAddress = potentialAddress.substring(0, earliestStopIndex);
 
-        // Step 4: Final Polish - Replace broken "QUEZON TO" back to "QUEZON CITY" if it happened
+        // Step 4: Final Polish
         potentialAddress = potentialAddress.replace("QUEZON TO", "QUEZON CITY");
 
         return potentialAddress.replaceAll("[^a-zA-Z0-9 Ññ.,-]", " ").replaceAll("\\s+", " ").trim();
