@@ -1,16 +1,21 @@
 package com.example.dawnasyon_v1;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -22,7 +27,13 @@ public class DonationHistory_fragment extends BaseFragment {
 
     private RecyclerView rvHistory;
     private DonationHistoryAdapter adapter;
+
+    // ⭐ Master list to hold all data, and historyList to show filtered data
+    private List<DonationHistoryItem> fullHistoryList = new ArrayList<>();
     private List<DonationHistoryItem> historyList = new ArrayList<>();
+
+    // Filter Buttons
+    private Button btnAll, btnPending, btnApproved, btnDeclined;
 
     public DonationHistory_fragment() {}
 
@@ -39,7 +50,19 @@ public class DonationHistory_fragment extends BaseFragment {
         ImageButton btnBack = view.findViewById(R.id.btn_back);
         rvHistory = view.findViewById(R.id.rv_donation_history);
 
+        // Initialize Buttons
+        btnAll = view.findViewById(R.id.btn_filter_all);
+        btnPending = view.findViewById(R.id.btn_filter_pending);
+        btnApproved = view.findViewById(R.id.btn_filter_approved);
+        btnDeclined = view.findViewById(R.id.btn_filter_declined);
+
         if (btnBack != null) btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+
+        // Setup Filter Click Listeners
+        btnAll.setOnClickListener(v -> applyFilter("All", btnAll));
+        btnPending.setOnClickListener(v -> applyFilter("Pending", btnPending));
+        btnApproved.setOnClickListener(v -> applyFilter("Approved", btnApproved));
+        btnDeclined.setOnClickListener(v -> applyFilter("Declined", btnDeclined));
 
         if (rvHistory != null) {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
@@ -83,7 +106,8 @@ public class DonationHistory_fragment extends BaseFragment {
     }
 
     private void processAndDisplay(List<DonationHistoryItem> rawList) {
-        historyList.clear();
+        fullHistoryList.clear();
+
         SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
         inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
         SimpleDateFormat outputFormat = new SimpleDateFormat("MM/dd/yyyy", Locale.getDefault());
@@ -110,7 +134,6 @@ public class DonationHistory_fragment extends BaseFragment {
                     qty = items.get(0).getQtyString() + " ";
                 }
 
-                // ⭐ PERFECT FIX: Safely gets the description using your newly added getter!
                 String details = (item.getItemDescription() != null && !item.getItemDescription().isEmpty())
                         ? item.getItemDescription()
                         : "Standard Contents";
@@ -129,10 +152,76 @@ public class DonationHistory_fragment extends BaseFragment {
                 }
             }
 
-            item.setDisplayDescription(item.getDisplayDescription() + "\nStatus: " + (item.getStatus() != null ? item.getStatus() : "Pending"));
+            // Ensure we grab the actual status from Supabase
+            String currentStatus = (item.getStatus() != null && !item.getStatus().isEmpty()) ? item.getStatus() : "Pending";
+
+            item.setDisplayDescription(item.getDisplayDescription() + "\nStatus: " + currentStatus);
             item.setImageResId(R.drawable.ic_profile_avatar);
-            historyList.add(item);
+
+            // Add to master list
+            fullHistoryList.add(item);
         }
-        adapter.notifyDataSetChanged();
+
+        // ⭐ Default to showing "All" when data finishes loading
+        applyFilter("All", btnAll);
+    }
+
+    // ========================================================================
+    // ⭐ BULLETPROOF FILTER LOGIC
+    // ========================================================================
+    private void applyFilter(String targetStatus, Button activeBtn) {
+        // 1. Reset all button colors to gray
+        resetButtonStyles();
+
+        // 2. Highlight the clicked button to Teal
+        activeBtn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#27869B")));
+        activeBtn.setTextColor(Color.WHITE);
+
+        // 3. Filter the actual list with forgiving string matching
+        historyList.clear();
+        for (DonationHistoryItem item : fullHistoryList) {
+
+            if (targetStatus.equals("All")) {
+                historyList.add(item);
+            } else {
+                // Grab the status and force it to lowercase to avoid case-sensitivity bugs
+                String itemStatus = item.getStatus() != null ? item.getStatus().trim().toLowerCase() : "pending";
+
+                // Route to the correct button based on broad keywords
+                if (targetStatus.equals("Approved")) {
+                    if (itemStatus.contains("approve") || itemStatus.contains("accept") || itemStatus.contains("inventory")) {
+                        historyList.add(item);
+                    }
+                }
+                else if (targetStatus.equals("Declined")) {
+                    if (itemStatus.contains("decline") || itemStatus.contains("reject") || itemStatus.contains("cancel")) {
+                        historyList.add(item);
+                    }
+                }
+                else if (targetStatus.equals("Pending")) {
+                    if (itemStatus.contains("pending")) {
+                        historyList.add(item);
+                    }
+                }
+            }
+        }
+
+        // 4. Tell the RecyclerView to refresh
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
+    }
+
+    private void resetButtonStyles() {
+        Button[] buttons = {btnAll, btnPending, btnApproved, btnDeclined};
+        int inactiveColor = Color.parseColor("#E0E0E0"); // Light Gray
+        int inactiveTextColor = Color.BLACK;
+
+        for (Button b : buttons) {
+            if (b != null) {
+                b.setBackgroundTintList(ColorStateList.valueOf(inactiveColor));
+                b.setTextColor(inactiveTextColor);
+            }
+        }
     }
 }

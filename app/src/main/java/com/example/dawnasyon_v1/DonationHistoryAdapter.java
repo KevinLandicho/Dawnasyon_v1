@@ -26,6 +26,12 @@ public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistory
         this.listener = listener;
     }
 
+    // ⭐ ADDED: A safe way to forcefully update the adapter's data
+    public void updateData(List<DonationHistoryItem> newList) {
+        this.historyList = newList;
+        notifyDataSetChanged();
+    }
+
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -42,34 +48,34 @@ public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistory
         String name = "My Donation";
         holder.tvName.setText(name);
 
-        // ⭐ TRANSLATE: "My Donation" -> "Aking Donasyon"
-        TranslationHelper.autoTranslate(context, holder.tvName, name);
-
-        // 2. Set Date (Usually kept in English/Numbers, but you can translate month names if needed)
+        // 2. Set Date
         holder.tvDate.setText(item.getFormattedDate());
 
-        // 3. Set Description
+        // ⭐ 3. CRITICAL FIX: Set Description WITHOUT the TranslationHelper
+        // Translating dynamic text inside a RecyclerView causes race conditions.
+        // It forces the old item's text to overwrite the new item's text when filtering!
         String description = item.getDisplayDescription();
         holder.tvDesc.setText(description);
-
-        // ⭐ TRANSLATE: Item names (e.g. "Rice" -> "Bigas")
-        TranslationHelper.autoTranslate(context, holder.tvDesc, description);
 
         // 4. Set Avatar
         holder.imgAvatar.setImageResource(item.getImageResId());
 
         // 5. Handle Status Color
         String status = item.getStatus();
-        if (status != null && status.equalsIgnoreCase("Verified")) {
+        if (status != null && (status.equalsIgnoreCase("Approved") || status.equalsIgnoreCase("Verified") || status.equalsIgnoreCase("In Inventory"))) {
             holder.tvDesc.setTextColor(Color.parseColor("#388E3C")); // Green
         } else if (status != null && status.equalsIgnoreCase("Pending")) {
             holder.tvDesc.setTextColor(Color.parseColor("#F57C00")); // Orange
+        } else if (status != null && (status.equalsIgnoreCase("Declined") || status.equalsIgnoreCase("Rejected"))) {
+            holder.tvDesc.setTextColor(Color.parseColor("#D32F2F")); // Red
         } else {
             holder.tvDesc.setTextColor(Color.DKGRAY);
         }
 
-        // 6. Translate Button Text ("View Receipt" -> "Tingnan ang Resibo")
-        TranslationHelper.autoTranslate(context, holder.btnReceipt, holder.btnReceipt.getText().toString());
+        // 6. Static Translations
+        // These are safe to translate because the text is the exact same for every single row.
+        TranslationHelper.autoTranslate(context, holder.tvName, name);
+        TranslationHelper.autoTranslate(context, holder.btnReceipt, "View Receipt");
 
         // 7. Click Listener
         holder.btnReceipt.setOnClickListener(v -> {
@@ -81,7 +87,7 @@ public class DonationHistoryAdapter extends RecyclerView.Adapter<DonationHistory
 
     @Override
     public int getItemCount() {
-        return historyList.size();
+        return historyList != null ? historyList.size() : 0;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
