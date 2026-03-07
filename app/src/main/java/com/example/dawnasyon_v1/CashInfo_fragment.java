@@ -22,6 +22,10 @@ public class CashInfo_fragment extends BaseFragment {
     private static final String ARG_STATUS = "arg_status";
     private static final String ARG_IMAGE = "arg_image";
 
+    // ⭐ TRANSACTION LIMITS
+    private static final int MIN_LIMIT = 1;        // Minimum 1 Peso
+    private static final int MAX_LIMIT = 20000;    // Maximum 20,000 Pesos
+
     private String fTitle, fDescription, fStatus;
     private int fImageRes;
 
@@ -92,8 +96,9 @@ public class CashInfo_fragment extends BaseFragment {
                 return;
             }
             try {
-                int amount = Integer.parseInt(otherAmountStr);
-                goToSummary(amount);
+                // Use long to safely check size before casting to int
+                long amount = Long.parseLong(otherAmountStr);
+                goToSummary((int) amount);
             } catch (NumberFormatException e) {
                 Toast.makeText(getContext(), "Invalid Amount", Toast.LENGTH_SHORT).show();
             }
@@ -117,9 +122,14 @@ public class CashInfo_fragment extends BaseFragment {
     }
 
     private void goToSummary(int amount) {
-        // ⭐ CHANGED: Removed the 100 peso limit, just checks if amount is greater than 0
-        if (amount <= 0) {
-            Toast.makeText(getContext(), "Please enter a valid amount greater than 0.", Toast.LENGTH_SHORT).show();
+        // ⭐ VALIDATION: Check for 1 Peso Min and 20,000 Peso Max
+        if (amount < MIN_LIMIT) {
+            Toast.makeText(getContext(), "Please enter a valid amount (Minimum ₱" + MIN_LIMIT + ").", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (amount > MAX_LIMIT) {
+            Toast.makeText(getContext(), "Maximum donation is ₱" + MAX_LIMIT + " per transaction.", Toast.LENGTH_SHORT).show();
             return;
         }
 
