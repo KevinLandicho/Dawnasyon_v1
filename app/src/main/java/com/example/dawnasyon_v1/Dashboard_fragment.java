@@ -5,7 +5,10 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Spannable;
+import android.text.SpannableString;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -406,32 +409,54 @@ public class Dashboard_fragment extends BaseFragment {
     }
 
     // =========================================================
-    // ⭐ FIX: TEXT OVERLAPPING LIST UI (HARD TRUNCATION)
+    // ⭐ UPDATED: LIST UI WITH COLORED BULLETS & BLACK TEXT
     // =========================================================
     private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {
         if (container == null) return;
         container.removeAllViews();
+
         TextView header = new TextView(getContext());
         header.setText(labelTitle + "          Count");
         header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setTextColor(Color.BLACK); // Ensure header is black
+        header.setPadding(0, 0, 0, 8);
         container.addView(header);
 
         if (data == null || data.isEmpty()) return;
+
         int colorIndex = 0;
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             TextView itemRow = new TextView(getContext());
 
-            // ⭐ FIX: Hard chop the string itself if it's too long so it NEVER touches the chart
+            // ⭐ Hard chop the string itself if it's too long
             String label = entry.getKey();
             if (label != null && label.length() > 16) {
                 label = label.substring(0, 16) + "..";
             }
 
-            itemRow.setText("● " + label + "   " + entry.getValue());
-            itemRow.setTextColor(ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length]);
+            // Create the row text with a bullet
+            String fullText = "●  " + label + "   " + entry.getValue();
+            SpannableString spannable = new SpannableString(fullText);
 
+            // Apply chart color ONLY to the bullet (first character)
+            int bulletColor = ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length];
+            spannable.setSpan(
+                    new ForegroundColorSpan(bulletColor),
+                    0, 1,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            // Force everything else (text and count) to remain Black
+            spannable.setSpan(
+                    new ForegroundColorSpan(Color.BLACK),
+                    1, fullText.length(),
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+
+            itemRow.setText(spannable);
             itemRow.setSingleLine(true);
             itemRow.setEllipsize(TextUtils.TruncateAt.END);
+            itemRow.setPadding(0, 4, 0, 4);
 
             container.addView(itemRow);
             colorIndex++;
