@@ -78,7 +78,6 @@ public class DonationReceipt_fragment extends BaseFragment {
                         addReceiptRow(itemsContainer, "Cash Donation", "₱" + item.getAmount());
 
                     } else if (type != null && type.equalsIgnoreCase("Relief Pack")) {
-                        // ⭐ NEW: Specific logic for Relief Packs to show contents
                         List<DonationItem> subItems = item.getDonationItems();
                         if (subItems != null && !subItems.isEmpty()) {
                             for (DonationItem sub : subItems) {
@@ -88,14 +87,12 @@ public class DonationReceipt_fragment extends BaseFragment {
                             addReceiptRow(itemsContainer, "Relief Pack", "Details pending");
                         }
 
-                        // Add the Specific Contents Row
                         String details = (item.getItemDescription() != null && !item.getItemDescription().isEmpty())
                                 ? item.getItemDescription()
                                 : "Standard Contents";
                         addReceiptRow(itemsContainer, "Contents", details);
 
                     } else {
-                        // Normal In-Kind logic
                         List<DonationItem> subItems = item.getDonationItems();
                         if (subItems != null && !subItems.isEmpty()) {
                             for (DonationItem sub : subItems) {
@@ -106,16 +103,16 @@ public class DonationReceipt_fragment extends BaseFragment {
                         }
                     }
 
-                    loadTrackingTimeline(itemsContainer, item.getDonationId());
+                    // ⭐ Pass the whole item so we can check the status
+                    loadTrackingTimeline(itemsContainer, item);
                 }
             }
         }
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
         applyTagalogTranslation(view);
     }
 
-    private void loadTrackingTimeline(LinearLayout container, long donationId) {
+    private void loadTrackingTimeline(LinearLayout container, DonationHistoryItem item) {
         View separator = new View(getContext());
         separator.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2));
         separator.setBackgroundColor(Color.parseColor("#E0E0E0"));
@@ -130,20 +127,23 @@ public class DonationReceipt_fragment extends BaseFragment {
         header.setTypeface(null, Typeface.BOLD);
         header.setTextColor(Color.parseColor("#E65100"));
         container.addView(header);
-
-        // Translate Header
         TranslationHelper.autoTranslate(getContext(), header, "Donation Journey");
+
+        // ⭐ NEW: Immediate check for Declined Status
+        String currentStatus = item.getStatus() != null ? item.getStatus() : "";
+        if (currentStatus.equalsIgnoreCase("Declined") || currentStatus.equalsIgnoreCase("Rejected")) {
+            addTimelineRow(container, "❌ Declined", "Sorry, this donation was not accepted by the admin at this time.", true);
+            return; // Stop here, no need to load further tracking
+        }
 
         TextView tvLoading = new TextView(getContext());
         tvLoading.setText("Tracking status...");
         tvLoading.setTextSize(12);
         tvLoading.setTextColor(Color.GRAY);
         container.addView(tvLoading);
-
-        // Translate Loading Text
         TranslationHelper.autoTranslate(getContext(), tvLoading, "Tracking status...");
 
-        SupabaseJavaHelper.fetchDonationTracking(donationId, trackingDTO -> {
+        SupabaseJavaHelper.fetchDonationTracking(item.getDonationId(), trackingDTO -> {
             if (!isAdded()) return;
             container.removeView(tvLoading);
 
@@ -181,14 +181,19 @@ public class DonationReceipt_fragment extends BaseFragment {
         tvTitle.setText(title);
         tvTitle.setTypeface(null, Typeface.BOLD);
         tvTitle.setTextSize(14);
-        tvTitle.setTextColor(isActive ? Color.parseColor("#2E7D32") : Color.GRAY);
+
+        // ⭐ If declined, set color to Red. Otherwise, keep Green/Gray.
+        if (title.contains("Declined")) {
+            tvTitle.setTextColor(Color.parseColor("#C62828")); // Red
+        } else {
+            tvTitle.setTextColor(isActive ? Color.parseColor("#2E7D32") : Color.GRAY);
+        }
 
         TextView tvDesc = new TextView(getContext());
         tvDesc.setText(description);
         tvDesc.setTextSize(12);
         tvDesc.setTextColor(Color.DKGRAY);
 
-        // ⭐ TRANSLATE DYNAMIC ROWS
         TranslationHelper.autoTranslate(getContext(), tvTitle, title);
         TranslationHelper.autoTranslate(getContext(), tvDesc, description);
 
@@ -229,9 +234,7 @@ public class DonationReceipt_fragment extends BaseFragment {
         tvValue.setTextSize(14);
         tvValue.setGravity(Gravity.END);
 
-        // ⭐ TRANSLATE RECEIPT ITEMS
         TranslationHelper.autoTranslate(getContext(), tvName, name);
-        // Note: tvValue is usually numbers/prices, so we skip translating it to keep format correct
 
         row.addView(tvName);
         row.addView(tvValue);

@@ -1,6 +1,8 @@
 package com.example.dawnasyon_v1;
 
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,6 +48,21 @@ public class Donation_details_fragment extends BaseFragment {
 
   public static String currentDonationType = "";
   public static String currentItemDescription = "";
+
+  // ⭐ STATE PRESERVATION CACHE
+  // This keeps the data alive even if the fragment is destroyed and recreated
+  private static final Map<String, String> savedQuantities = new HashMap<>();
+  private static final Map<String, Integer> savedUnits = new HashMap<>();
+  private static final List<CustomItemEntry> savedCustomItems = new ArrayList<>();
+
+  private static class CustomItemEntry {
+    String name;
+    int unitPos;
+    String qty;
+    CustomItemEntry(String name, int unitPos, String qty) {
+      this.name = name; this.unitPos = unitPos; this.qty = qty;
+    }
+  }
 
   private static final String[] UNITS_WEIGHT = {"Kilo", "Sack", "Grams", "Tons"};
   private static final String[] UNITS_PIECES = {"PCS", "Box", "Case", "Tray"};
@@ -134,15 +151,12 @@ public class Donation_details_fragment extends BaseFragment {
 
     final String categoryKey = fTitle != null ? fTitle : "FOOD";
 
-    if (categoryKey.equals("CASH")) {
-      if (getActivity() != null) {
-        Fragment cashFragment = CashInfo_fragment.newInstance(fTitle, fDescription, fStatus, fImageRes);
-        getActivity().getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragment_container, cashFragment)
-                .addToBackStack(null)
-                .commit();
-        return;
-      }
+    // Logic for cleaning cache if category changes
+    if (!currentDonationType.equals(categoryKey)) {
+      savedQuantities.clear();
+      savedUnits.clear();
+      savedCustomItems.clear();
+      currentDonationType = categoryKey;
     }
 
     View btnBack = view.findViewById(R.id.btnBack);
@@ -168,14 +182,14 @@ public class Donation_details_fragment extends BaseFragment {
     if(imgIcon != null) imgIcon.setImageResource(fImageRes);
 
     if (categoryKey.equalsIgnoreCase("RELIEF PACKS")) {
-      if (itemInputsContainer != null) itemInputsContainer.setVisibility(View.GONE);
-      if (btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
-      if (customItemInputLayout != null) customItemInputLayout.setVisibility(View.GONE);
-      if (reliefPackContainer != null) reliefPackContainer.setVisibility(View.VISIBLE);
+      reliefPackContainer.setVisibility(View.VISIBLE);
+      itemInputsContainer.setVisibility(View.GONE);
+      btnAddCustomItem.setVisibility(View.GONE);
     } else {
-      if (reliefPackContainer != null) reliefPackContainer.setVisibility(View.GONE);
-      if (itemInputsContainer != null) itemInputsContainer.setVisibility(View.VISIBLE);
+      reliefPackContainer.setVisibility(View.GONE);
+      itemInputsContainer.setVisibility(View.VISIBLE);
 
+      // Load Presets
       List<ItemData> items = PRESET_ITEMS.get(categoryKey);
       if (items != null) {
         for (ItemData item : items) {
@@ -183,195 +197,195 @@ public class Donation_details_fragment extends BaseFragment {
         }
       }
 
+      // Load Custom Items from Cache
+      for (CustomItemEntry entry : savedCustomItems) {
+        addCustomItemInput(entry);
+      }
+
       if (categoryKey.equals("HYGIENE KITS")) {
-        if(btnAddCustomItem != null) btnAddCustomItem.setVisibility(View.GONE);
+        btnAddCustomItem.setVisibility(View.GONE);
       } else {
-        if(btnAddCustomItem != null) {
-          btnAddCustomItem.setVisibility(View.VISIBLE);
-          btnAddCustomItem.setOnClickListener(v -> {
-            addCustomItemInput();
-            if(customItemInputLayout != null) customItemInputLayout.setVisibility(View.VISIBLE);
-          });
-        }
+        btnAddCustomItem.setVisibility(View.VISIBLE);
+        btnAddCustomItem.setOnClickListener(v -> {
+          addCustomItemInput(null);
+          customItemInputLayout.setVisibility(View.VISIBLE);
+        });
       }
     }
 
-    if(btnStep3 != null) {
-      btnStep3.setOnClickListener(v -> {
-        ArrayList<ItemForSummary> collectedItems = new ArrayList<>();
-
-        if (categoryKey.equalsIgnoreCase("RELIEF PACKS")) {
-          String quantityStr = etPackQuantity != null ? etPackQuantity.getText().toString().trim() : "";
-          String contents = etPackContents != null ? etPackContents.getText().toString().trim() : "";
-
-          if (quantityStr.isEmpty() || contents.isEmpty()) {
-            Toast.makeText(getContext(), "Please provide the quantity and specific contents.", Toast.LENGTH_SHORT).show();
-            return;
-          }
-
-          currentDonationType = "Relief Pack";
-          currentItemDescription = contents;
-          collectedItems.add(new ItemForSummary("Relief Pack", quantityStr + " Pack(s)"));
-
-        } else {
-          collectedItems = collectAllInputs();
-          if (collectedItems.isEmpty()) {
-            Toast.makeText(getContext(), "Please enter a quantity for at least one item.", Toast.LENGTH_SHORT).show();
-            return;
-          }
-          currentDonationType = categoryKey;
-          currentItemDescription = null;
+    btnStep3.setOnClickListener(v -> {
+      ArrayList<ItemForSummary> collectedItems = new ArrayList<>();
+      if (categoryKey.equalsIgnoreCase("RELIEF PACKS")) {
+        String quantityStr = etPackQuantity.getText().toString().trim();
+        String contents = etPackContents.getText().toString().trim();
+        if (quantityStr.isEmpty() || contents.isEmpty()) {
+          Toast.makeText(getContext(), "Fill in all fields.", Toast.LENGTH_SHORT).show();
+          return;
         }
-        launchSummaryFragment(collectedItems);
-      });
-    }
+        collectedItems.add(new ItemForSummary("Relief Pack", quantityStr + " Pack(s)"));
+        currentItemDescription = contents;
+      } else {
+        collectedItems = collectAllInputs();
+        if (collectedItems == null || collectedItems.isEmpty()) {
+          Toast.makeText(getContext(), "Add at least one item.", Toast.LENGTH_SHORT).show();
+          return;
+        }
+      }
+      launchSummaryFragment(collectedItems);
+    });
+
     applyTagalogTranslation(view);
   }
 
   private void addPresetItem(ItemData item) {
-    if(itemInputsContainer == null) return;
+    View itemView = inflater.inflate(item.layoutType == 2 ? R.layout.item_input_desc : R.layout.item_input, itemInputsContainer, false);
+    TextView txtName = itemView.findViewById(R.id.txtItemName);
+    txtName.setText(item.name);
 
-    View itemView;
-    if (item.layoutType == 2) {
-      itemView = inflater.inflate(R.layout.item_input_desc, itemInputsContainer, false);
-      TextView txtName = itemView.findViewById(R.id.txtItemName);
-      TextView txtDesc = itemView.findViewById(R.id.txtItemDescription);
-      if (txtName != null) txtName.setText(item.name);
-      if (txtDesc != null) txtDesc.setText(item.description);
-    } else {
-      itemView = inflater.inflate(R.layout.item_input, itemInputsContainer, false);
-      TextView txtName = itemView.findViewById(R.id.txtItemName);
+    if (item.layoutType == 1) {
       Spinner spinner = itemView.findViewById(R.id.spinnerUnit);
-      if (txtName != null) txtName.setText(item.name);
-      setupUnitSpinner(spinner, item.specificUnits);
+      setupUnitSpinner(spinner, item.specificUnits, item.name);
+    } else {
+      TextView txtDesc = itemView.findViewById(R.id.txtItemDescription);
+      txtDesc.setText(item.description);
     }
-    setupQuantityControls(itemView);
+
+    setupQuantityControls(itemView, item.name);
     itemInputsContainer.addView(itemView);
   }
 
-  // ⭐ FIX: REMOVED OVERLAPPING BUTTONS
-  private void addCustomItemInput() {
-    if (customItemInputLayout == null) return;
-
+  private void addCustomItemInput(@Nullable CustomItemEntry entry) {
     View customView = inflater.inflate(R.layout.item_input, customItemInputLayout, false);
     ConstraintLayout parent = customView.findViewById(R.id.constraintLayoutRoot);
-    TextView originalName = customView.findViewById(R.id.txtItemName);
+    TextView originalNameLabel = customView.findViewById(R.id.txtItemName);
+    parent.removeView(originalNameLabel);
 
-    if (parent != null && originalName != null) {
-      parent.removeView(originalName);
+    EditText editName = new EditText(requireContext());
+    editName.setId(View.generateViewId());
+    editName.setHint("Enter Item");
+    editName.setTextSize(16f);
+    if (entry != null) editName.setText(entry.name);
 
-      EditText editName = new EditText(requireContext());
-      editName.setId(View.generateViewId());
-      editName.setHint("Enter Item");
-      editName.setTextSize(16f);
-      editName.setBackground(null);
+    TextView closeBtn = new TextView(requireContext());
+    closeBtn.setId(View.generateViewId());
+    closeBtn.setText("✕");
+    closeBtn.setTextColor(android.graphics.Color.RED);
+    closeBtn.setPadding(20, 10, 20, 10);
 
-      ConstraintLayout.LayoutParams editParams = new ConstraintLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT);
-      editParams.startToEnd = View.generateViewId(); // We will put closeBtn here
-      editParams.endToStart = R.id.spinnerUnit;
-      editParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
-      editParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
-      editParams.setMarginStart(10);
+    // Layout Params for X and Edit
+    ConstraintLayout.LayoutParams clParams = new ConstraintLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+    clParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+    clParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
+    clParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+    closeBtn.setLayoutParams(clParams);
+    parent.addView(closeBtn);
 
-      editName.setLayoutParams(editParams);
-      parent.addView(editName);
-
-      // Create Close Button
-      TextView closeBtn = new TextView(requireContext());
-      closeBtn.setId(View.generateViewId());
-      closeBtn.setText("✕");
-      closeBtn.setTextSize(18f);
-      closeBtn.setPadding(15, 10, 15, 10);
-      closeBtn.setTextColor(android.graphics.Color.RED);
-
-      ConstraintLayout.LayoutParams clParams = new ConstraintLayout.LayoutParams(
-              ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-
-      // ⭐ FIX: Place the X button on the far LEFT to avoid overlapping the plus button on the right
-      clParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
-      clParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
-      clParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
-
-      closeBtn.setLayoutParams(clParams);
-      parent.addView(closeBtn);
-
-      // Re-adjust the EditName to be to the right of the Close Button
-      ((ConstraintLayout.LayoutParams) editName.getLayoutParams()).startToEnd = closeBtn.getId();
-
-      closeBtn.setOnClickListener(v -> customItemInputLayout.removeView(customView));
-    }
+    ConstraintLayout.LayoutParams editParams = new ConstraintLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT);
+    editParams.startToEnd = closeBtn.getId();
+    editParams.endToStart = R.id.spinnerUnit;
+    editParams.topToTop = ConstraintLayout.LayoutParams.PARENT_ID;
+    editParams.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+    editParams.setMarginStart(10);
+    editName.setLayoutParams(editParams);
+    parent.addView(editName);
 
     Spinner spinner = customView.findViewById(R.id.spinnerUnit);
-    setupUnitSpinner(spinner, UNITS_GENERIC);
-    setupQuantityControls(customView);
+    setupUnitSpinner(spinner, UNITS_GENERIC, null);
+    if (entry != null) spinner.setSelection(entry.unitPos);
+
+    TextView txtQty = customView.findViewById(R.id.txtQty);
+    if (entry != null) txtQty.setText(entry.qty);
+
+    setupQuantityControls(customView, null);
+    closeBtn.setOnClickListener(v -> customItemInputLayout.removeView(customView));
     customItemInputLayout.addView(customView);
   }
 
-  private void setupQuantityControls(View itemView) {
-    View vMinus = itemView.findViewById(R.id.btnMinus);
-    View vQty = itemView.findViewById(R.id.txtQty);
-    View vPlus = itemView.findViewById(R.id.btnPlus);
-    if (vMinus == null || vQty == null || vPlus == null) return;
-    TextView txtQty = (TextView) vQty;
-    if (txtQty.getText().toString().isEmpty()) txtQty.setText("0");
+  private void setupQuantityControls(View itemView, @Nullable String itemName) {
+    TextView txtQty = itemView.findViewById(R.id.txtQty);
 
-    vMinus.setOnClickListener(v -> {
-      try {
-        int q = Integer.parseInt(txtQty.getText().toString());
-        if (q > 0) txtQty.setText(String.valueOf(q - 1));
-      } catch (Exception e) { txtQty.setText("0"); }
+    // Restore from cache if preset
+    if (itemName != null && savedQuantities.containsKey(itemName)) {
+      txtQty.setText(savedQuantities.get(itemName));
+    }
+
+    itemView.findViewById(R.id.btnPlus).setOnClickListener(v -> {
+      int q = Integer.parseInt(txtQty.getText().toString()) + 1;
+      txtQty.setText(String.valueOf(q));
+      if (itemName != null) savedQuantities.put(itemName, String.valueOf(q));
     });
 
-    vPlus.setOnClickListener(v -> {
-      try {
-        int q = Integer.parseInt(txtQty.getText().toString());
-        txtQty.setText(String.valueOf(q + 1));
-      } catch (Exception e) { txtQty.setText("1"); }
+    itemView.findViewById(R.id.btnMinus).setOnClickListener(v -> {
+      int q = Math.max(0, Integer.parseInt(txtQty.getText().toString()) - 1);
+      txtQty.setText(String.valueOf(q));
+      if (itemName != null) savedQuantities.put(itemName, String.valueOf(q));
     });
   }
 
-  private void setupUnitSpinner(Spinner spinner, String[] units) {
-    if (spinner == null || units == null) return;
+  private void setupUnitSpinner(Spinner spinner, String[] units, @Nullable String itemName) {
     ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, units);
     spinner.setAdapter(adapter);
+    if (itemName != null && savedUnits.containsKey(itemName)) {
+      spinner.setSelection(savedUnits.get(itemName));
+    }
   }
 
   private ArrayList<ItemForSummary> collectAllInputs() {
     ArrayList<ItemForSummary> items = new ArrayList<>();
-    collectInputsFromContainer(itemInputsContainer, items);
-    collectInputsFromContainer(customItemInputLayout, items);
-    return items;
-  }
+    savedCustomItems.clear(); // Refresh custom cache on step 3 click
 
-  private void collectInputsFromContainer(LinearLayout container, ArrayList<ItemForSummary> items) {
-    if (container == null) return;
-    for (int i = 0; i < container.getChildCount(); i++) {
-      View view = container.getChildAt(i);
-      TextView txtQty = view.findViewById(R.id.txtQty);
-      if (txtQty == null) continue;
-      int qty = 0;
-      try { qty = Integer.parseInt(txtQty.getText().toString()); } catch (Exception e) {}
-      if (qty > 0) {
-        // Find the name (could be TextView or EditText)
-        View nameView = view.findViewById(R.id.txtItemName);
-        String name = "Unknown";
-        if (nameView instanceof TextView) name = ((TextView) nameView).getText().toString();
-        else if (nameView instanceof EditText) name = ((EditText) nameView).getText().toString();
+    // Collect Presets & Save Units
+    for (int i = 0; i < itemInputsContainer.getChildCount(); i++) {
+      View v = itemInputsContainer.getChildAt(i);
+      TextView nameTv = v.findViewById(R.id.txtItemName);
+      TextView qtyTv = v.findViewById(R.id.txtQty);
+      Spinner unitSp = v.findViewById(R.id.spinnerUnit);
 
-        Spinner spinner = view.findViewById(R.id.spinnerUnit);
-        String unit = (spinner != null) ? spinner.getSelectedItem().toString() : "";
+      String name = nameTv.getText().toString();
+      String qty = qtyTv.getText().toString();
+
+      if (unitSp != null) savedUnits.put(name, unitSp.getSelectedItemPosition());
+
+      if (!qty.equals("0")) {
+        String unit = (unitSp != null) ? unitSp.getSelectedItem().toString() : "";
         items.add(new ItemForSummary(name, qty + " " + unit));
       }
     }
+
+    // Collect Customs & Update Cache
+    for (int i = 0; i < customItemInputLayout.getChildCount(); i++) {
+      View v = customItemInputLayout.getChildAt(i);
+      EditText nameEt = null;
+      // Find the dynamic EditText
+      for(int j=0; j<((ConstraintLayout)v.findViewById(R.id.constraintLayoutRoot)).getChildCount(); j++) {
+        View child = ((ConstraintLayout)v.findViewById(R.id.constraintLayoutRoot)).getChildAt(j);
+        if(child instanceof EditText) nameEt = (EditText)child;
+      }
+
+      TextView qtyTv = v.findViewById(R.id.txtQty);
+      Spinner unitSp = v.findViewById(R.id.spinnerUnit);
+
+      if (nameEt != null) {
+        String name = nameEt.getText().toString().trim();
+        String qty = qtyTv.getText().toString();
+        int unitPos = unitSp.getSelectedItemPosition();
+
+        if (!name.isEmpty()) {
+          savedCustomItems.add(new CustomItemEntry(name, unitPos, qty));
+          if (!qty.equals("0")) {
+            items.add(new ItemForSummary(name, qty + " " + unitSp.getSelectedItem().toString()));
+          }
+        }
+      }
+    }
+    return items;
   }
 
   private void launchSummaryFragment(ArrayList<ItemForSummary> collectedItems) {
-    if (getActivity() != null) {
-      Fragment summaryFragment = Summary_fragment.newInstance(collectedItems);
-      getActivity().getSupportFragmentManager().beginTransaction()
-              .replace(R.id.fragment_container, summaryFragment)
-              .addToBackStack(null)
-              .commit();
-    }
+    Fragment summaryFragment = Summary_fragment.newInstance(collectedItems);
+    getActivity().getSupportFragmentManager().beginTransaction()
+            .replace(R.id.fragment_container, summaryFragment)
+            .addToBackStack(null)
+            .commit();
   }
 }

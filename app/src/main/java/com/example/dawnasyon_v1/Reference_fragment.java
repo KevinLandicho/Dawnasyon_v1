@@ -15,9 +15,11 @@ import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
+import androidx.fragment.app.FragmentManager;
 
 import java.io.OutputStream;
 
@@ -30,10 +32,6 @@ public class Reference_fragment extends BaseFragment {
         // Required empty public constructor
     }
 
-    /**
-     * Factory method to create a new instance of this fragment.
-     * @param referenceNumber The generated reference number to display.
-     */
     public static Reference_fragment newInstance(String referenceNumber) {
         Reference_fragment fragment = new Reference_fragment();
         Bundle args = new Bundle();
@@ -48,11 +46,21 @@ public class Reference_fragment extends BaseFragment {
         if (getArguments() != null) {
             referenceNo = getArguments().getString(ARG_REFERENCE_NO);
         }
+
+        // ====================================================
+        // ⭐ NEW: HANDLE PHYSICAL PHONE BACK BUTTON
+        // ====================================================
+        OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                navigateToDonationPage();
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, callback);
     }
 
     @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         return inflater.inflate(R.layout.fragment_reference, container, false);
     }
 
@@ -66,55 +74,42 @@ public class Reference_fragment extends BaseFragment {
         ImageButton btnSaveImage = view.findViewById(R.id.btn_save_image);
 
         if (referenceNo != null) {
-            // 🟢 Set the generated reference number to the TextView
             txtReference.setText(referenceNo);
         } else {
-            // Fallback text if the reference number was not passed
             txtReference.setText("N/A - ERROR");
         }
 
-        // ====================================================
-        // ⭐ UPDATED: BACK BUTTON LOGIC
-        // ====================================================
-        btnBack.setOnClickListener(v -> {
-            if (getParentFragmentManager() != null) {
-                // 1. Clear the history so they can't reverse back into this reference page
-                getParentFragmentManager().popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE);
+        // ⭐ UI BACK BUTTON LOGIC
+        btnBack.setOnClickListener(v -> navigateToDonationPage());
 
-                // 2. Go directly to the Donation Page
-                // ⚠️ IMPORTANT: If your donation page is named differently, change "Donation_fragment" to your actual class name!
-                getParentFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, new AddDonation_Fragment())
-                        .commit();
-            }
-        });
-
-        // ====================================================
         // ⭐ SAVE IMAGE LOGIC
-        // ====================================================
         btnSaveImage.setOnClickListener(v -> {
-            // 1. Temporarily hide the save button so it doesn't appear in the saved image
             btnSaveImage.setVisibility(View.INVISIBLE);
-
-            // 2. Take a snapshot of the CardView
             Bitmap bitmap = getBitmapFromView(cardMain);
-
-            // 3. Make the save button visible again on the screen
             btnSaveImage.setVisibility(View.VISIBLE);
-
-            // 4. Save to gallery
             if (bitmap != null) {
                 saveImageToGallery(bitmap);
             }
         });
 
-        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Thank You" and labels)
         applyTagalogTranslation(view);
     }
 
     // ====================================================
-    // ⭐ HELPER: CONVERT VIEW TO BITMAP
+    // ⭐ HELPER: NAVIGATION LOGIC (Used by both buttons)
     // ====================================================
+    private void navigateToDonationPage() {
+        if (getParentFragmentManager() != null) {
+            // 1. Clear the entire backstack history so they can't go back to Summary
+            getParentFragmentManager().popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+
+            // 2. Replace with the target fragment
+            getParentFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new AddDonation_Fragment())
+                    .commit();
+        }
+    }
+
     private Bitmap getBitmapFromView(View view) {
         Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -122,15 +117,11 @@ public class Reference_fragment extends BaseFragment {
         return bitmap;
     }
 
-    // ====================================================
-    // ⭐ HELPER: SAVE BITMAP TO DEVICE GALLERY
-    // ====================================================
     private void saveImageToGallery(Bitmap bitmap) {
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.DISPLAY_NAME, "Dawnasyon_Reference_" + System.currentTimeMillis() + ".png");
         values.put(MediaStore.Images.Media.MIME_TYPE, "image/png");
 
-        // Use scoped storage for modern Android versions (Android 10+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Dawnasyon");
         }

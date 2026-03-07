@@ -8,6 +8,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -59,6 +60,12 @@ public class Summary_fragment extends BaseFragment {
         LinearLayout summaryContainer = view.findViewById(R.id.summaryItemsContainer);
         Button btnApplyToDonate = view.findViewById(R.id.btnApplyToDonate);
         CheckBox cbAnonymous = view.findViewById(R.id.checkAnonymous);
+        ImageButton btnBack = view.findViewById(R.id.btnBack);
+
+        // ⭐ BACK BUTTON LOGIC
+        if (btnBack != null) {
+            btnBack.setOnClickListener(v -> getParentFragmentManager().popBackStack());
+        }
 
         // Load Items into UI
         if (getArguments() != null) {
@@ -70,10 +77,8 @@ public class Summary_fragment extends BaseFragment {
             }
         }
 
-        // ⭐ FIXED: Fetch variables OUTSIDE the lambda (click listener) so they are "effectively final"
         final String rawDonationType = Donation_details_fragment.currentDonationType;
         final String finalDonationType = (rawDonationType == null || rawDonationType.isEmpty()) ? "In-Kind" : rawDonationType;
-
         final String finalItemDesc = Donation_details_fragment.currentItemDescription;
 
         if (finalDonationType.equalsIgnoreCase("Relief Pack") && finalItemDesc != null && !finalItemDesc.isEmpty()) {
@@ -96,7 +101,6 @@ public class Summary_fragment extends BaseFragment {
             boolean isAnon = cbAnonymous != null && cbAnonymous.isChecked();
             String refNumber = generateReferenceNumber();
 
-            // ⭐ Call the Helper using the final variables
             DonationHelper.submitDonation(
                     refNumber,
                     itemsToDonate,
@@ -115,7 +119,6 @@ public class Summary_fragment extends BaseFragment {
                             TranslationHelper.autoTranslate(getContext(), btnApplyToDonate, confirmText);
 
                             Toast.makeText(getContext(), "Donation Submitted!", Toast.LENGTH_SHORT).show();
-
                             launchReferenceFragment(refNumber);
                         }
 
@@ -139,12 +142,12 @@ public class Summary_fragment extends BaseFragment {
 
     private void addItemRowToSummary(LinearLayout container, String name, String quantityUnit) {
         TextView textView = new TextView(getContext());
-        String fullText = name + ": " + quantityUnit; // Formatted nicely
+        String fullText = name + ": " + quantityUnit;
         textView.setText(fullText);
 
         TranslationHelper.autoTranslate(getContext(), textView, fullText);
 
-        textView.setTextSize(16);
+        textView.setTextSize(18);
         try {
             Typeface dongleTypeface = ResourcesCompat.getFont(getContext(), R.font.dongle);
             textView.setTypeface(dongleTypeface);
@@ -152,7 +155,7 @@ public class Summary_fragment extends BaseFragment {
         } catch (Exception e) {
             textView.setTypeface(Typeface.DEFAULT);
         }
-        textView.setPadding(0, 10, 0, 10);
+        textView.setPadding(0, 5, 0, 5);
         container.addView(textView);
     }
 
