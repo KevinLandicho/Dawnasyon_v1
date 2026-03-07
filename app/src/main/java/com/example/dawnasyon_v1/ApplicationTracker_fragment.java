@@ -1,11 +1,13 @@
 package com.example.dawnasyon_v1;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -25,6 +27,13 @@ public class ApplicationTracker_fragment extends BaseFragment {
     private TrackerAdapter adapter;
     private TextView tvEmpty;
 
+    // ⭐ Master list and Active Filtered List
+    private List<ApplicationHistoryDTO> fullAppList = new ArrayList<>();
+    private List<ApplicationHistoryDTO> filteredList = new ArrayList<>();
+
+    // Filter Buttons
+    private Button btnAll, btnPending, btnApproved, btnDeclined, btnClaimed;
+
     public ApplicationTracker_fragment() {
         // Required empty public constructor
     }
@@ -43,12 +52,26 @@ public class ApplicationTracker_fragment extends BaseFragment {
         rvApplications = view.findViewById(R.id.rv_applications);
         tvEmpty = view.findViewById(R.id.tv_empty);
 
+        // Bind Buttons
+        btnAll = view.findViewById(R.id.btn_filter_all);
+        btnPending = view.findViewById(R.id.btn_filter_pending);
+        btnApproved = view.findViewById(R.id.btn_filter_approved);
+        btnDeclined = view.findViewById(R.id.btn_filter_declined);
+        btnClaimed = view.findViewById(R.id.btn_filter_claimed);
+
         // Back Button Logic
         btnBack.setOnClickListener(v -> {
             if (getParentFragmentManager() != null) {
                 getParentFragmentManager().popBackStack();
             }
         });
+
+        // Filter Click Listeners
+        btnAll.setOnClickListener(v -> applyFilter("All", btnAll));
+        btnPending.setOnClickListener(v -> applyFilter("Pending", btnPending));
+        btnApproved.setOnClickListener(v -> applyFilter("Approved", btnApproved));
+        btnDeclined.setOnClickListener(v -> applyFilter("Declined", btnDeclined));
+        btnClaimed.setOnClickListener(v -> applyFilter("Claimed", btnClaimed));
 
         setupRecyclerView();
         loadApplications();
@@ -59,7 +82,7 @@ public class ApplicationTracker_fragment extends BaseFragment {
 
     private void setupRecyclerView() {
         rvApplications.setLayoutManager(new LinearLayoutManager(getContext()));
-        adapter = new TrackerAdapter(new ArrayList<>(), this::showProcessDialog);
+        adapter = new TrackerAdapter(filteredList, this::showProcessDialog);
         rvApplications.setAdapter(adapter);
     }
 
@@ -83,7 +106,13 @@ public class ApplicationTracker_fragment extends BaseFragment {
                 } else {
                     tvEmpty.setVisibility(View.GONE);
                     rvApplications.setVisibility(View.VISIBLE);
-                    adapter.updateList(data);
+
+                    // Save to master list
+                    fullAppList.clear();
+                    fullAppList.addAll(data);
+
+                    // Default to showing "All"
+                    applyFilter("All", btnAll);
                 }
             }
 
@@ -95,9 +124,10 @@ public class ApplicationTracker_fragment extends BaseFragment {
                     ((BaseActivity) getActivity()).hideLoading();
                 }
 
-                if (adapter.getItemCount() == 0) {
+                if (fullAppList.isEmpty()) {
                     tvEmpty.setVisibility(View.VISIBLE);
                     tvEmpty.setText("Error: " + message);
+                    rvApplications.setVisibility(View.GONE);
                 } else {
                     Toast.makeText(getContext(), "Sync Error: " + message, Toast.LENGTH_SHORT).show();
                 }
@@ -105,15 +135,85 @@ public class ApplicationTracker_fragment extends BaseFragment {
         });
     }
 
+    // ========================================================================
+    // ⭐ BULLETPROOF FILTER LOGIC
+    // ========================================================================
+    private void applyFilter(String targetStatus, Button activeBtn) {
+        // 1. Reset all button colors to gray
+        resetButtonStyles();
+
+        // 2. Highlight the clicked button to Teal
+        activeBtn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#27869B")));
+        activeBtn.setTextColor(Color.WHITE);
+
+        // 3. Filter the actual list
+        filteredList.clear();
+        for (ApplicationHistoryDTO app : fullAppList) {
+            if (targetStatus.equals("All")) {
+                filteredList.add(app);
+            } else {
+                String itemStatus = app.getStatus() != null ? app.getStatus().trim().toLowerCase() : "pending";
+
+                if (targetStatus.equals("Approved")) {
+                    if (itemStatus.contains("approve") || itemStatus.contains("ready") || itemStatus.contains("accept")) {
+                        filteredList.add(app);
+                    }
+                }
+                else if (targetStatus.equals("Declined")) {
+                    if (itemStatus.contains("decline") || itemStatus.contains("reject") || itemStatus.contains("cancel")) {
+                        filteredList.add(app);
+                    }
+                }
+                else if (targetStatus.equals("Pending")) {
+                    if (itemStatus.contains("pending")) {
+                        filteredList.add(app);
+                    }
+                }
+                else if (targetStatus.equals("Claimed")) {
+                    if (itemStatus.contains("claim")) {
+                        filteredList.add(app);
+                    }
+                }
+            }
+        }
+
+        // 4. Show Empty state if filter returns 0 results
+        if (filteredList.isEmpty()) {
+            tvEmpty.setText("No " + targetStatus + " applications found.");
+            tvEmpty.setVisibility(View.VISIBLE);
+            rvApplications.setVisibility(View.GONE);
+        } else {
+            tvEmpty.setVisibility(View.GONE);
+            rvApplications.setVisibility(View.VISIBLE);
+        }
+
+        // 5. Tell the RecyclerView to refresh
+        if (adapter != null) {
+            adapter.updateList(filteredList);
+        }
+    }
+
+    private void resetButtonStyles() {
+        Button[] buttons = {btnAll, btnPending, btnApproved, btnDeclined, btnClaimed};
+        int inactiveColor = Color.parseColor("#E0E0E0"); // Light Gray
+        int inactiveTextColor = Color.BLACK;
+
+        for (Button b : buttons) {
+            if (b != null) {
+                b.setBackgroundTintList(ColorStateList.valueOf(inactiveColor));
+                b.setTextColor(inactiveTextColor);
+            }
+        }
+    }
+
     private void showProcessDialog(ApplicationHistoryDTO app) {
         String title = (app.getRelief_drives() != null) ? app.getRelief_drives().getName() : "Relief Operation";
 
-        // ⭐ UPDATED: Pass the proof_photo URL from the DTO to the Dialog
         TrackerDetailsDialog_Fragment dialog = TrackerDetailsDialog_Fragment.newInstance(
                 title,
                 app.getStatus(),
                 app.getCreated_at(),
-                app.getProof_photo() // This ensures the dialog gets the image URL
+                app.getProof_photo()
         );
         dialog.show(getParentFragmentManager(), "TrackerDetails");
     }
@@ -151,6 +251,7 @@ public class ApplicationTracker_fragment extends BaseFragment {
             ApplicationHistoryDTO item = list.get(position);
             Context context = holder.itemView.getContext();
 
+            // 1. Title
             String title = (item.getRelief_drives() != null) ? item.getRelief_drives().getName() : "Relief Operation";
             holder.tvTitle.setText(title);
 
@@ -166,10 +267,8 @@ public class ApplicationTracker_fragment extends BaseFragment {
             String status = item.getStatus().toUpperCase();
             holder.tvStatus.setText(status);
 
-            // ⭐ TRANSLATE LIST ITEMS AUTOMATICALLY
-            TranslationHelper.autoTranslate(context, holder.tvTitle, title);
-            TranslationHelper.autoTranslate(context, holder.tvStatus, status);
-            TranslationHelper.autoTranslate(context, holder.tvDate, dateText);
+            // ⭐ CRITICAL FIX: Removed dynamic TranslationHelper calls here
+            // to prevent the Race Condition text overlapping bug when filtering!
 
             if (status.equals("PENDING")) {
                 holder.tvStatus.setTextColor(Color.parseColor("#E65100"));
@@ -187,7 +286,7 @@ public class ApplicationTracker_fragment extends BaseFragment {
 
         @Override
         public int getItemCount() {
-            return list.size();
+            return list != null ? list.size() : 0;
         }
 
         static class ViewHolder extends RecyclerView.ViewHolder {
