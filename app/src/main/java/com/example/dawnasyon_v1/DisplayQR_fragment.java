@@ -23,10 +23,10 @@ import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import com.bumptech.glide.load.engine.GlideException;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.target.Target;
-// You might need to adjust imports if BarcodeEncoder is in a different package for your setup
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.google.zxing.BarcodeFormat;
 
@@ -35,6 +35,7 @@ import java.io.OutputStream;
 public class DisplayQR_fragment extends BaseFragment {
 
     private ImageView imgQrCode;
+    private String currentUserId = null;
 
     public DisplayQR_fragment() {
         // Required empty public constructor
@@ -69,20 +70,52 @@ public class DisplayQR_fragment extends BaseFragment {
             }
         });
 
-        // 2. Fetch & Display QR Code (Offline Ready)
+        // 2. Fetch & Display QR Code
         loadRealQrCode();
 
         // 3. Save to Gallery Button
         btnSave.setOnClickListener(v -> saveImageToGallery());
 
-        // ⭐ ENABLE AUTO-TRANSLATION (Translates "Save to Gallery", etc.)
+        // 4. TAP: View Full Screen
+        imgQrCode.setOnClickListener(v -> showFullScreenQR());
+
+        // ⭐ 5. LONG-PRESS: Secret Developer trick to regenerate the QR in Supabase
+        imgQrCode.setOnLongClickListener(v -> {
+            if (currentUserId == null) return false;
+
+            Toast.makeText(getContext(), "Regenerating simple QR to Supabase...", Toast.LENGTH_SHORT).show();
+
+            new Thread(() -> {
+                try {
+                    kotlinx.coroutines.BuildersKt.runBlocking(
+                            kotlinx.coroutines.Dispatchers.getIO(),
+                            (scope, continuation) -> QrCodeHelper.INSTANCE.generateAndUploadQrCode(currentUserId, continuation)
+                    );
+
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        if (isAdded()) {
+                            Toast.makeText(getContext(), "Successfully Replaced! Refreshing...", Toast.LENGTH_SHORT).show();
+                            loadRealQrCode();
+                        }
+                    });
+                } catch (Exception e) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        if (isAdded()) {
+                            Toast.makeText(getContext(), "Failed to update QR", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            }).start();
+
+            return true;
+        });
+
         applyTagalogTranslation(view);
     }
 
     private void loadRealQrCode() {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-        // ⭐ UPDATED: Use SupabaseJavaHelper to utilize the Offline Cache
         SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() {
             @Override
             public void onLoaded(Profile profile) {
@@ -91,20 +124,25 @@ public class DisplayQR_fragment extends BaseFragment {
 
                 if (profile != null) {
                     String qrUrl = profile.getQr_code_url();
-                    String userId = profile.getId();
+                    currentUserId = profile.getId();
 
                     if (qrUrl != null && !qrUrl.isEmpty()) {
-                        // A. Try to load the official QR Image
+
+                        String noCacheUrl = qrUrl;
+                        if (!noCacheUrl.contains("?t=")) {
+                            noCacheUrl = noCacheUrl + "?t=" + System.currentTimeMillis();
+                        }
+
                         Glide.with(DisplayQR_fragment.this)
-                                .load(qrUrl)
-                                .placeholder(R.drawable.ic_qrsample) // Show sample while loading
+                                .load(noCacheUrl)
+                                .diskCacheStrategy(DiskCacheStrategy.NONE)
+                                .skipMemoryCache(true)
+                                .placeholder(R.drawable.ic_qrsample)
                                 .listener(new RequestListener<Drawable>() {
                                     @Override
                                     public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-                                        // ⭐ FALLBACK: If Offline and Image fails to load, GENERATE IT LOCALLY
-                                        // This ensures the user always has a QR code
-                                        generateLocalQr(userId);
-                                        return true; // Return true to indicate we handled the error
+                                        generateLocalQr(currentUserId);
+                                        return true;
                                     }
 
                                     @Override
@@ -114,8 +152,7 @@ public class DisplayQR_fragment extends BaseFragment {
                                 })
                                 .into(imgQrCode);
                     } else {
-                        // B. If no URL in database, generate one immediately
-                        generateLocalQr(userId);
+                        generateLocalQr(currentUserId);
                     }
                 }
             }
@@ -124,9 +161,6 @@ public class DisplayQR_fragment extends BaseFragment {
             public void onError(String message) {
                 if (!isAdded()) return;
                 if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-
-                // Even if fetching fails (rare with cache), try to generate if we have a cached user ID elsewhere
-                // For now, just show error
                 Toast.makeText(getContext(), "Could not load QR Profile", Toast.LENGTH_SHORT).show();
             }
         });
@@ -134,13 +168,29 @@ public class DisplayQR_fragment extends BaseFragment {
 
     private void generateLocalQr(String userId) {
         try {
-            // This works 100% Offline because it just encodes text to image
             BarcodeEncoder barcodeEncoder = new BarcodeEncoder();
             Bitmap bitmap = barcodeEncoder.encodeBitmap(userId, BarcodeFormat.QR_CODE, 400, 400);
             imgQrCode.setImageBitmap(bitmap);
         } catch (Exception e) {
             Log.e("DisplayQR", "Error generating local QR: " + e.getMessage());
         }
+    }
+
+    private void showFullScreenQR() {
+        Drawable drawable = imgQrCode.getDrawable();
+        if (drawable == null) return;
+
+        android.app.Dialog dialog = new android.app.Dialog(requireContext(), android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        ImageView fullScreenImage = new ImageView(requireContext());
+        fullScreenImage.setImageDrawable(drawable);
+        fullScreenImage.setBackgroundColor(android.graphics.Color.WHITE);
+        fullScreenImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+
+        fullScreenImage.setOnClickListener(view -> dialog.dismiss());
+
+        dialog.setContentView(fullScreenImage);
+        dialog.show();
+        Toast.makeText(getContext(), "Tap the QR code to close", Toast.LENGTH_SHORT).show();
     }
 
     private void saveImageToGallery() {
@@ -153,7 +203,7 @@ public class DisplayQR_fragment extends BaseFragment {
                 bitmap = ((BitmapDrawable) drawable).getBitmap();
             }
         } catch (Exception e) {
-            // If drawable is not a bitmap (e.g. vector placeholder), ignore
+            // Ignored
         }
 
         if (bitmap == null) {
