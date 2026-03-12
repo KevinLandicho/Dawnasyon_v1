@@ -1,25 +1,29 @@
 package com.example.dawnasyon_v1;
 
-import android.annotation.SuppressLint;
+import android.graphics.Color;
 import android.os.Bundle;
-import android.text.method.HideReturnsTransformationMethod;
-import android.text.method.PasswordTransformationMethod;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.LayoutInflater;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.android.material.textfield.TextInputEditText;
+
 public class SignUpStepAccount_fragment extends BaseFragment {
 
-    private EditText etPassword, etConfirm;
+    private TextInputEditText etPassword, etConfirm;
     private CheckBox cbTerms;
+
+    // Requirement text views
+    private TextView tvReqUppercase, tvReqLowercase, tvReqNumber, tvReqSpecial, tvReqLength;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
@@ -38,9 +42,60 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         Button btnPrevious = view.findViewById(R.id.btn_previous);
         TextView tvTermsLink = view.findViewById(R.id.tv_terms_link);
 
-        // 1. SETUP SHOW/HIDE PASSWORD TOGGLES
-        setupPasswordToggle(etPassword);
-        setupPasswordToggle(etConfirm);
+        tvReqUppercase = view.findViewById(R.id.tv_req_uppercase);
+        tvReqLowercase = view.findViewById(R.id.tv_req_lowercase);
+        tvReqNumber = view.findViewById(R.id.tv_req_number);
+        tvReqSpecial = view.findViewById(R.id.tv_req_special);
+        tvReqLength = view.findViewById(R.id.tv_req_length);
+
+        // 1. DYNAMIC PASSWORD REQUIREMENTS CHECKER
+        etPassword.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String pass = s.toString();
+
+                // Check Uppercase
+                if (pass.matches(".*[A-Z].*")) {
+                    tvReqUppercase.setTextColor(Color.parseColor("#4CAF50")); // Green
+                } else {
+                    tvReqUppercase.setTextColor(Color.parseColor("#D32F2F")); // Red
+                }
+
+                // Check Lowercase
+                if (pass.matches(".*[a-z].*")) {
+                    tvReqLowercase.setTextColor(Color.parseColor("#4CAF50")); // Green
+                } else {
+                    tvReqLowercase.setTextColor(Color.parseColor("#D32F2F")); // Red
+                }
+
+                // Check Number
+                if (pass.matches(".*[0-9].*")) {
+                    tvReqNumber.setTextColor(Color.parseColor("#4CAF50")); // Green
+                } else {
+                    tvReqNumber.setTextColor(Color.parseColor("#D32F2F")); // Red
+                }
+
+                // Check Special Character
+                if (pass.matches(".*[@#$%^&+=!._-].*")) {
+                    tvReqSpecial.setTextColor(Color.parseColor("#4CAF50")); // Green
+                } else {
+                    tvReqSpecial.setTextColor(Color.parseColor("#D32F2F")); // Red
+                }
+
+                // Check Length
+                if (pass.length() >= 8) {
+                    tvReqLength.setTextColor(Color.parseColor("#4CAF50")); // Green
+                } else {
+                    tvReqLength.setTextColor(Color.parseColor("#D32F2F")); // Red
+                }
+            }
+        });
 
         // 2. TERMS & CONDITIONS LOGIC
         if (RegistrationCache.hasViewedTerms) {
@@ -58,6 +113,8 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         tvTermsLink.setOnClickListener(v -> {
             RegistrationCache.hasViewedTerms = true;
             cbTerms.setEnabled(true);
+            cbTerms.setChecked(true);
+
             if (getParentFragmentManager() != null) {
                 getParentFragmentManager().beginTransaction()
                         .replace(R.id.fragment_container_signup, new TermsAndConditions_fragment())
@@ -66,7 +123,7 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             }
         });
 
-        // 3. Next Button Logic
+        // 3. NEXT BUTTON LOGIC
         btnNext.setOnClickListener(v -> {
             if (!RegistrationCache.hasViewedTerms) {
                 Toast.makeText(getContext(), "Please read the Terms and Conditions first.", Toast.LENGTH_SHORT).show();
@@ -82,58 +139,48 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             String confirm = etConfirm.getText().toString().trim();
             String email = RegistrationCache.tempEmail != null ? RegistrationCache.tempEmail : "user@example.com";
 
-            // ⭐ PASSWORD SECURITY CHECKS START HERE ⭐
-
+            // ⭐ PASSWORD SECURITY CHECKS ⭐
             if (password.isEmpty()) {
                 Toast.makeText(getContext(), "Please enter a password", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check Length (Min 8)
             if (password.length() < 8) {
                 Toast.makeText(getContext(), "Password must be at least 8 characters long.", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check Uppercase
             if (!password.matches(".*[A-Z].*")) {
                 Toast.makeText(getContext(), "Password must contain at least one Uppercase letter (A-Z).", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check Lowercase
             if (!password.matches(".*[a-z].*")) {
                 Toast.makeText(getContext(), "Password must contain at least one Lowercase letter (a-z).", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check Number
             if (!password.matches(".*[0-9].*")) {
                 Toast.makeText(getContext(), "Password must contain at least one Number (0-9).", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check Special Character (@, #, $, %, etc.)
             if (!password.matches(".*[@#$%^&+=!._-].*")) {
                 Toast.makeText(getContext(), "Password must contain at least one Special Character (e.g., @ # $ %)", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // Check if passwords match
             if (!password.equals(confirm)) {
                 Toast.makeText(getContext(), "Passwords do not match", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // ⭐ SECURITY CHECKS END ⭐
-
             RegistrationCache.tempPassword = password;
             RegistrationCache.tempEmail = email;
 
-            // 4. Initiate Signup
+            // 4. INITIATE SIGNUP
             btnNext.setEnabled(false);
 
-            // ⭐ TRANSLATE LOADING STATE
             String loadingText = "Sending OTP...";
             btnNext.setText(loadingText);
             TranslationHelper.autoTranslate(getContext(), btnNext, loadingText);
@@ -145,7 +192,6 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                     if (getContext() == null) return;
                     btnNext.setEnabled(true);
 
-                    // ⭐ TRANSLATE RESET STATE
                     String nextText = "Next";
                     btnNext.setText(nextText);
                     TranslationHelper.autoTranslate(getContext(), btnNext, nextText);
@@ -165,7 +211,6 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                     if (getContext() == null) return;
                     btnNext.setEnabled(true);
 
-                    // ⭐ TRANSLATE RESET STATE
                     String nextText = "Next";
                     btnNext.setText(nextText);
                     TranslationHelper.autoTranslate(getContext(), btnNext, nextText);
@@ -179,36 +224,7 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             if (getParentFragmentManager() != null) getParentFragmentManager().popBackStack();
         });
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    private void setupPasswordToggle(EditText editText) {
-        editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_menu_view, 0);
-
-        editText.setOnTouchListener((v, event) -> {
-            final int DRAWABLE_RIGHT = 2;
-            if (event.getAction() == MotionEvent.ACTION_UP) {
-                if (event.getRawX() >= (editText.getRight() - editText.getCompoundDrawables()[DRAWABLE_RIGHT].getBounds().width())) {
-
-                    int selectionStart = editText.getSelectionStart();
-                    int selectionEnd = editText.getSelectionEnd();
-
-                    if (editText.getTransformationMethod() instanceof PasswordTransformationMethod) {
-                        editText.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
-                        editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_menu_view, 0);
-                    } else {
-                        editText.setTransformationMethod(PasswordTransformationMethod.getInstance());
-                        editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, android.R.drawable.ic_secure, 0);
-                    }
-
-                    editText.setSelection(selectionStart, selectionEnd);
-                    return true;
-                }
-            }
-            return false;
-        });
     }
 
     @Override

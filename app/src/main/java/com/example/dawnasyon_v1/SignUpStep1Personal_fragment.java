@@ -50,12 +50,17 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
 
-        if ("Overseas".equalsIgnoreCase(RegistrationCache.userType)) {
+        // ⭐ THE FIX: Hide both the image AND its parent container (the orange box/label)
+        if ("Overseas".equalsIgnoreCase(RegistrationCache.userType) || "Non-Resident".equalsIgnoreCase(RegistrationCache.userType)) {
             ivIdPreview.setVisibility(View.GONE);
+
+            // This safely hides the CardView/FrameLayout wrapping the image and text
+            if (ivIdPreview.getParent() instanceof View) {
+                ((View) ivIdPreview.getParent()).setVisibility(View.GONE);
+            }
         }
 
         if (getArguments() != null) {
-            // ⭐ Get Scanned Data from Bundle
             originalFName = getArguments().getString("FNAME", "");
             originalLName = getArguments().getString("LNAME", "");
             String mName = getArguments().getString("MNAME", "");
@@ -69,10 +74,13 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 cbNoMiddleName.setChecked(false);
             }
 
+            // Only process and attach the ID image if the user is a Resident
             String uriString = getArguments().getString("ID_IMAGE_URI", "");
-            if (!uriString.isEmpty()) {
+            if (!uriString.isEmpty() && "Resident".equalsIgnoreCase(RegistrationCache.userType)) {
                 finalIdUri = Uri.parse(uriString);
                 ivIdPreview.setImageURI(finalIdUri);
+            } else {
+                finalIdUri = null;
             }
         }
 
@@ -89,22 +97,18 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
         // --- NEXT BUTTON WITH STRICT LOCAL VALIDATION ---
         btnNext.setOnClickListener(v -> {
-            // Trim inputs to remove leading/trailing spaces
             String fName = etFirstName.getText().toString().trim();
             String lName = etLastName.getText().toString().trim();
             String mName = etMiddleName.getText().toString().trim();
             String contact = etContact.getText().toString().trim();
             String email = etEmail.getText().toString().trim();
 
-            // 1. Check for Empty Fields
             if (fName.isEmpty() || lName.isEmpty() || contact.isEmpty() || email.isEmpty()) {
                 Toast.makeText(getContext(), "Please fill in all required fields (Name, Contact, Email)", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // ⭐ 2. VALIDATE CONTACT NUMBER BASED ON USER TYPE
             if ("Resident".equalsIgnoreCase(RegistrationCache.userType) || "Non-Resident".equalsIgnoreCase(RegistrationCache.userType)) {
-                // Philippine number rules
                 if (contact.length() != 11) {
                     etContact.setError("Contact number must be exactly 11 digits.");
                     etContact.requestFocus();
@@ -116,7 +120,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                     return;
                 }
             } else {
-                // Overseas number rules (basic sanity check)
                 if (contact.length() < 7) {
                     etContact.setError("Please enter a valid contact number.");
                     etContact.requestFocus();
@@ -124,14 +127,12 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 }
             }
 
-            // 3. VALIDATE EMAIL DOMAIN (Must contain @gmail.com)
             if (!email.toLowerCase().endsWith("@gmail.com")) {
                 etEmail.setError("Email must be a valid @gmail.com address.");
                 etEmail.requestFocus();
                 return;
             }
 
-            // ⭐ 4. VALIDATE GMAIL LENGTH (Must be at least 6 characters before the @)
             String usernamePart = email.split("@")[0];
             if (usernamePart.length() < 6) {
                 etEmail.setError("Fake email detected. Gmail usernames must be at least 6 characters.");
@@ -139,7 +140,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 return;
             }
 
-            // Construct Full Name safely
             String fullName;
             if (cbNoMiddleName.isChecked() || mName.isEmpty()) {
                 fullName = fName + " " + lName;
@@ -149,19 +149,14 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            // ⭐ Skip the external API and go straight to your Supabase check
             checkSupabaseAndProceed(fullName, email, contact, fName, lName);
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
     }
 
-    // ========================================================================
-    // NORMAL DATABASE CHECK & NAVIGATION
-    // ========================================================================
     private void checkSupabaseAndProceed(String fullName, String email, String contact, String fName, String lName) {
         SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
             @Override
@@ -189,9 +184,10 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
         if (finalIdUri != null) {
             RegistrationCache.tempIdImageUri = finalIdUri.toString();
+        } else {
+            RegistrationCache.tempIdImageUri = null;
         }
 
-        // ⭐ Generate Name Mismatch Note with smarter validation
         String nameMismatchNote = "";
         if (!originalFName.isEmpty() && !originalLName.isEmpty()) {
 

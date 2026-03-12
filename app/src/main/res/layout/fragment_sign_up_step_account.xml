@@ -104,63 +104,139 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@+id/tv_subtitle" />
 
-                <EditText
-                    android:id="@+id/et_pass"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tl_pass"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
+                    android:layout_height="60dp"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_lock_placeholder"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="@string/create_your_password"
-                    android:inputType="textPassword"
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
+                    app:hintEnabled="false"
+                    app:passwordToggleEnabled="true"
+                    app:passwordToggleTint="#27869B"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_pass" />
+                    app:layout_constraintTop_toBottomOf="@id/lbl_pass">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_pass"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_input_field"
+                        android:drawableStart="@drawable/ic_lock_placeholder"
+                        android:drawablePadding="12dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="48dp"
+                        android:fontFamily="@font/dongle"
+                        android:hint="@string/create_your_password"
+                        android:inputType="textPassword"
+                        android:textSize="24sp" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout
+                    android:id="@+id/ll_password_requirements"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginStart="8dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tl_pass">
+
+                    <TextView
+                        android:id="@+id/tv_req_uppercase"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="At least 1 uppercase letter (A-Z)"
+                        android:textColor="#D32F2F"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/tv_req_lowercase"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="At least 1 lowercase letter (a-z)"
+                        android:textColor="#D32F2F"
+                        android:textSize="10sp"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/tv_req_number"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="At least 1 number (0-9)"
+                        android:textColor="#D32F2F"
+                        android:textSize="10sp"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/tv_req_special"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="At least 1 special character (!@#$%...)"
+                        android:textColor="#D32F2F"
+                        android:textSize="10sp"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/tv_req_length"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Minimum 8 characters"
+                        android:textColor="#D32F2F"
+                        android:textSize="10sp"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/lbl_confirm"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="16dp"
                     android:fontFamily="@font/dongle"
                     android:text="@string/confirm_password"
                     android:textColor="#444444"
                     android:textSize="20sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_pass" />
+                    app:layout_constraintTop_toBottomOf="@id/ll_password_requirements" />
 
-                <EditText
-                    android:id="@+id/et_confirm"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tl_confirm"
                     android:layout_width="0dp"
-                    android:layout_height="50dp"
+                    android:layout_height="60dp"
                     android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_input_field"
-                    android:drawableStart="@drawable/ic_lock_placeholder"
-                    android:drawablePadding="12dp"
-                    android:fontFamily="@font/dongle"
-                    android:hint="@string/confirm_your_password"
-                    android:inputType="textPassword"
-                    android:paddingStart="16dp"
-                    android:textSize="20sp"
+                    app:hintEnabled="false"
+                    app:passwordToggleEnabled="true"
+                    app:passwordToggleTint="#27869B"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/lbl_confirm" />
+                    app:layout_constraintTop_toBottomOf="@id/lbl_confirm">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_confirm"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_input_field"
+                        android:drawableStart="@drawable/ic_lock_placeholder"
+                        android:drawablePadding="12dp"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="48dp"
+                        android:fontFamily="@font/dongle"
+                        android:hint="@string/confirm_your_password"
+                        android:inputType="textPassword"
+                        android:textSize="24sp" />
+                </com.google.android.material.textfield.TextInputLayout>
 
                 <LinearLayout
                     android:id="@+id/terms_container"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="16dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/et_confirm">
+                    app:layout_constraintTop_toBottomOf="@id/tl_confirm">
 
                     <CheckBox
                         android:id="@+id/cb_terms"
