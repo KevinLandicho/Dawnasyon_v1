@@ -387,9 +387,6 @@ public class LiveMap_fragment extends BaseFragment {
         map.getOverlays().add(0, circle);
     }
 
-    // =========================================================================
-    // ⭐ EXACT BORDER COORDINATES FROM YOUR JSON DATA
-    // =========================================================================
     private void drawStaLuciaBorder() {
         List<GeoPoint> borderPoints = new ArrayList<>();
 
@@ -530,7 +527,6 @@ public class LiveMap_fragment extends BaseFragment {
 
             @Override
             public boolean longPressHelper(GeoPoint p) {
-                // Disabled long press based on user request
                 return false;
             }
         };
@@ -554,7 +550,7 @@ public class LiveMap_fragment extends BaseFragment {
         // Instructional snippet
         selectedLocationMarker.setSnippet("Coords: " + coords + "\n👉 TAP THIS PIN AGAIN TO REPORT INCIDENT");
 
-        // ⭐ NEW: Clicking the marker itself opens the report dialog
+        // CLICKING THE MARKER ITSELF OPENS THE REPORT DIALOG
         selectedLocationMarker.setOnMarkerClickListener((marker, mapView) -> {
             if (!marker.isInfoWindowShown()) {
                 marker.showInfoWindow();
@@ -569,7 +565,6 @@ public class LiveMap_fragment extends BaseFragment {
         map.invalidate();
         selectedLocationMarker.showInfoWindow();
     }
-
 
     // =========================================================================
     // ⭐ BEAUTIFUL PROGRAMMATIC UI FOR EMERGENCY REPORT
@@ -598,7 +593,7 @@ public class LiveMap_fragment extends BaseFragment {
 
         // Subtitle
         TextView tvSub = new TextView(context);
-        tvSub.setText("Please select the type of emergency and provide details to alert the barangay.");
+        tvSub.setText("Please select the type of emergency and attach a photo (REQUIRED) to alert the barangay.");
         tvSub.setTextColor(Color.DKGRAY);
         tvSub.setPadding(0, 0, 0, 40);
         layout.addView(tvSub);
@@ -644,7 +639,7 @@ public class LiveMap_fragment extends BaseFragment {
 
         // Image Selection Button
         Button btnSelectImage = new Button(context);
-        btnSelectImage.setText("Attach Proof Photo");
+        btnSelectImage.setText("Attach Proof Photo (Required)");
         btnSelectImage.setTextColor(Color.WHITE);
         btnSelectImage.setAllCaps(false);
 
@@ -662,7 +657,7 @@ public class LiveMap_fragment extends BaseFragment {
         // Image Status Text
         tvImageStatus = new TextView(context);
         tvImageStatus.setText("No image attached");
-        tvImageStatus.setTextColor(Color.GRAY);
+        tvImageStatus.setTextColor(Color.RED);
         tvImageStatus.setTextSize(12f);
         tvImageStatus.setGravity(Gravity.CENTER);
         layout.addView(tvImageStatus);
@@ -670,21 +665,67 @@ public class LiveMap_fragment extends BaseFragment {
         // Create Dialog
         AlertDialog dialog = new AlertDialog.Builder(context)
                 .setView(layout)
-                .setPositiveButton("Submit Report", null) // Set to null to prevent auto-dismiss
+                .setPositiveButton("Submit Report", null)
                 .setNegativeButton("Cancel", null)
                 .create();
 
-        // Show Dialog & Style default buttons
         dialog.show();
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#C62828"));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.GRAY);
 
         // Handle Submit Click
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+
+            // ⭐ REQUIRED IMAGE VALIDATION
+            if (selectedImageUri == null) {
+                Toast.makeText(context, "A proof photo is required to submit a report.", Toast.LENGTH_SHORT).show();
+                return; // Stop execution, don't close dialog
+            }
+
+            // ⭐ 1. PREVENT DOUBLE CLICKS
+            v.setEnabled(false);
+            if (v instanceof Button) {
+                ((Button) v).setText("Submitting...");
+            }
+
             String selectedType = spinner.getSelectedItem().toString() + " Alert";
             String details = inputDetails.getText().toString().trim();
-            submitEmergencyReport(context, p, selectedType, details);
-            dialog.dismiss(); // Dismiss only after we trigger the submit logic
+
+            // ⭐ FETCH USER NAME THEN SUBMIT
+            fetchUserNameAndSubmit(context, p, selectedType, details, dialog);
+        });
+    }
+
+    // Helper to fetch user's name before submitting
+    private void fetchUserNameAndSubmit(Context safeContext, GeoPoint p, String type, String details, AlertDialog dialog) {
+        Toast.makeText(safeContext, "Preparing report...", Toast.LENGTH_SHORT).show();
+
+        // ⭐ 2. PREVENT DOUBLE CALLBACKS (Blocks offline + online cache from firing twice)
+        final boolean[] hasProcessed = {false};
+
+        SupabaseJavaHelper.fetchUserProfile(safeContext, new SupabaseJavaHelper.ProfileCallback() {
+            @Override
+            public void onLoaded(Profile profile) {
+                if (hasProcessed[0]) return; // If already processed, ignore second trigger
+                hasProcessed[0] = true;
+
+                String authorName = "Unknown Citizen";
+                if (profile != null) {
+                    authorName = profile.getFull_name();
+                }
+
+                submitEmergencyReport(safeContext, p, type, details, authorName);
+                dialog.dismiss();
+            }
+
+            @Override
+            public void onError(String message) {
+                if (hasProcessed[0]) return; // If already processed, ignore second trigger
+                hasProcessed[0] = true;
+
+                submitEmergencyReport(safeContext, p, type, details, "Unknown Citizen");
+                dialog.dismiss();
+            }
         });
     }
 
@@ -700,38 +741,36 @@ public class LiveMap_fragment extends BaseFragment {
         return byteBuffer.toByteArray();
     }
 
-    private void submitEmergencyReport(Context safeContext, GeoPoint p, String type, String details) {
+    // ⭐ UPDATED TO INCLUDE AUTHOR NAME
+    private void submitEmergencyReport(Context safeContext, GeoPoint p, String type, String details, String authorName) {
         Toast.makeText(safeContext, "Uploading report...", Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
             try {
-                // 1. Upload image if one was selected
+                // 1. Upload image (We know it's not null due to validation)
                 String uploadedImageUrl = null;
-                if (selectedImageUri != null) {
-                    try {
-                        InputStream is = safeContext.getContentResolver().openInputStream(selectedImageUri);
-                        if (is != null) {
-                            byte[] bytes = getBytes(is);
-                            String filename = "report_" + System.currentTimeMillis() + ".jpg";
+                try {
+                    InputStream is = safeContext.getContentResolver().openInputStream(selectedImageUri);
+                    if (is != null) {
+                        byte[] bytes = getBytes(is);
+                        String filename = "report_" + System.currentTimeMillis() + ".jpg";
 
-                            RequestBody imgBody = RequestBody.create(bytes, MediaType.parse("image/jpeg"));
-                            Request imgRequest = new Request.Builder()
-                                    // Make sure you have a bucket named "reports" set to Public in Supabase!
-                                    .url(SUPABASE_URL + "/storage/v1/object/reports/" + filename)
-                                    .addHeader("apikey", SUPABASE_KEY)
-                                    .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
-                                    .post(imgBody)
-                                    .build();
+                        RequestBody imgBody = RequestBody.create(bytes, MediaType.parse("image/jpeg"));
+                        Request imgRequest = new Request.Builder()
+                                .url(SUPABASE_URL + "/storage/v1/object/reports/" + filename)
+                                .addHeader("apikey", SUPABASE_KEY)
+                                .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                                .post(imgBody)
+                                .build();
 
-                            try (Response imgResponse = client.newCall(imgRequest).execute()) {
-                                if (imgResponse.isSuccessful()) {
-                                    uploadedImageUrl = SUPABASE_URL + "/storage/v1/object/public/reports/" + filename;
-                                }
+                        try (Response imgResponse = client.newCall(imgRequest).execute()) {
+                            if (imgResponse.isSuccessful()) {
+                                uploadedImageUrl = SUPABASE_URL + "/storage/v1/object/public/reports/" + filename;
                             }
                         }
-                    } catch (Exception e) {
-                        Log.e("UploadError", "Image upload failed: " + e.getMessage());
                     }
+                } catch (Exception e) {
+                    Log.e("UploadError", "Image upload failed: " + e.getMessage());
                 }
 
                 // 2. Reverse Geocode for street name
@@ -753,6 +792,9 @@ public class LiveMap_fragment extends BaseFragment {
                 json.put("longitude", p.getLongitude());
                 json.put("affected_street", affectedStreet);
                 json.put("status", "Pending");
+
+                // ⭐ ADDED AUTHOR
+                json.put("author", authorName);
 
                 if (uploadedImageUrl != null) {
                     json.put("image_url", uploadedImageUrl);
