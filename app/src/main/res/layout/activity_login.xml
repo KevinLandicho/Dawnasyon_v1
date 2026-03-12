@@ -84,13 +84,15 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/dongle_light"
-                android:text="📞 8-2919-943 | 0917-0755101 | ✉️ barangaysta.luciaqcdist5cc@gmail.com"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:text="☎ 8-2919-943 | 0917-0755101 | barangaysta.luciaqcdist5cc@gmail.com"
                 android:textColor="#555555"
-                android:textSize="15sp"
+                android:textSize="18sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@id/tvBrgyAddress" />
-
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnBrgyInfo"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
