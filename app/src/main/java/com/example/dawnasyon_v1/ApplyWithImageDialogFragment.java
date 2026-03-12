@@ -73,12 +73,18 @@ public class ApplyWithImageDialogFragment extends DialogFragment {
         // Cancel
         btnCancel.setOnClickListener(v -> dismiss());
 
-        // Confirm
+        // Confirm (Now Required)
         btnConfirm.setOnClickListener(v -> {
-            if (listener != null) {
-                listener.onConfirm(imageBytes); // Pass bytes (null if no image selected)
+            // ⭐ Check if an image was uploaded
+            if (imageBytes == null) {
+                Toast.makeText(getContext(), "Please select an image first.", Toast.LENGTH_SHORT).show();
+                return; // Stop execution, don't close the dialog
             }
-            dismiss(); // Don't dismiss immediately if you want to show loading, but for now simple flow
+
+            if (listener != null) {
+                listener.onConfirm(imageBytes);
+            }
+            dismiss();
         });
 
         builder.setView(view);
