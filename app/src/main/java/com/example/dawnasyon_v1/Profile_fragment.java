@@ -34,7 +34,12 @@ import androidx.fragment.app.Fragment;
 
 import com.google.android.material.button.MaterialButton;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -61,11 +66,9 @@ public class Profile_fragment extends BaseFragment {
 
     private final OkHttpClient client = new OkHttpClient();
 
-    // Geo-Risk Constants
-    private static final double RISK_CREEK_LAT = 14.7025;
-    private static final double RISK_CREEK_LON = 121.0535;
-    private static final double RISK_FIRE_LAT = 14.7040;
-    private static final double RISK_FIRE_LON = 121.0550;
+    // ⭐ SUPABASE CONFIGURATION FOR DYNAMIC GEO-RISK
+    private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
+    private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
 
     public Profile_fragment() {
         // Required empty public constructor
@@ -90,9 +93,7 @@ public class Profile_fragment extends BaseFragment {
 
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
-        // ⭐ STANDALONE LANGUAGE BUTTON (Placed at the top of your XML)
         Button btnLanguage = view.findViewById(R.id.btn_language);
-
         Button btnEditProfile = view.findViewById(R.id.btn_edit_profile);
         Button btnViewQR = view.findViewById(R.id.btn_view_qr);
         MaterialButton btnPinLocation = view.findViewById(R.id.btn_pin_location);
@@ -115,7 +116,7 @@ public class Profile_fragment extends BaseFragment {
 
         if (cardPriority != null) cardPriority.setOnClickListener(v -> toggleBreakdown());
 
-        // ⭐ Get Current Language Preference
+        // Get Current Language Preference
         SharedPreferences prefs = requireActivity().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
         boolean isTagalogEnabled = prefs.getBoolean("is_tagalog", false);
 
@@ -125,10 +126,8 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuSuggestion, R.drawable.ic_suggestion, "Suggestion form");
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
         setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions");
-
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
 
-        // Initial Language Button Setup
         if (btnLanguage != null) {
             btnLanguage.setText(isTagalogEnabled ? "TAGALOG" : "ENGLISH");
             if (btnLanguage instanceof MaterialButton) {
@@ -152,19 +151,13 @@ public class Profile_fragment extends BaseFragment {
             });
         }
 
-        // Navigation Logic
-        if (menuTracker != null) {
-            menuTracker.setOnClickListener(v -> navigateToFragment(new ApplicationTracker_fragment()));
-        }
+        if (menuTracker != null) menuTracker.setOnClickListener(v -> navigateToFragment(new ApplicationTracker_fragment()));
         if (menuHistory != null) menuHistory.setOnClickListener(v -> navigateToFragment(new DonationHistory_fragment()));
         if (menuSuggestion != null) menuSuggestion.setOnClickListener(v -> navigateToFragment(new SuggestionForm_fragment()));
         if (menuPassword != null) menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         if (menuTerms != null) menuTerms.setOnClickListener(v -> navigateToFragment(new TermsAndConditions_fragment()));
-
-        // ⭐ LOGOUT CLICK
         if (menuLogout != null) menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
 
-        // ⭐ LANGUAGE TOGGLE CLICK
         if (btnLanguage != null) {
             btnLanguage.setOnClickListener(v -> toggleLanguage(prefs, btnLanguage, view));
         }
@@ -192,7 +185,7 @@ public class Profile_fragment extends BaseFragment {
                     if (profile.getCity() != null) fullAddress += profile.getCity();
                     if (detailAddress != null) detailAddress.setText(fullAddress);
 
-                    // ⭐ AVATAR LOADING LOGIC
+                    // AVATAR LOADING
                     String avatarName = profile.getAvatarName();
                     if (avatarName != null && avatarName.startsWith("http")) {
                         if (ivProfilePic != null) {
@@ -259,24 +252,16 @@ public class Profile_fragment extends BaseFragment {
             });
         }
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
         applyTagalogTranslation(view);
     }
 
-    // =========================================================================
-    // ⭐ LANGUAGE SWITCHER LOGIC
-    // =========================================================================
     private void toggleLanguage(SharedPreferences prefs, Button btnLanguage, View rootView) {
         boolean currentTagalog = prefs.getBoolean("is_tagalog", false);
         boolean newTagalog = !currentTagalog;
 
-        // Save the new preference
         prefs.edit().putBoolean("is_tagalog", newTagalog).apply();
-
-        // Apply Translation globally to the view
         TranslationHelper.translateViewHierarchy(getContext(), rootView);
 
-        // Update the UI of the button specifically so it doesn't get stuck
         if (btnLanguage != null) {
             btnLanguage.setText(newTagalog ? "TAGALOG" : "ENGLISH");
             if (btnLanguage instanceof MaterialButton) {
@@ -287,14 +272,8 @@ public class Profile_fragment extends BaseFragment {
                 }
             }
         }
-
         Toast.makeText(getContext(), newTagalog ? "Tagalog Mode ON" : "English Mode ON", Toast.LENGTH_SHORT).show();
     }
-
-
-    // =========================================================================
-    // ⭐ NATIVE IMAGE DOWNLOADER & CIRCLE CROPPER
-    // =========================================================================
 
     private void loadAndCircleCropImage(String urlString, ImageView imageView) {
         new Thread(() -> {
@@ -307,10 +286,7 @@ public class Profile_fragment extends BaseFragment {
                 Bitmap rawBitmap = BitmapFactory.decodeStream(input);
 
                 if (rawBitmap != null) {
-                    // Apply the circle crop math
                     Bitmap circleBitmap = getCircularBitmap(rawBitmap);
-
-                    // Post back to the main UI thread to show it
                     new Handler(Looper.getMainLooper()).post(() -> {
                         if (isAdded() && imageView != null) {
                             imageView.setImageBitmap(circleBitmap);
@@ -324,42 +300,24 @@ public class Profile_fragment extends BaseFragment {
     }
 
     private Bitmap getCircularBitmap(Bitmap bitmap) {
-        // Calculate the center crop square size
         int width = bitmap.getWidth();
         int height = bitmap.getHeight();
         int minEdge = Math.min(width, height);
-
-        // Create the empty output bitmap
         Bitmap output = Bitmap.createBitmap(minEdge, minEdge, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(output);
-
         final Paint paint = new Paint();
         final Rect rect = new Rect(0, 0, minEdge, minEdge);
-
         paint.setAntiAlias(true);
         canvas.drawARGB(0, 0, 0, 0);
-        paint.setColor(Color.WHITE); // Mask color doesn't matter, just needs to be solid
-
-        // Draw the circle mask
+        paint.setColor(Color.WHITE);
         canvas.drawCircle(minEdge / 2f, minEdge / 2f, minEdge / 2f, paint);
-
-        // Apply the PorterDuff Mode (This cuts the image to fit the circle drawn above)
         paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
-
-        // Figure out where to crop if the image is a rectangle
         int dx = (width - minEdge) / 2;
         int dy = (height - minEdge) / 2;
         Rect srcRect = new Rect(dx, dy, dx + minEdge, dy + minEdge);
-
-        // Draw the original image over the mask
         canvas.drawBitmap(bitmap, srcRect, rect, paint);
-
         return output;
     }
-
-    // =========================================================================
-    // REST OF YOUR EXISTING CODE
-    // =========================================================================
 
     private void toggleBreakdown() {
         if (llBreakdownContainer == null) return;
@@ -403,8 +361,9 @@ public class Profile_fragment extends BaseFragment {
                             addMemberRow(javaMembers.get(i));
                             if (i < javaMembers.size() - 1) addDivider();
                         }
+
                         if (cardPriority != null && cardPriority.getVisibility() == View.VISIBLE) {
-                            calculatePriorityWithGeoRisk(javaMembers, isVerified, profile, fullAddress);
+                            calculateDynamicPriorityScore(javaMembers, isVerified, profile, fullAddress);
                         }
                     }
                 }
@@ -413,19 +372,20 @@ public class Profile_fragment extends BaseFragment {
         });
     }
 
-    private void calculatePriorityWithGeoRisk(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
+    // =========================================================================
+    // ⭐ DYNAMIC PRIORITY LOGIC (FIXED)
+    // =========================================================================
+    private void calculateDynamicPriorityScore(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
         final int[] score = {10};
         final StringBuilder breakdown = new StringBuilder();
 
-        // 1. Base Text (No points shown)
         breakdown.append("• Base Score applied\n");
 
         int familySize = (members != null) ? members.size() : 0;
         int famPoints = Math.min(familySize * 5, 50);
         score[0] += famPoints;
 
-        // 2. Family & Status (No points shown)
         if(familySize > 0) breakdown.append("• Family Size (").append(familySize).append(") considered\n");
         if(familySize > 4) { score[0] += 20; breakdown.append("• Large Household Recognized\n"); }
         if(isVerified) { score[0] += 10; breakdown.append("• Verified Resident Status\n"); }
@@ -444,29 +404,69 @@ public class Profile_fragment extends BaseFragment {
             try {
                 Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
                 List<Address> addresses = geocoder.getFromLocationName(addressStr, 1);
+
                 if (addresses != null && !addresses.isEmpty()) {
                     double userLat = addresses.get(0).getLatitude();
                     double userLon = addresses.get(0).getLongitude();
 
-                    float distToCreek = getDistance(userLat, userLon, RISK_CREEK_LAT, RISK_CREEK_LON);
-                    float distToFire = getDistance(userLat, userLon, RISK_FIRE_LAT, RISK_FIRE_LON);
+                    String url = SUPABASE_URL + "/rest/v1/announcements?status=eq.Approved&select=type,latitude,longitude";
+                    Request request = new Request.Builder()
+                            .url(url)
+                            .addHeader("apikey", SUPABASE_KEY)
+                            .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                            .build();
 
-                    // Fixed: Reduced threshold to 300m/500m to avoid false positives
-                    if (distToCreek < 300) {
-                        score[0] += 30;
-                        breakdown.append("• Proximity to Flood Risk Zone\n");
-                    }
-                    if (distToFire < 500) {
-                        score[0] += 40;
-                        breakdown.append("• Proximity to Active Fire Alert\n");
+                    try (Response response = client.newCall(request).execute()) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            String json = response.body().string();
+                            JSONArray array = new JSONArray(json);
+
+                            // ⭐ TRACKERS: Ensures we only add points ONCE per disaster type, but without breaking the loop!
+                            boolean scoredFire = false;
+                            boolean scoredFlood = false;
+                            boolean scoredQuake = false;
+
+                            for (int i = 0; i < array.length(); i++) {
+                                JSONObject item = array.getJSONObject(i);
+                                String type = item.optString("type", "").toLowerCase();
+                                double disasterLat = item.optDouble("latitude", 0.0);
+                                double disasterLon = item.optDouble("longitude", 0.0);
+
+                                if (disasterLat != 0.0 && disasterLon != 0.0) {
+                                    float distance = getDistance(userLat, userLon, disasterLat, disasterLon);
+
+                                    // ⭐ FIRE: Must be VERY close (< 100 meters)
+                                    if (!scoredFire && type.contains("fire") && distance < 100) {
+                                        score[0] += 40;
+                                        breakdown.append("• High Risk: Extreme proximity to Active Fire Alert\n");
+                                        scoredFire = true;
+                                    }
+                                    // FLOOD / TYPHOON (< 300 meters)
+                                    else if (!scoredFlood && (type.contains("flood") || type.contains("typhoon")) && distance < 300) {
+                                        score[0] += 30;
+                                        breakdown.append("• Proximity to Active Flood Alert\n");
+                                        scoredFlood = true;
+                                    }
+                                    // EARTHQUAKE (< 1000 meters)
+                                    else if (!scoredQuake && type.contains("earthquake") && distance < 1000) {
+                                        score[0] += 40;
+                                        breakdown.append("• Proximity to Recent Earthquake Epicenter\n");
+                                        scoredQuake = true;
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-            } catch (Exception e) { e.printStackTrace(); }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
 
             int finalScore = Math.min(score[0], 100);
             if (!currentUserId.isEmpty()) {
                 saveScoreToDatabase(finalScore);
             }
+
             new Handler(Looper.getMainLooper()).post(() -> updatePriorityUI(finalScore, breakdown.toString()));
         }).start();
     }
@@ -491,10 +491,6 @@ public class Profile_fragment extends BaseFragment {
         float[] results = new float[1];
         android.location.Location.distanceBetween(lat1, lon1, lat2, lon2, results);
         return results[0];
-    }
-
-    private boolean checkRecentEarthquake(double userLat, double userLon) {
-        return false;
     }
 
     private void disableFeature(View view, String featureName) {

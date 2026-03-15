@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.InputFilter;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -92,7 +93,10 @@ public class EditProfile_fragment extends BaseFragment {
         editCity = view.findViewById(R.id.edit_city);
         editBarangay = view.findViewById(R.id.edit_barangay);
         editStreet = view.findViewById(R.id.edit_street);
+
         editContact = view.findViewById(R.id.edit_contact);
+        // ⭐ Prevent typing more than 11 characters
+        editContact.setFilters(new InputFilter[]{new InputFilter.LengthFilter(11)});
 
         profilePic = view.findViewById(R.id.profile_pic);
         btnEditImage = view.findViewById(R.id.btn_edit_image);
@@ -100,7 +104,7 @@ public class EditProfile_fragment extends BaseFragment {
 
         loadCurrentUserProfile();
 
-        // ⭐ Pass the current avatar data to the Picker
+        // Pass the current avatar data to the Picker
         btnEditImage.setOnClickListener(v -> {
             String customPass = null;
             if (customAvatarUri != null) customPass = customAvatarUri.toString();
@@ -168,6 +172,14 @@ public class EditProfile_fragment extends BaseFragment {
 
         if (name.isEmpty() || contact.isEmpty()) {
             Toast.makeText(getContext(), "Name and Contact are required.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // ⭐ Validate that the contact number is exactly 11 digits
+        if (contact.length() != 11) {
+            editContact.setError("Contact number must be exactly 11 digits.");
+            editContact.requestFocus();
+            Toast.makeText(getContext(), "Please enter a valid 11-digit number.", Toast.LENGTH_SHORT).show();
             return;
         }
 
