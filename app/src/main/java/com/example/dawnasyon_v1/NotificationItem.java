@@ -4,6 +4,10 @@ import com.google.gson.annotations.SerializedName;
 
 public class NotificationItem {
 
+    // ⭐ NEW: Maps exactly to your Supabase primary key
+    @SerializedName("notif_id")
+    private long id;
+
     @SerializedName("title")
     private String title;
 
@@ -16,7 +20,6 @@ public class NotificationItem {
     @SerializedName("type")
     private String dbType;
 
-    // ✅ NEW FIELD: Maps to the new database column
     @SerializedName("sender_name")
     private String senderName;
 
@@ -29,6 +32,8 @@ public class NotificationItem {
     public NotificationItem() {}
 
     // Getters
+    public long getId() { return id; } // ⭐ NEW GETTER FOR THE ADAPTER
+
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public String getTime() { return time; }
@@ -36,8 +41,6 @@ public class NotificationItem {
     public int getType() { return type; }
     public String getCreatedAt() { return createdAt; }
     public String getDbType() { return dbType; }
-
-    // ✅ NEW GETTER
     public String getSenderName() { return senderName; }
 
     // Setters
