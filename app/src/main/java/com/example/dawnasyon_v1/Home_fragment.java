@@ -195,15 +195,33 @@ public class Home_fragment extends BaseFragment {
                     if (profile.getType() != null) userType = profile.getType();
                     currentUserStreet = (profile.getStreet() != null) ? profile.getStreet().trim() : "";
 
+                    // ⭐ FIX: Handle both Web URLs and Local Drawable Avatars
                     String avatarName = profile.getAvatarName();
-                    int avatarResId = R.drawable.ic_profile_avatar;
-                    if (avatarName != null && !avatarName.isEmpty()) {
-                        int resId = getResources().getIdentifier(avatarName, "drawable", getContext().getPackageName());
-                        if (resId != 0) avatarResId = resId;
-                    }
                     try {
-                        Glide.with(Home_fragment.this).load(avatarResId).placeholder(R.drawable.ic_profile_avatar).circleCrop().into(userAvatar);
-                    } catch (Exception e) {}
+                        if (avatarName != null && (avatarName.startsWith("http://") || avatarName.startsWith("https://"))) {
+                            // It's a remote URL from Supabase Storage
+                            Glide.with(Home_fragment.this)
+                                    .load(avatarName)
+                                    .placeholder(R.drawable.ic_profile_avatar)
+                                    .error(R.drawable.ic_profile_avatar)
+                                    .circleCrop()
+                                    .into(userAvatar);
+                        } else {
+                            // It's a local drawable like "avatar1"
+                            int avatarResId = R.drawable.ic_profile_avatar;
+                            if (avatarName != null && !avatarName.isEmpty()) {
+                                int resId = getResources().getIdentifier(avatarName, "drawable", getContext().getPackageName());
+                                if (resId != 0) avatarResId = resId;
+                            }
+                            Glide.with(Home_fragment.this)
+                                    .load(avatarResId)
+                                    .placeholder(R.drawable.ic_profile_avatar)
+                                    .circleCrop()
+                                    .into(userAvatar);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
                 fetchAnnouncementsFromSupabase();
             }
