@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.ImageView;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,14 +24,15 @@ public class CashInfo_fragment extends BaseFragment {
     private static final String ARG_IMAGE = "arg_image";
 
     // ⭐ TRANSACTION LIMITS
-    private static final int MIN_LIMIT = 1;        // Minimum 1 Peso
-    private static final int MAX_LIMIT = 20000;    // Maximum 20,000 Pesos
+    private static final int MIN_LIMIT = 1;
+    private static final int MAX_LIMIT = 20000;
 
     private String fTitle, fDescription, fStatus;
     private int fImageRes;
 
     private EditText etOtherAmount;
     private Button btnConfirmOther;
+    private RadioGroup rgPaymentMethod; // ⭐ Added
 
     public CashInfo_fragment() {}
 
@@ -65,7 +67,6 @@ public class CashInfo_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ⭐ 1. SYSTEM BACK BUTTON: Forces navigation to DonationOption_fragment
         requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -75,10 +76,8 @@ public class CashInfo_fragment extends BaseFragment {
 
         setupHeader(view);
 
-        View methodLabel = view.findViewById(R.id.txt_method_label);
-        View methodContainer = view.findViewById(R.id.payment_methods_container);
-        if (methodLabel != null) methodLabel.setVisibility(View.GONE);
-        if (methodContainer != null) methodContainer.setVisibility(View.GONE);
+        // ⭐ Bind the RadioGroup
+        rgPaymentMethod = view.findViewById(R.id.rg_payment_method);
 
         GridLayout amountGrid = view.findViewById(R.id.amount_grid);
         if (amountGrid != null) setupAmountGrid(amountGrid);
@@ -86,8 +85,7 @@ public class CashInfo_fragment extends BaseFragment {
         etOtherAmount = view.findViewById(R.id.et_other_amount);
         btnConfirmOther = view.findViewById(R.id.btn_confirm_other);
 
-        String btnText = "Review";
-        btnConfirmOther.setText(btnText);
+        btnConfirmOther.setText("Review");
 
         btnConfirmOther.setOnClickListener(v -> {
             String otherAmountStr = etOtherAmount.getText().toString().trim();
@@ -96,7 +94,6 @@ public class CashInfo_fragment extends BaseFragment {
                 return;
             }
             try {
-                // Use long to safely check size before casting to int
                 long amount = Long.parseLong(otherAmountStr);
                 goToSummary((int) amount);
             } catch (NumberFormatException e) {
@@ -104,17 +101,14 @@ public class CashInfo_fragment extends BaseFragment {
             }
         });
 
-        // ⭐ 2. UI BACK BUTTON: Also goes to DonationOption_fragment
         View btnBack = view.findViewById(R.id.btnBack);
         if (btnBack != null) {
             btnBack.setOnClickListener(v -> goBackToOptions());
         }
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR THIS SCREEN
         applyTagalogTranslation(view);
     }
 
-    // ⭐ HELPER: Navigate explicitly to DonationOption_fragment
     private void goBackToOptions() {
         getParentFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, new DonationOptions_fragments())
@@ -122,7 +116,6 @@ public class CashInfo_fragment extends BaseFragment {
     }
 
     private void goToSummary(int amount) {
-        // ⭐ VALIDATION: Check for 1 Peso Min and 20,000 Peso Max
         if (amount < MIN_LIMIT) {
             Toast.makeText(getContext(), "Please enter a valid amount (Minimum ₱" + MIN_LIMIT + ").", Toast.LENGTH_SHORT).show();
             return;
@@ -133,7 +126,14 @@ public class CashInfo_fragment extends BaseFragment {
             return;
         }
 
-        CashSummary_fragment summaryFragment = CashSummary_fragment.newInstance(amount, "PENDING");
+        // ⭐ Determine the selected method
+        String method = "Online";
+        if (rgPaymentMethod != null && rgPaymentMethod.getCheckedRadioButtonId() == R.id.rb_physical) {
+            method = "Physical";
+        }
+
+        // ⭐ Pass the METHOD instead of a static "PENDING" string
+        CashSummary_fragment summaryFragment = CashSummary_fragment.newInstance(amount, method);
 
         getParentFragmentManager().beginTransaction()
                 .replace(R.id.fragment_container, summaryFragment)

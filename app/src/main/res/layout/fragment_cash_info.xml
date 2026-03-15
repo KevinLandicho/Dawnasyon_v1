@@ -105,7 +105,7 @@
             android:id="@+id/txt_method_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/select_donation_method"
+            android:text="Select Donation Method:"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"
@@ -113,19 +113,31 @@
             app:layout_constraintTop_toBottomOf="@id/cardCategory"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <LinearLayout
-            android:id="@+id/payment_methods_container"
+        <RadioGroup
+            android:id="@+id/rg_payment_method"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
             android:layout_marginTop="8dp"
             app:layout_constraintTop_toBottomOf="@id/txt_method_label"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintStart_toStartOf="parent">
 
-            <include layout="@layout/item_payment_method" android:id="@+id/gcash_button_layout" />
-            <include layout="@layout/item_payment_method" android:id="@+id/maya_button_layout" />
-        </LinearLayout>
+            <RadioButton
+                android:id="@+id/rb_online"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Online Payment (PayMongo)"
+                android:fontFamily="@font/dongle"
+                android:textSize="24sp"
+                android:checked="true"/>
+
+            <RadioButton
+                android:id="@+id/rb_physical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Physical Drop-off (Barangay Hall)"
+                android:fontFamily="@font/dongle"
+                android:textSize="24sp"/>
+        </RadioGroup>
 
         <TextView
             android:id="@+id/txt_amount_label"
@@ -136,7 +148,7 @@
             android:textStyle="bold"
             android:textColor="@android:color/black"
             android:layout_marginTop="24dp"
-            app:layout_constraintTop_toBottomOf="@id/payment_methods_container"
+            app:layout_constraintTop_toBottomOf="@id/rg_payment_method"
             app:layout_constraintStart_toStartOf="parent" />
 
         <androidx.cardview.widget.CardView
@@ -284,19 +296,7 @@
                         app:cornerRadius="8dp"/>
 
                 </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center"
-                    android:layout_marginTop="24dp">
-
-
-                </LinearLayout>
-
             </LinearLayout>
         </androidx.cardview.widget.CardView>
-
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.core.widget.NestedScrollView>
