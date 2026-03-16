@@ -48,6 +48,7 @@ public class Home_fragment extends BaseFragment {
     private TextView tvDriveBadge;
 
     // Carousel Components
+    private View carouselContainer; // ⭐ NEW: The entire panel/card holding the carousel
     private ViewPager2 imageCarouselViewPager;
     private ImageCarouselAdapter carouselAdapter;
     private Handler sliderHandler = new Handler();
@@ -114,7 +115,10 @@ public class Home_fragment extends BaseFragment {
 
         tvDriveBadge = view.findViewById(R.id.tv_drive_badge);
 
+        // ⭐ Bind the container AND the ViewPager
+        carouselContainer = view.findViewById(R.id.carousel_container);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
+
         announcementRecyclerView = view.findViewById(R.id.announcement_recycler_view);
         tvEmptyPlaceholder = view.findViewById(R.id.tv_empty_placeholder);
 
@@ -360,11 +364,14 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // FILTERING LOGIC (⭐ UPDATED FOR ACCURACY)
+    // FILTERING LOGIC
     // ====================================================
 
     private void toggleBookmarkFilter() {
         showBookmarksOnly = !showBookmarksOnly;
+
+        updateCarouselVisibility();
+
         if (showBookmarksOnly) {
             iconFilter.setColorFilter(Color.parseColor("#F5901A"));
             iconFilter.setImageResource(R.drawable.ic_bookmark_filled);
@@ -382,10 +389,27 @@ public class Home_fragment extends BaseFragment {
         updateButtonState(btnFilterAll, false);
         updateButtonState(btnFilterGeneral, false);
         updateButtonState(btnFilterDrive, false);
+
         if (category.equals("ALL")) updateButtonState(btnFilterAll, true);
         else if (category.equals("General")) updateButtonState(btnFilterGeneral, true);
         else if (category.equals("Donation drive")) updateButtonState(btnFilterDrive, true);
+
+        updateCarouselVisibility();
+
         applyFilters(searchView.getQuery().toString());
+    }
+
+    // ⭐ NEW: Hides the entire Panel (carouselContainer) if it exists, otherwise falls back to the ViewPager.
+    private void updateCarouselVisibility() {
+        View targetToHide = (carouselContainer != null) ? carouselContainer : imageCarouselViewPager;
+
+        if (targetToHide != null) {
+            if (currentCategoryFilter.equals("ALL") && !showBookmarksOnly) {
+                targetToHide.setVisibility(View.VISIBLE);
+            } else {
+                targetToHide.setVisibility(View.GONE);
+            }
+        }
     }
 
     private void updateButtonState(Button btn, boolean isActive) {
@@ -404,7 +428,6 @@ public class Home_fragment extends BaseFragment {
         String queryLower = query != null ? query.toLowerCase().trim() : "";
         String[] keywords = queryLower.split("\\s+");
 
-        // ⭐ Get the Translation Cache so we can search English AND Tagalog at the same time
         SharedPreferences translationCache = null;
         if (getContext() != null) {
             translationCache = getContext().getSharedPreferences("TranslationCache", Context.MODE_PRIVATE);
@@ -415,7 +438,6 @@ public class Home_fragment extends BaseFragment {
             boolean matchesBookmark = true;
             boolean matchesCategory = true;
 
-            // ⭐ 1. SMARTER MULTI-LANGUAGE SEARCH LOGIC
             if (!queryLower.isEmpty() && keywords.length > 0 && !keywords[0].isEmpty()) {
                 String origTitle = item.getTitle() != null ? item.getTitle() : "";
                 String origDesc = item.getDescription() != null ? item.getDescription() : "";
@@ -423,7 +445,6 @@ public class Home_fragment extends BaseFragment {
                 String transTitle = origTitle;
                 String transDesc = origDesc;
 
-                // Pull the Tagalog versions from Cache
                 if (translationCache != null) {
                     transTitle = translationCache.getString(origTitle, origTitle);
                     transDesc = translationCache.getString(origDesc, origDesc);
@@ -440,7 +461,6 @@ public class Home_fragment extends BaseFragment {
                     boolean foundInTitle = searchTitleOrig.contains(keyword) || searchTitleTrans.contains(keyword);
                     boolean foundInDesc = searchDescOrig.contains(keyword) || searchDescTrans.contains(keyword);
 
-                    // If the keyword isn't found in English OR Tagalog, it fails the search
                     if (!foundInTitle && !foundInDesc) {
                         matchesSearch = false;
                         break;
