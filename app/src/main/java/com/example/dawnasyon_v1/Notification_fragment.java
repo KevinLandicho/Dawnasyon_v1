@@ -31,9 +31,15 @@ public class Notification_fragment extends BaseFragment {
     private TextView tvHeaderNew, tvHeaderOld;
     private NestedScrollView contentLayout;
 
-    // Empty State Views
     private LinearLayout emptyStateLayout;
     private Button btnRefreshEmpty;
+
+    // Declare adapters at the top so we don't recreate them
+    private NotificationAdapter adapterNew;
+    private NotificationAdapter adapterOld;
+
+    // Static cache for instant loading between tabs
+    private static List<NotificationItem> cachedNotificationList = null;
 
     public Notification_fragment() {}
 
@@ -46,14 +52,12 @@ public class Notification_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Bind Views
         rvNew = view.findViewById(R.id.rv_new);
         rvOld = view.findViewById(R.id.rv_old);
         btnSeePrevious = view.findViewById(R.id.btn_see_previous);
         tvHeaderNew = view.findViewById(R.id.tv_header_new);
         tvHeaderOld = view.findViewById(R.id.tv_header_old);
 
-        // New Views for Empty State
         contentLayout = view.findViewById(R.id.content_layout);
         emptyStateLayout = view.findViewById(R.id.empty_state_layout);
         btnRefreshEmpty = view.findViewById(R.id.btn_refresh_empty);
@@ -61,60 +65,82 @@ public class Notification_fragment extends BaseFragment {
         rvNew.setLayoutManager(new LinearLayoutManager(getContext()));
         rvOld.setLayoutManager(new LinearLayoutManager(getContext()));
 
-        // Setup Refresh Button Action
+        // Initialize adapters ONCE with empty lists
+        adapterNew = new NotificationAdapter(new ArrayList<>());
+        adapterOld = new NotificationAdapter(new ArrayList<>());
+        rvNew.setAdapter(adapterNew);
+        rvOld.setAdapter(adapterOld);
+
         if (btnRefreshEmpty != null) {
             btnRefreshEmpty.setOnClickListener(v -> {
                 Toast.makeText(getContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
-                loadNotifications();
+                showEmptyState(true); // Show placeholder while refreshing
+                fetchNotifications(true);
             });
         }
 
-        loadNotifications();
+        // ⭐ FIXED LOGIC: Show placeholder if we don't have cached data yet!
+        if (cachedNotificationList != null && !cachedNotificationList.isEmpty()) {
+            processAndDisplay(cachedNotificationList); // Loads instantly
+            fetchNotifications(false); // Silently checks for updates in background
+        } else {
+            showEmptyState(true); // Keep placeholder visible!
+            fetchNotifications(true);
+        }
 
-        // ⭐ ENABLE AUTO-TRANSLATION (Translates Headers & Empty State Text)
         applyTagalogTranslation(view);
     }
 
-    private void loadNotifications() {
+    private void fetchNotifications(boolean forceUpdate) {
         if (getContext() == null) return;
 
         SupabaseJavaHelper.fetchNotifications(new SupabaseJavaHelper.NotificationCallback() {
             @Override
             public void onSuccess(List<NotificationItem> data) {
-                if (isAdded()) {
+                if (!isAdded()) return;
+
+                if (forceUpdate || hasNewNotifications(cachedNotificationList, data)) {
+                    cachedNotificationList = data;
                     processAndDisplay(data);
                 }
             }
 
             @Override
             public void onError(@NonNull String message) {
-                if (isAdded()) {
-                    Log.e("NotifFrag", "Error: " + message);
-                    // Don't toast error immediately on load, just show empty state if list is null
-                    if (rvNew.getAdapter() == null || rvNew.getAdapter().getItemCount() == 0) {
-                        showEmptyState(true);
-                    }
+                if (!isAdded()) return;
+                Log.e("NotifFrag", "Error: " + message);
+
+                if (cachedNotificationList == null || cachedNotificationList.isEmpty()) {
+                    showEmptyState(true);
                 }
             }
         });
     }
 
+    private boolean hasNewNotifications(List<NotificationItem> oldList, List<NotificationItem> newList) {
+        if (oldList == null || newList == null) return true;
+        if (oldList.size() != newList.size()) return true;
+        if (oldList.isEmpty() && newList.isEmpty()) return false;
+
+        String oldFirstItemDate = oldList.get(0).getCreatedAt();
+        String newFirstItemDate = newList.get(0).getCreatedAt();
+
+        return oldFirstItemDate != null && !oldFirstItemDate.equals(newFirstItemDate);
+    }
+
     private void processAndDisplay(List<NotificationItem> rawList) {
-        // 1. Check if the list is completely empty first
         if (rawList == null || rawList.isEmpty()) {
             showEmptyState(true);
             return;
         }
 
-        // If we have data, show content
-        showEmptyState(false);
-
+        // ⭐ FIXED: Removed the Background Thread. Processing it directly on the main thread
+        // removes the visual "stutter" and makes it feel significantly faster.
         List<NotificationItem> newList = new ArrayList<>();
         List<NotificationItem> oldList = new ArrayList<>();
 
-        // Date Formatters
         SimpleDateFormat parser = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
-        parser.setTimeZone(TimeZone.getTimeZone("UTC")); // Parse Supabase UTC time
+        parser.setTimeZone(TimeZone.getTimeZone("UTC"));
 
         SimpleDateFormat timeFormatter = new SimpleDateFormat("h:mm a", Locale.getDefault());
         SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
@@ -126,25 +152,19 @@ public class Notification_fragment extends BaseFragment {
                 if (item.getCreatedAt() != null) {
                     Date date = parser.parse(item.getCreatedAt());
                     if (date != null) {
-                        // Set formatted time (e.g., "1:28 PM")
                         item.setTime(timeFormatter.format(date));
-
-                        // Check Date Logic
                         String itemDateStr = dateFormatter.format(date);
 
                         if (itemDateStr.equals(todayStr)) {
-                            // If date is TODAY -> New List
                             item.setDateCategory("New");
                             newList.add(item);
                         } else {
-                            // If date is Yesterday or older -> Old List
                             item.setDateCategory("Old");
                             oldList.add(item);
                         }
                     }
                 }
 
-                // Icon Logic
                 if (item.getDbType() != null && item.getDbType().equalsIgnoreCase("Decline")) {
                     item.setType(1);
                 } else {
@@ -156,32 +176,23 @@ public class Notification_fragment extends BaseFragment {
             }
         }
 
-        // Set Adapters
-        rvNew.setAdapter(new NotificationAdapter(newList));
-        rvOld.setAdapter(new NotificationAdapter(oldList));
+        showEmptyState(false);
 
-        // Logic to Hide/Show headers if empty
-        if (newList.isEmpty()) {
-            tvHeaderNew.setVisibility(View.GONE);
-        } else {
-            tvHeaderNew.setVisibility(View.VISIBLE);
-        }
+        // Safely update the adapters without destroying them
+        adapterNew.updateData(newList);
+        adapterOld.updateData(oldList);
+
+        tvHeaderNew.setVisibility(newList.isEmpty() ? View.GONE : View.VISIBLE);
 
         if (oldList.isEmpty()) {
             tvHeaderOld.setVisibility(View.GONE);
             btnSeePrevious.setVisibility(View.GONE);
         } else {
             tvHeaderOld.setVisibility(View.VISIBLE);
-            // Only show "See Previous" if there are many items
-            if (oldList.size() > 5) {
-                btnSeePrevious.setVisibility(View.VISIBLE);
-            } else {
-                btnSeePrevious.setVisibility(View.GONE);
-            }
+            btnSeePrevious.setVisibility(oldList.size() > 5 ? View.VISIBLE : View.GONE);
         }
     }
 
-    // Helper to toggle views
     private void showEmptyState(boolean isEmpty) {
         if (emptyStateLayout == null || contentLayout == null) return;
 

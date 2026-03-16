@@ -38,6 +38,13 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
         this.notificationList = notificationList;
     }
 
+    // ⭐ THIS IS THE NEW METHOD NEEDED FOR THE SPEED FIX
+    public void updateData(List<NotificationItem> newList) {
+        this.notificationList.clear();
+        this.notificationList.addAll(newList);
+        notifyDataSetChanged();
+    }
+
     @NonNull
     @Override
     public NotificationViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
@@ -170,7 +177,6 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
                                     if (dbResponse.isSuccessful()) {
 
                                         // ⭐ 3. DELETE NOTIFICATION FROM DATABASE
-                                        // Note: Make sure NotificationItem has a getId() method that returns the `notif_id`
                                         String notifId = String.valueOf(item.getId());
 
                                         Request deleteRequest = new Request.Builder()
