@@ -39,7 +39,7 @@ public class Home_fragment extends BaseFragment {
     private ImageView userAvatar;
     private SearchView searchView;
     private ImageView iconFilter;
-    private ImageView brgyLogo; // ⭐ Added
+    private ImageView brgyLogo;
 
     // Filter Buttons
     private Button btnFilterAll, btnFilterGeneral, btnFilterDrive;
@@ -106,8 +106,6 @@ public class Home_fragment extends BaseFragment {
         userAvatar = view.findViewById(R.id.user_avatar);
         searchView = view.findViewById(R.id.search_view);
         iconFilter = view.findViewById(R.id.icon_filter);
-
-        // ⭐ Bind the Logo (Make sure R.id.brgy_logo matches your fragment_home.xml)
         brgyLogo = view.findViewById(R.id.brgy_logo);
 
         btnFilterAll = view.findViewById(R.id.btn_filter_all);
@@ -138,7 +136,6 @@ public class Home_fragment extends BaseFragment {
             markDrivesAsRead();
         });
 
-        // ⭐ NEW: Click Listener for the Barangay Logo
         if (brgyLogo != null) {
             brgyLogo.setOnClickListener(v -> {
                 BrgyInfoDialog dialog = new BrgyInfoDialog();
@@ -363,7 +360,7 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // FILTERING LOGIC
+    // FILTERING LOGIC (⭐ UPDATED FOR ACCURACY)
     // ====================================================
 
     private void toggleBookmarkFilter() {
@@ -404,19 +401,47 @@ public class Home_fragment extends BaseFragment {
     private void applyFilters(String query) {
         List<Announcement> filteredList = new ArrayList<>();
 
-        String[] keywords = query != null ? query.toLowerCase().trim().split("\\s+") : new String[0];
+        String queryLower = query != null ? query.toLowerCase().trim() : "";
+        String[] keywords = queryLower.split("\\s+");
+
+        // ⭐ Get the Translation Cache so we can search English AND Tagalog at the same time
+        SharedPreferences translationCache = null;
+        if (getContext() != null) {
+            translationCache = getContext().getSharedPreferences("TranslationCache", Context.MODE_PRIVATE);
+        }
 
         for (Announcement item : fullAnnouncementList) {
             boolean matchesSearch = true;
             boolean matchesBookmark = true;
             boolean matchesCategory = true;
 
-            if (keywords.length > 0 && !keywords[0].isEmpty()) {
-                String title = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
-                String desc = item.getDescription() != null ? item.getDescription().toLowerCase() : "";
+            // ⭐ 1. SMARTER MULTI-LANGUAGE SEARCH LOGIC
+            if (!queryLower.isEmpty() && keywords.length > 0 && !keywords[0].isEmpty()) {
+                String origTitle = item.getTitle() != null ? item.getTitle() : "";
+                String origDesc = item.getDescription() != null ? item.getDescription() : "";
+
+                String transTitle = origTitle;
+                String transDesc = origDesc;
+
+                // Pull the Tagalog versions from Cache
+                if (translationCache != null) {
+                    transTitle = translationCache.getString(origTitle, origTitle);
+                    transDesc = translationCache.getString(origDesc, origDesc);
+                }
+
+                String searchTitleOrig = origTitle.toLowerCase();
+                String searchDescOrig = origDesc.toLowerCase();
+                String searchTitleTrans = transTitle.toLowerCase();
+                String searchDescTrans = transDesc.toLowerCase();
 
                 for (String keyword : keywords) {
-                    if (!title.contains(keyword) && !desc.contains(keyword)) {
+                    if (keyword.isEmpty()) continue;
+
+                    boolean foundInTitle = searchTitleOrig.contains(keyword) || searchTitleTrans.contains(keyword);
+                    boolean foundInDesc = searchDescOrig.contains(keyword) || searchDescTrans.contains(keyword);
+
+                    // If the keyword isn't found in English OR Tagalog, it fails the search
+                    if (!foundInTitle && !foundInDesc) {
                         matchesSearch = false;
                         break;
                     }
@@ -629,7 +654,7 @@ public class Home_fragment extends BaseFragment {
     private void setupSearch() {
         TextView searchText = searchView.findViewById(androidx.appcompat.R.id.search_src_text);
         if (searchText != null) {
-            searchText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14); // Locks to 14dp
+            searchText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_DIP, 14);
         }
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
