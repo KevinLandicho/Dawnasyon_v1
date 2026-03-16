@@ -62,9 +62,11 @@
                     android:layout_width="220dp"
                     android:layout_height="220dp"
                     android:layout_marginTop="24dp"
+                    android:background="@drawable/bg_input_field"
+                    android:padding="8dp"
                     android:contentDescription="QR Code"
                     android:scaleType="fitCenter"
-                    android:src="@drawable/ic_qrsample"
+                    android:src="@drawable/ic_loading_qr"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toBottomOf="@id/tv_title" />

@@ -22,11 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.bumptech.glide.Glide;
-import com.bumptech.glide.load.DataSource;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
-import com.bumptech.glide.load.engine.GlideException;
-import com.bumptech.glide.request.RequestListener;
-import com.bumptech.glide.request.target.Target;
 import com.journeyapps.barcodescanner.BarcodeEncoder;
 import com.google.zxing.BarcodeFormat;
 
@@ -70,7 +66,7 @@ public class DisplayQR_fragment extends BaseFragment {
             }
         });
 
-        // 2. Fetch & Display QR Code
+        // 2. Fetch & Display QR Code (Fast Cached Version)
         loadRealQrCode();
 
         // 3. Save to Gallery Button
@@ -79,40 +75,10 @@ public class DisplayQR_fragment extends BaseFragment {
         // 4. TAP: View Full Screen
         imgQrCode.setOnClickListener(v -> showFullScreenQR());
 
-        // ⭐ 5. LONG-PRESS: Secret Developer trick to regenerate the QR in Supabase
-        imgQrCode.setOnLongClickListener(v -> {
-            if (currentUserId == null) return false;
-
-            Toast.makeText(getContext(), "Regenerating simple QR to Supabase...", Toast.LENGTH_SHORT).show();
-
-            new Thread(() -> {
-                try {
-                    kotlinx.coroutines.BuildersKt.runBlocking(
-                            kotlinx.coroutines.Dispatchers.getIO(),
-                            (scope, continuation) -> QrCodeHelper.INSTANCE.generateAndUploadQrCode(currentUserId, continuation)
-                    );
-
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        if (isAdded()) {
-                            Toast.makeText(getContext(), "Successfully Replaced! Refreshing...", Toast.LENGTH_SHORT).show();
-                            loadRealQrCode();
-                        }
-                    });
-                } catch (Exception e) {
-                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
-                        if (isAdded()) {
-                            Toast.makeText(getContext(), "Failed to update QR", Toast.LENGTH_SHORT).show();
-                        }
-                    });
-                }
-            }).start();
-
-            return true;
-        });
-
         applyTagalogTranslation(view);
     }
 
+    // ⭐ FAST GLIDE LOAD
     private void loadRealQrCode() {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
@@ -127,31 +93,15 @@ public class DisplayQR_fragment extends BaseFragment {
                     currentUserId = profile.getId();
 
                     if (qrUrl != null && !qrUrl.isEmpty()) {
-
-                        String noCacheUrl = qrUrl;
-                        if (!noCacheUrl.contains("?t=")) {
-                            noCacheUrl = noCacheUrl + "?t=" + System.currentTimeMillis();
-                        }
-
+                        // Native, lightning-fast Glide caching
                         Glide.with(DisplayQR_fragment.this)
-                                .load(noCacheUrl)
-                                .diskCacheStrategy(DiskCacheStrategy.NONE)
-                                .skipMemoryCache(true)
-                                .placeholder(R.drawable.ic_qrsample)
-                                .listener(new RequestListener<Drawable>() {
-                                    @Override
-                                    public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-                                        generateLocalQr(currentUserId);
-                                        return true;
-                                    }
-
-                                    @Override
-                                    public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                                        return false;
-                                    }
-                                })
+                                .load(qrUrl)
+                                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                                .placeholder(R.drawable.ic_loading_qr) // Shows while downloading
+                                .error(R.drawable.ic_loading_qr) // Failsafe
                                 .into(imgQrCode);
                     } else {
+                        // Instantly generates if no URL exists
                         generateLocalQr(currentUserId);
                     }
                 }
