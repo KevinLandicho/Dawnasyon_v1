@@ -7,6 +7,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -48,10 +49,10 @@ public class Home_fragment extends BaseFragment {
     private TextView tvDriveBadge;
 
     // Carousel Components
-    private View carouselContainer; // ⭐ NEW: The entire panel/card holding the carousel
+    private View carouselContainer;
     private ViewPager2 imageCarouselViewPager;
     private ImageCarouselAdapter carouselAdapter;
-    private Handler sliderHandler = new Handler();
+    private Handler sliderHandler = new Handler(Looper.getMainLooper());
     private final int SLIDE_INTERVAL_MS = 3000;
 
     // Announcement List Components
@@ -73,8 +74,9 @@ public class Home_fragment extends BaseFragment {
     private boolean showBookmarksOnly = false;
     private String currentCategoryFilter = "ALL";
 
-    // Preference Key for "Last Checked"
+    // Preference Keys
     private static final String PREF_NAME = "UserPrefs";
+    private static final String CACHE_PREF = "ProfileCache"; // ⭐ NEW
     private static final String KEY_LAST_CHECKED_DRIVE = "last_checked_drive_time";
 
     // Carousel Runnable
@@ -115,7 +117,6 @@ public class Home_fragment extends BaseFragment {
 
         tvDriveBadge = view.findViewById(R.id.tv_drive_badge);
 
-        // ⭐ Bind the container AND the ViewPager
         carouselContainer = view.findViewById(R.id.carousel_container);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
 
@@ -158,6 +159,30 @@ public class Home_fragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        // ⭐ INSTANT UI LOAD: Read the user's name and avatar from local memory
+        SharedPreferences profileCache = requireContext().getSharedPreferences(CACHE_PREF, Context.MODE_PRIVATE);
+        String cachedName = profileCache.getString("full_name", "");
+        String cachedAvatar = profileCache.getString("avatar_name", "");
+
+        if (!cachedName.isEmpty()) {
+            welcomeText.setText("Welcome, " + cachedName + "!");
+        } else {
+            welcomeText.setText("Welcome!"); // Safe fallback for brand new users
+        }
+
+        // Instantly load avatar from cache if we have one
+        if (!cachedAvatar.isEmpty()) {
+            try {
+                if (cachedAvatar.startsWith("http://") || cachedAvatar.startsWith("https://")) {
+                    Glide.with(this).load(cachedAvatar).placeholder(R.drawable.ic_profile_avatar).circleCrop().into(userAvatar);
+                } else {
+                    int resId = getResources().getIdentifier(cachedAvatar, "drawable", requireContext().getPackageName());
+                    if (resId != 0) Glide.with(this).load(resId).placeholder(R.drawable.ic_profile_avatar).circleCrop().into(userAvatar);
+                }
+            } catch (Exception ignored) {}
+        }
+
         applyTagalogTranslation(view);
     }
 
@@ -165,6 +190,9 @@ public class Home_fragment extends BaseFragment {
     public void onResume() {
         super.onResume();
         sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
+
+        // ⭐ ALWAYS call this onResume. It acts as a silent background refresh
+        // if Supabase failed the first time.
         loadUserProfileAndAnnouncements();
     }
 
@@ -185,9 +213,11 @@ public class Home_fragment extends BaseFragment {
     // ====================================================
 
     private void loadUserProfileAndAnnouncements() {
+        // Only show the loading spinner dialog on the very first load
         if (isFirstLoad && getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
+
         if (getContext() == null) return;
 
         SupabaseJavaHelper.fetchUserProfile(getContext(), new SupabaseJavaHelper.ProfileCallback() {
@@ -196,6 +226,14 @@ public class Home_fragment extends BaseFragment {
                 if (!isAdded() || getActivity() == null) return;
 
                 if (profile != null) {
+                    // ⭐ SAVE TO CACHE FOR NEXT TIME
+                    SharedPreferences profileCache = requireContext().getSharedPreferences(CACHE_PREF, Context.MODE_PRIVATE);
+                    profileCache.edit()
+                            .putString("full_name", profile.getFull_name())
+                            .putString("avatar_name", profile.getAvatarName())
+                            .apply();
+
+                    // Update UI
                     String welcomeMsg = "Welcome, " + profile.getFull_name() + "!";
                     welcomeText.setText(welcomeMsg);
 
@@ -323,6 +361,8 @@ public class Home_fragment extends BaseFragment {
                 updateDriveBadge(newDriveCount);
 
                 applyFilters(searchView.getQuery().toString());
+
+                // ⭐ Prevents the loading spinner from showing again during tab switches
                 isFirstLoad = false;
             }
 
@@ -331,6 +371,9 @@ public class Home_fragment extends BaseFragment {
                 if (!isAdded() || getActivity() == null) return;
                 if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                 if (fullAnnouncementList.isEmpty()) updatePlaceholder(true);
+
+                // ⭐ Ensure we mark this as false even on error, so it doesn't get stuck loading forever
+                isFirstLoad = false;
             }
         });
     }
@@ -399,7 +442,6 @@ public class Home_fragment extends BaseFragment {
         applyFilters(searchView.getQuery().toString());
     }
 
-    // ⭐ NEW: Hides the entire Panel (carouselContainer) if it exists, otherwise falls back to the ViewPager.
     private void updateCarouselVisibility() {
         View targetToHide = (carouselContainer != null) ? carouselContainer : imageCarouselViewPager;
 

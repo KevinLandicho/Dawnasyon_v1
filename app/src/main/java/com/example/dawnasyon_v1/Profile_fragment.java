@@ -591,6 +591,7 @@ public class Profile_fragment extends BaseFragment {
         new AlertDialog.Builder(getContext()).setTitle("Log Out").setMessage("Are you sure?").setPositiveButton("Yes", (d, w) -> performLogout()).setNegativeButton("Cancel", null).show();
     }
 
+    // ⭐ UPDATED LOGOUT METHOD WITH CACHE CLEARING
     private void performLogout() {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
@@ -599,7 +600,13 @@ public class Profile_fragment extends BaseFragment {
             public void onSuccess() {
                 if (getActivity() != null) {
                     if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                    // ⭐ Wipe the User Session Cache
                     getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE).edit().clear().apply();
+
+                    // ⭐ Wipe the Profile/Home Screen Cache
+                    getActivity().getSharedPreferences("ProfileCache", Context.MODE_PRIVATE).edit().clear().apply();
+
                     Intent intent = new Intent(getActivity(), LoginActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
@@ -610,6 +617,11 @@ public class Profile_fragment extends BaseFragment {
             public void onError(String message) {
                 if (getActivity() != null) {
                     if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+
+                    // ⭐ Wipe Caches even if there's a network error during logout
+                    getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE).edit().clear().apply();
+                    getActivity().getSharedPreferences("ProfileCache", Context.MODE_PRIVATE).edit().clear().apply();
+
                     startActivity(new Intent(getActivity(), LoginActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
                 }
             }
