@@ -17,7 +17,7 @@ public class BaseFragment extends Fragment {
 
         // ⭐ FORCE BACKGROUND & CLICK CONSUMPTION ⭐
         // This makes every screen solid so you don't see the one behind it.
-        view.setBackgroundResource(R.drawable.background3);
+        view.setBackgroundResource(R.drawable.background12);
         view.setClickable(true);
         view.setFocusable(true);
     }
