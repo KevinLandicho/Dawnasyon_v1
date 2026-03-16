@@ -28,7 +28,7 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     private OnItemClickListener listener;
     private Context context;
 
-    // ⭐ NEW: Tracks which posts are expanded
+    // Tracks which posts are expanded
     private Set<Integer> expandedPositions = new HashSet<>();
 
     public interface OnItemClickListener {
@@ -52,10 +52,14 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         return new AnnouncementViewHolder(view);
     }
 
-    // ⭐ MAGIC GLITCH FIX: Prevents text from translating and scrambling again when clicking Heart/Bookmark
+    // ⭐ MAGIC GLITCH FIX: Handles UI updates without reloading the whole card
     @Override
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position, @NonNull List<Object> payloads) {
-        if (!payloads.isEmpty()) {
+        if (payloads.isEmpty()) {
+            // If no payloads, do a full bind
+            onBindViewHolder(holder, position);
+        } else {
+            // Partial bind based on payload
             for (Object payload : payloads) {
                 Announcement item = announcementList.get(position);
 
@@ -81,14 +85,17 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                     holder.description.setMaxLines(isExpanded ? Integer.MAX_VALUE : 3);
                 }
             }
-        } else {
-            super.onBindViewHolder(holder, position, payloads);
         }
     }
 
     @Override
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position) {
         Announcement item = announcementList.get(position);
+
+        // ⭐ TAG VIEWS: This locks the TextView to this specific announcement
+        // to prevent late translations from overwriting it!
+        holder.title.setTag(item.getTitle());
+        holder.description.setTag(item.getDescription());
 
         // 1. Basic Text Data
         holder.title.setText(item.getTitle());
@@ -100,7 +107,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
 
         holder.timestamp.setText(formatDateTime(item.getCreated_at(), true));
 
-        // ⭐ EXPANDABLE TEXT LOGIC: Limit to 3 lines initially. Tap to show full text.
         boolean isExpanded = expandedPositions.contains(position);
         holder.description.setMaxLines(isExpanded ? Integer.MAX_VALUE : 3);
 
@@ -122,6 +128,9 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                     .error(R.drawable.ic_image_placeholder)
                     .into(holder.image);
         } else {
+            // ⭐ CRITICAL FIX: Clear the old image out of memory so it doesn't show on the wrong card!
+            Glide.with(context).clear(holder.image);
+            holder.image.setImageDrawable(null);
             holder.image.setVisibility(View.GONE);
         }
 
@@ -130,7 +139,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         boolean isDrive = type != null && (type.equalsIgnoreCase("Donation drive") || type.equalsIgnoreCase("Ayuda Application"));
 
         if (isDrive) {
-            // --- A. SHOW APPLY BUTTON ---
             holder.btnApply.setVisibility(View.VISIBLE);
 
             if (item.isApplied()) {
@@ -142,9 +150,10 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                 holder.btnApply.setBackgroundColor(Color.parseColor("#F5901A"));
                 holder.btnApply.setEnabled(true);
             }
+
+            holder.btnApply.setTag(holder.btnApply.getText().toString());
             TranslationHelper.autoTranslate(context, holder.btnApply, holder.btnApply.getText().toString());
 
-            // --- B. SHOW START/END DATES ---
             String start = item.getDriveStartDate();
             String end = item.getDriveEndDate();
 
@@ -166,14 +175,12 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                 holder.layoutDates.setVisibility(View.GONE);
             }
 
-            // Make the card clickable for details
             holder.itemView.setOnClickListener(v -> listener.onCardClick(item));
 
         } else {
-            // General posts
             holder.btnApply.setVisibility(View.GONE);
             holder.layoutDates.setVisibility(View.GONE);
-            holder.itemView.setOnClickListener(null); // Disable click for general posts
+            holder.itemView.setOnClickListener(null);
         }
 
         // 4. Like/Bookmark Visuals
@@ -206,7 +213,7 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
 
     public void updateData(List<Announcement> newAnnouncements) {
         this.announcementList = newAnnouncements;
-        this.expandedPositions.clear(); // Reset expansions when the list is filtered or refreshed
+        this.expandedPositions.clear();
         notifyDataSetChanged();
     }
 

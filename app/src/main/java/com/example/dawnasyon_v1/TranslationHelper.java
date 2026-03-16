@@ -19,7 +19,7 @@ public class TranslationHelper {
     private static Translator englishToTagalog;
     private static boolean isModelReady = false;
 
-    // 1. Initialize & Download Model (Call this in MainActivity or Splash Screen)
+    // 1. Initialize & Download Model
     public static void downloadModel(Context context) {
         TranslatorOptions options = new TranslatorOptions.Builder()
                 .setSourceLanguage(TranslateLanguage.ENGLISH)
@@ -28,7 +28,6 @@ public class TranslationHelper {
 
         englishToTagalog = Translation.getClient(options);
 
-        // Require Wifi to download the ~30MB model
         DownloadConditions conditions = new DownloadConditions.Builder()
                 .requireWifi()
                 .build();
@@ -46,27 +45,24 @@ public class TranslationHelper {
 
     // 2. The Main Function: Auto-Translate OR Restore
     public static void autoTranslate(Context context, TextView textView, String textToTranslate) {
-        if (context == null || textView == null) return;
+        if (context == null || textView == null || textToTranslate == null) return;
 
         SharedPreferences settings = context.getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
         boolean isTagalog = settings.getBoolean("is_tagalog", false);
 
-        // --- STEP A: SAVE ORIGINAL ENGLISH ---
-        // We use setTag() to store the original English text permanently on the View
-        if (textView.getTag() == null) {
-            textView.setTag(textToTranslate); // Save "Submit"
-        }
+        // ⭐ CRITICAL FIX 1: ALWAYS update the tag to the incoming text.
+        // This ensures recycled views (like in lists) track the correct new text.
+        textView.setTag(textToTranslate);
+        String originalEnglish = textToTranslate;
 
-        String originalEnglish = textView.getTag().toString();
-
-        // --- STEP B: CHECK MODE ---
+        // --- STEP A: CHECK MODE ---
         if (!isTagalog) {
             // ENGLISH MODE: Restore the original text immediately
             textView.setText(originalEnglish);
             return;
         }
 
-        // --- STEP C: TAGALOG MODE (ML KIT) ---
+        // --- STEP B: TAGALOG MODE (ML KIT) ---
         // 1. Check Cache first (Instant load)
         SharedPreferences cache = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         String cachedTranslation = cache.getString(originalEnglish, null);
@@ -86,14 +82,25 @@ public class TranslationHelper {
         englishToTagalog.translate(originalEnglish)
                 .addOnSuccessListener(translatedText -> {
                     if (textView != null) {
-                        textView.setText(translatedText);
+                        // ⭐ CRITICAL FIX 2: RECYCLERVIEW GLITCH PREVENTION
+                        // Check if the View's tag STILL matches the text we just translated.
+                        // If the user scrolled and the view was recycled, the tag will be different,
+                        // so we skip setting the text to prevent scrambling the UI.
+                        Object currentTag = textView.getTag();
+                        if (currentTag != null && currentTag.toString().equals(originalEnglish)) {
+                            textView.setText(translatedText);
+                        }
+
                         // Save to Cache so we don't need internet/ML next time
                         cache.edit().putString(originalEnglish, translatedText).apply();
                     }
                 })
                 .addOnFailureListener(e -> {
-                    // Keep English if error
-                    textView.setText(originalEnglish);
+                    // Keep English if error, but only if view wasn't recycled
+                    Object currentTag = textView.getTag();
+                    if (currentTag != null && currentTag.toString().equals(originalEnglish)) {
+                        textView.setText(originalEnglish);
+                    }
                 });
     }
 
@@ -116,9 +123,7 @@ public class TranslationHelper {
             // Filter: Don't translate empty, numbers, or very short text
             if (currentText != null && currentText.length() > 1 && !isNumeric(currentText.toString())) {
 
-                // CRITICAL FIX:
-                // If the view already has a TAG, use that as the source (it's the Original English).
-                // If NO TAG, use the current text as the source and it will be saved as the tag.
+                // Use the stored Tag if it exists (Original English), otherwise use current text
                 String sourceText;
                 if (textView.getTag() != null) {
                     sourceText = textView.getTag().toString();
