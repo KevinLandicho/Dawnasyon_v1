@@ -56,6 +56,7 @@ import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.util.MapTileIndex;
+import org.osmdroid.views.CustomZoomButtonsController; // ⭐ IMPORTED THIS
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
@@ -168,6 +169,9 @@ public class LiveMap_fragment extends BaseFragment {
         map = view.findViewById(R.id.osmmap);
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
+
+        // ⭐ FIXED: Hide the default Osmdroid zoom buttons (+/-) so they don't overlap your UI!
+        map.getZoomController().setVisibility(CustomZoomButtonsController.Visibility.NEVER);
 
         GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
         map.getController().setZoom(16.0);
