@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
@@ -55,25 +57,29 @@ public class SplashActivity extends BaseActivity {
 
         // --- 4. TOGGLE LANGUAGE ---
         btnLanguage.setOnClickListener(v -> {
+
+            // ⭐ DISABLE BUTTON TO PREVENT SPAM CLICKING
+            btnLanguage.setEnabled(false);
+
             // Toggle State
             isTagalogEnabled = !isTagalogEnabled;
 
             // Save Preference
             prefs.edit().putBoolean("is_tagalog", isTagalogEnabled).apply();
 
-            // ⭐ KEY FIX: Call translateViewHierarchy for BOTH cases.
-            // The new TranslationHelper will automatically:
-            // - Translate to Tagalog if isTagalogEnabled = true
-            // - Restore to English if isTagalogEnabled = false
             TranslationHelper.translateViewHierarchy(this, getWindow().getDecorView().getRootView());
 
-            // Update the Button Text explicitly AFTER translation
-            // (so the helper doesn't overwrite "TAGALOG" with a translation)
             updateLanguageButtonUI();
 
-            // Optional: Show feedback
             String msg = isTagalogEnabled ? "Tagalog Mode ON" : "English Mode ON";
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+
+            // ⭐ RE-ENABLE BUTTON AFTER 1 SECOND (1000ms)
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                if (!isDestroyed()) {
+                    btnLanguage.setEnabled(true);
+                }
+            }, 1000);
         });
 
         // --- 5. START BUTTON ---
