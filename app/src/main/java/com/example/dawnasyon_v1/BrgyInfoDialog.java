@@ -65,12 +65,13 @@ public class BrgyInfoDialog extends DialogFragment {
                     tvPunongBrgy.setText(info.getPunong_barangay() != null ? info.getPunong_barangay() : "N/A");
                     tvSkChair.setText(info.getSk_chairperson() != null ? info.getSk_chairperson() : "N/A");
 
-                    // Format Councilors into a bulleted list
+                    // ⭐ FORMAT COUNCILORS (Removed Bullets)
                     if (info.getCouncilors() != null && !info.getCouncilors().isEmpty()) {
                         String[] councilorList = info.getCouncilors().split(",");
                         StringBuilder formattedList = new StringBuilder();
                         for (String c : councilorList) {
-                            formattedList.append("•  ").append(c.trim()).append("\n\n");
+                            // Just append the name and a new line
+                            formattedList.append(c.trim()).append("\n");
                         }
                         tvCouncilors.setText(formattedList.toString().trim());
                     } else {

@@ -39,6 +39,7 @@ public class Home_fragment extends BaseFragment {
     private ImageView userAvatar;
     private SearchView searchView;
     private ImageView iconFilter;
+    private ImageView brgyLogo; // ⭐ Added
 
     // Filter Buttons
     private Button btnFilterAll, btnFilterGeneral, btnFilterDrive;
@@ -106,6 +107,9 @@ public class Home_fragment extends BaseFragment {
         searchView = view.findViewById(R.id.search_view);
         iconFilter = view.findViewById(R.id.icon_filter);
 
+        // ⭐ Bind the Logo (Make sure R.id.brgy_logo matches your fragment_home.xml)
+        brgyLogo = view.findViewById(R.id.brgy_logo);
+
         btnFilterAll = view.findViewById(R.id.btn_filter_all);
         btnFilterGeneral = view.findViewById(R.id.btn_filter_general);
         btnFilterDrive = view.findViewById(R.id.btn_filter_drive);
@@ -127,13 +131,20 @@ public class Home_fragment extends BaseFragment {
         iconFilter.setOnClickListener(v -> toggleBookmarkFilter());
 
         btnFilterAll.setOnClickListener(v -> setCategoryFilter("ALL"));
-        btnFilterGeneral.setOnClickListener(v -> setCategoryFilter("General")); // Maps to "Not Donation drive"
+        btnFilterGeneral.setOnClickListener(v -> setCategoryFilter("General"));
 
-        // Mark as read when clicked
         btnFilterDrive.setOnClickListener(v -> {
             setCategoryFilter("Donation drive");
             markDrivesAsRead();
         });
+
+        // ⭐ NEW: Click Listener for the Barangay Logo
+        if (brgyLogo != null) {
+            brgyLogo.setOnClickListener(v -> {
+                BrgyInfoDialog dialog = new BrgyInfoDialog();
+                dialog.show(getParentFragmentManager(), "BrgyInfoDialog");
+            });
+        }
 
         // 3. Setup Components
         setupCarousel();
@@ -146,7 +157,6 @@ public class Home_fragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        // ⭐ RESTORED: Auto-translation exactly as you requested
         applyTagalogTranslation(view);
     }
 
@@ -185,7 +195,6 @@ public class Home_fragment extends BaseFragment {
                 if (!isAdded() || getActivity() == null) return;
 
                 if (profile != null) {
-                    // Update text
                     String welcomeMsg = "Welcome, " + profile.getFull_name() + "!";
                     welcomeText.setText(welcomeMsg);
 
@@ -195,11 +204,9 @@ public class Home_fragment extends BaseFragment {
                     if (profile.getType() != null) userType = profile.getType();
                     currentUserStreet = (profile.getStreet() != null) ? profile.getStreet().trim() : "";
 
-                    // ⭐ FIX: Handle both Web URLs and Local Drawable Avatars
                     String avatarName = profile.getAvatarName();
                     try {
                         if (avatarName != null && (avatarName.startsWith("http://") || avatarName.startsWith("https://"))) {
-                            // It's a remote URL from Supabase Storage
                             Glide.with(Home_fragment.this)
                                     .load(avatarName)
                                     .placeholder(R.drawable.ic_profile_avatar)
@@ -207,7 +214,6 @@ public class Home_fragment extends BaseFragment {
                                     .circleCrop()
                                     .into(userAvatar);
                         } else {
-                            // It's a local drawable like "avatar1"
                             int avatarResId = R.drawable.ic_profile_avatar;
                             if (avatarName != null && !avatarName.isEmpty()) {
                                 int resId = getResources().getIdentifier(avatarName, "drawable", getContext().getPackageName());
@@ -263,12 +269,10 @@ public class Home_fragment extends BaseFragment {
                     boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
                     boolean isGeneral = (item.getType() == null || item.getType().equalsIgnoreCase("General"));
 
-                    // ⭐ PREVENTS MAP REPORTS (FIRE/FLOOD) FROM CLUTTERING HOME FEED
                     if (!isDrive && !isGeneral) {
                         continue;
                     }
 
-                    // 1. Street Filter
                     if (isDrive) {
                         String targetStreet = item.getAffected_street();
                         if (targetStreet != null && !targetStreet.trim().isEmpty() &&
@@ -280,7 +284,6 @@ public class Home_fragment extends BaseFragment {
                         }
                     }
 
-                    // 2. END DATE CHECK
                     String endDateStr = item.getDriveEndDate();
                     if (showIt && endDateStr != null && !endDateStr.isEmpty()) {
                         try {
@@ -291,7 +294,6 @@ public class Home_fragment extends BaseFragment {
                         } catch (ParseException e) { e.printStackTrace(); }
                     }
 
-                    // 3. START DATE CHECK
                     String startDateStr = item.getDriveStartDate();
                     if (showIt && startDateStr != null && !startDateStr.isEmpty()) {
                         try {
@@ -302,7 +304,6 @@ public class Home_fragment extends BaseFragment {
                         } catch (ParseException e) { e.printStackTrace(); }
                     }
 
-                    // 4. Badge Count
                     if (showIt && isDrive) {
                         long itemTime = parseDateToMillis(item.getCreated_at());
                         if (itemTime > lastCheckedTime) {
@@ -403,7 +404,6 @@ public class Home_fragment extends BaseFragment {
     private void applyFilters(String query) {
         List<Announcement> filteredList = new ArrayList<>();
 
-        // ⭐ MORE EFFICIENT SEARCH: Splits by space so it finds keywords even if out of order
         String[] keywords = query != null ? query.toLowerCase().trim().split("\\s+") : new String[0];
 
         for (Announcement item : fullAnnouncementList) {
@@ -411,7 +411,6 @@ public class Home_fragment extends BaseFragment {
             boolean matchesBookmark = true;
             boolean matchesCategory = true;
 
-            // 1. Smarter Search Logic
             if (keywords.length > 0 && !keywords[0].isEmpty()) {
                 String title = item.getTitle() != null ? item.getTitle().toLowerCase() : "";
                 String desc = item.getDescription() != null ? item.getDescription().toLowerCase() : "";
@@ -419,15 +418,13 @@ public class Home_fragment extends BaseFragment {
                 for (String keyword : keywords) {
                     if (!title.contains(keyword) && !desc.contains(keyword)) {
                         matchesSearch = false;
-                        break; // If even one keyword is missing, skip it
+                        break;
                     }
                 }
             }
 
-            // 2. Bookmark Logic
             if (showBookmarksOnly) matchesBookmark = item.isBookmarked();
 
-            // 3. Category Logic
             if (!currentCategoryFilter.equals("ALL")) {
                 if (currentCategoryFilter.equals("General")) {
                     if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
@@ -479,7 +476,6 @@ public class Home_fragment extends BaseFragment {
             @Override
             public void onBookmarkClick(Announcement announcement, int position) { handleBookmark(announcement, position); }
 
-            // Handle Card Click to Show Relief Items
             @Override
             public void onCardClick(Announcement announcement) {
                 showReliefGoodsDialog(announcement);
@@ -498,7 +494,6 @@ public class Home_fragment extends BaseFragment {
             reliefItems = "Details regarding relief items will be updated soon.";
         }
 
-        // Format the message
         String message = "📦 Included Relief Goods:\n\n" + reliefItems;
 
         builder.setTitle(title)
@@ -508,7 +503,6 @@ public class Home_fragment extends BaseFragment {
         AlertDialog dialog = builder.create();
         dialog.show();
 
-        // Translate the dialog content dynamically
         TextView messageView = dialog.findViewById(android.R.id.message);
         if (messageView != null) {
             TranslationHelper.autoTranslate(getContext(), messageView, message);
@@ -522,7 +516,6 @@ public class Home_fragment extends BaseFragment {
         int currentCount = item.getLikeCount();
         item.setLikeCount(newState ? currentCount + 1 : Math.max(0, currentCount - 1));
 
-        // ⭐ PREVENTS TEXT GLITCH: Uses a payload to ONLY update the heart icon
         announcementAdapter.notifyItemChanged(position, "LIKE_UPDATE");
 
         SupabaseJavaHelper.toggleLike(item.getPostId(), newState, new SupabaseJavaHelper.SimpleCallback() {
@@ -546,10 +539,8 @@ public class Home_fragment extends BaseFragment {
         item.setBookmarked(newState);
 
         if (showBookmarksOnly && !newState) {
-            // ⭐ CRASH FIX: Safely re-runs the filter instead of incorrectly removing from list
             applyFilters(searchView.getQuery().toString());
         } else {
-            // ⭐ PREVENTS TEXT GLITCH: Uses a payload to ONLY update the bookmark icon
             announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
         }
 
@@ -561,7 +552,7 @@ public class Home_fragment extends BaseFragment {
                 if (isAdded()) {
                     item.setBookmarked(currentState);
                     if (showBookmarksOnly && !newState) {
-                        applyFilters(searchView.getQuery().toString()); // Revert visual state if failed
+                        applyFilters(searchView.getQuery().toString());
                     } else {
                         announcementAdapter.notifyItemChanged(position, "BOOKMARK_UPDATE");
                     }
