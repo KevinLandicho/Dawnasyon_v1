@@ -34,9 +34,17 @@ import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
 
+import org.json.JSONObject;
+
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class FaceRegisterActivity extends AppCompatActivity {
 
@@ -50,14 +58,25 @@ public class FaceRegisterActivity extends AppCompatActivity {
     private boolean isCapturing = false;
     private int alignCounter = 0;
 
+    private String followUpUserId = null; // ⭐ Added to track if this is a follow-up registration
+
     // ⭐ Threshold set to 10 for a quick 1-second capture
     private static final int ALIGN_THRESHOLD = 10;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 10;
+
+    // Supabase config for direct upload
+    private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
+    private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_face_register);
+
+        // ⭐ Check if this was launched from LoginActivity (Follow-up registration)
+        if (getIntent() != null && getIntent().hasExtra("USER_ID")) {
+            followUpUserId = getIntent().getStringExtra("USER_ID");
+        }
 
         previewView = findViewById(R.id.cameraPreview);
         faceOverlay = findViewById(R.id.faceOverlay);
@@ -70,6 +89,21 @@ public class FaceRegisterActivity extends AppCompatActivity {
             startCamera();
         } else {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        }
+    }
+
+    // ⭐ CRITICAL FIX FOR THE BLACK SCREEN!
+    // This tells the camera to turn on immediately after the user clicks "Allow"
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (allPermissionsGranted()) {
+                startCamera();
+            } else {
+                Toast.makeText(this, "Camera permission is required to scan your face.", Toast.LENGTH_LONG).show();
+                finish();
+            }
         }
     }
 
@@ -129,7 +163,6 @@ public class FaceRegisterActivity extends AppCompatActivity {
         float faceCenterX = faceBox.centerX() / (float) frameW;
         float faceCenterY = faceBox.centerY() / (float) frameH;
 
-        // ⭐ RELAXED BOUNDARIES: Widened from 0.4-0.6 to 0.35-0.65 for easier use
         boolean centeredX = faceCenterX > 0.35 && faceCenterX < 0.65;
         boolean centeredY = faceCenterY > 0.30 && faceCenterY < 0.70;
 
@@ -150,7 +183,6 @@ public class FaceRegisterActivity extends AppCompatActivity {
                 captureAndRegister();
             }
         } else {
-            // ⭐ SPECIFIC FEEDBACK
             if (!isCorrectDistance) {
                 if (faceRatio < 0.30) resetAlignment("Move a bit closer");
                 else resetAlignment("Move further back");
@@ -195,12 +227,65 @@ public class FaceRegisterActivity extends AppCompatActivity {
         });
     }
 
+    // ⭐ DUAL-FLOW LOGIC ADDED HERE
     private void saveFaceData(float[] embedding) {
         StringBuilder sb = new StringBuilder();
         for (float f : embedding) sb.append(f).append(",");
-        RegistrationCache.faceEmbedding = sb.toString();
-        setResult(RESULT_OK, new Intent());
-        finish();
+        String embeddingString = sb.toString();
+
+        if (followUpUserId != null && !followUpUserId.isEmpty()) {
+            // ➡️ FLOW 2: Follow-up Registration from Login Screen (Saves direct to Supabase)
+            updateFaceDataInSupabase(followUpUserId, embeddingString);
+        } else {
+            // ➡️ FLOW 1: Original Sign-Up Flow (Saves to cache and goes back to previous screen)
+            RegistrationCache.faceEmbedding = embeddingString;
+            setResult(RESULT_OK, new Intent());
+            finish();
+        }
+    }
+
+    // ⭐ Direct database updater for follow-up registrations
+    private void updateFaceDataInSupabase(String userId, String embedding) {
+        runOnUiThread(() -> tvStatus.setText("Saving to Database..."));
+
+        new Thread(() -> {
+            try {
+                JSONObject json = new JSONObject();
+                json.put("face_embedding", embedding);
+
+                RequestBody body = RequestBody.create(
+                        json.toString(), MediaType.parse("application/json; charset=utf-8"));
+
+                Request request = new Request.Builder()
+                        .url(SUPABASE_URL + "/rest/v1/profiles?id=eq." + userId)
+                        .addHeader("apikey", SUPABASE_KEY)
+                        .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                        .patch(body)
+                        .build();
+
+                OkHttpClient client = new OkHttpClient();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        runOnUiThread(() -> {
+                            Toast.makeText(this, "Face registered successfully!", Toast.LENGTH_SHORT).show();
+
+                            // Automatically take them into the app now that they are verified!
+                            Intent intent = new Intent(this, MainActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
+                        });
+                    } else {
+                        runOnUiThread(() -> resetAlignment("Failed to save. Try again."));
+                        isCapturing = false;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                runOnUiThread(() -> resetAlignment("Network Error"));
+                isCapturing = false;
+            }
+        }).start();
     }
 
     private Bitmap imageProxyToBitmap(ImageProxy image) {

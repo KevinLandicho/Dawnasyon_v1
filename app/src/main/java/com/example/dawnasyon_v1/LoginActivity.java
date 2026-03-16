@@ -1,5 +1,6 @@
 package com.example.dawnasyon_v1;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -24,7 +25,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AlertDialog;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -33,9 +35,15 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import org.json.JSONObject;
+
 import java.util.regex.Pattern;
 
-import kotlin.Unit;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -52,11 +60,18 @@ public class LoginActivity extends AppCompatActivity {
     private int fetchRetries = 0;
     private static final int MAX_RETRIES = 3;
 
+    // ⭐ NEW: Holds data while user scans their face
+    private Profile pendingProfile;
+    private String pendingEmail;
+    private ActivityResultLauncher<Intent> faceRegisterLauncher;
+
+    private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
+    private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. Check if user is already logged in
         SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         boolean isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false);
 
@@ -69,12 +84,32 @@ public class LoginActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_login);
 
-        // Initialize Views
         etEmail = findViewById(R.id.editTextText);
         etPassword = findViewById(R.id.editTextTextPassword);
         btnSignin = findViewById(R.id.btnSignin);
         btnSignup = findViewById(R.id.btnSignup);
         btnForgot = findViewById(R.id.btnForgot);
+
+        // ⭐ NEW: Activity Result Launcher to receive face data back from the scanner safely
+        faceRegisterLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == RESULT_OK) {
+                        String newFaceData = RegistrationCache.faceEmbedding;
+                        if (newFaceData != null && !newFaceData.isEmpty()) {
+                            // Valid face data received! Update Supabase and Login.
+                            saveFaceDataToSupabase(newFaceData);
+                        } else {
+                            resetLoginButton();
+                            Toast.makeText(this, "Face data was empty. Try again.", Toast.LENGTH_SHORT).show();
+                        }
+                    } else {
+                        // User cancelled the scan
+                        resetLoginButton();
+                        Toast.makeText(this, "Face Registration Cancelled", Toast.LENGTH_SHORT).show();
+                    }
+                }
+        );
 
         View btnBrgyInfo = findViewById(R.id.btnBrgyInfo);
         if (btnBrgyInfo != null) {
@@ -85,7 +120,6 @@ public class LoginActivity extends AppCompatActivity {
             });
         }
 
-        // Sign In Button Listener
         btnSignin.setOnClickListener(v -> {
             hideKeyboard();
             if (isLockedOut) {
@@ -100,10 +134,8 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        // Sign Up Button Listener
         btnSignup.setOnClickListener(v -> startActivity(new Intent(LoginActivity.this, SignUpActivity.class)));
 
-        // FORGOT PASSWORD FLOW
         btnForgot.setOnClickListener(v -> {
             String email = etEmail.getText().toString().trim();
             if (TextUtils.isEmpty(email)) {
@@ -147,11 +179,9 @@ public class LoginActivity extends AppCompatActivity {
         TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 
-    // ⭐ STEP 1: STYLED OTP MODAL
     private void showOTPInputDialog(String email) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-        // Custom Styled Title
         TextView title = new TextView(this);
         title.setText("Verify Gmail Code");
         title.setPadding(0, 40, 0, 0);
@@ -199,7 +229,6 @@ public class LoginActivity extends AppCompatActivity {
                         showResetPasswordDialog();
                     });
                 }
-
                 @Override
                 public void onError(String message) {
                     runOnUiThread(() -> input.setError("Invalid or Expired Code"));
@@ -208,13 +237,11 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    // ⭐ STEP 2: UPDATED TO USE dialog_reset_password.xml
     private void showResetPasswordDialog() {
         if (isFinishing() || isDestroyed()) return;
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
 
-        // Header Style
         TextView title = new TextView(this);
         title.setText("Set Secure Password");
         title.setPadding(0, 40, 0, 0);
@@ -224,12 +251,11 @@ public class LoginActivity extends AppCompatActivity {
         title.setTypeface(null, Typeface.BOLD);
         builder.setCustomTitle(title);
 
-        // ⭐ Inflate your custom XML with the eye icon support
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_reset_password, null);
         TextInputEditText etNewPassword = dialogView.findViewById(R.id.etNewPassword);
         builder.setView(dialogView);
 
-        builder.setPositiveButton("UPDATE", null); // Set null to handle manually
+        builder.setPositiveButton("UPDATE", null);
         builder.setCancelable(false);
 
         AlertDialog dialog = builder.create();
@@ -240,7 +266,6 @@ public class LoginActivity extends AppCompatActivity {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             String newPass = etNewPassword.getText().toString().trim();
 
-            // ⭐ COMPLEXITY CHECK
             if (!isValidPassword(newPass)) {
                 etNewPassword.setError("Password does not meet requirements.");
                 return;
@@ -251,13 +276,11 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    // ⭐ Password Complexity Validator
     private boolean isValidPassword(String password) {
         if (password.length() < 8) return false;
 
         Pattern upperCase = Pattern.compile("[A-Z]");
         Pattern lowerCase = Pattern.compile("[a-z]");
-        Pattern digit = Pattern.compile("[0-9]");
         Pattern specialChar = Pattern.compile("[@#$%^&+=!._-]");
 
         return upperCase.matcher(password).find() &&
@@ -275,15 +298,12 @@ public class LoginActivity extends AppCompatActivity {
                     etPassword.setText("");
                 });
             }
-
             @Override
             public void onError(String message) {
                 runOnUiThread(() -> Toast.makeText(LoginActivity.this, "Failed: " + message, Toast.LENGTH_LONG).show());
             }
         });
     }
-
-    // --- NORMAL LOGIN LOGIC ---
 
     private boolean validateInputs(String email, String password) {
         if (TextUtils.isEmpty(email)) { etEmail.setError("Email is required"); return false; }
@@ -322,7 +342,6 @@ public class LoginActivity extends AppCompatActivity {
                     handleFetchError(email, "Empty Profile Data");
                 }
             }
-
             @Override
             public void onError(String message) {
                 handleFetchError(email, message);
@@ -339,14 +358,86 @@ public class LoginActivity extends AppCompatActivity {
             });
         } else {
             runOnUiThread(() -> {
-                btnSignin.setEnabled(true);
-                btnSignin.setText("Sign In");
+                resetLoginButton();
                 showErrorDialog("Connection Failed", "Could not download profile. Please check your internet.");
             });
         }
     }
 
     private void processProfileAndSave(Profile profile, String email) {
+        Object faceDataObj = profile.getFace_embedding();
+        String faceData = (faceDataObj != null) ? faceDataObj.toString() : null;
+
+        // ⭐ UPDATED: Trigger the scanner safely if face data is missing
+        if (profile.getType() != null && profile.getType().equalsIgnoreCase("Resident")) {
+            if (faceData == null || faceData.length() < 5) {
+
+                // Store temporarily so we can save it after the scan finishes
+                pendingProfile = profile;
+                pendingEmail = email;
+
+                runOnUiThread(() -> {
+                    new AlertDialog.Builder(LoginActivity.this)
+                            .setTitle("Face Registration Required")
+                            .setMessage("Your account is verified but is missing biometric face data. You must register your face before you can log in.")
+                            .setPositiveButton("Register Face", (dialog, which) -> {
+
+                                // Launch the scanner (NOTICE: We DO NOT pass "USER_ID" so it behaves like the normal Sign-Up flow)
+                                Intent intent = new Intent(LoginActivity.this, FaceRegisterActivity.class);
+                                faceRegisterLauncher.launch(intent);
+
+                            })
+                            .setNegativeButton("Cancel", (dialog, which) -> resetLoginButton())
+                            .setCancelable(false)
+                            .show();
+                });
+                return;
+            }
+        }
+
+        // Face data exists, finalize login!
+        finishLoginSuccess(profile, email, faceData);
+    }
+
+    // ⭐ NEW: Pushes the face data to Supabase and then logs them in
+    private void saveFaceDataToSupabase(String faceData) {
+        btnSignin.setText("Saving Face Data...");
+
+        new Thread(() -> {
+            try {
+                JSONObject json = new JSONObject();
+                json.put("face_embedding", faceData);
+
+                RequestBody body = RequestBody.create(json.toString(), MediaType.parse("application/json; charset=utf-8"));
+                Request request = new Request.Builder()
+                        .url(SUPABASE_URL + "/rest/v1/profiles?id=eq." + pendingProfile.getId())
+                        .addHeader("apikey", SUPABASE_KEY)
+                        .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                        .patch(body)
+                        .build();
+
+                OkHttpClient client = new OkHttpClient();
+                try (Response response = client.newCall(request).execute()) {
+                    if (response.isSuccessful()) {
+                        runOnUiThread(() -> finishLoginSuccess(pendingProfile, pendingEmail, faceData));
+                    } else {
+                        runOnUiThread(() -> {
+                            resetLoginButton();
+                            Toast.makeText(LoginActivity.this, "Failed to save face data to database.", Toast.LENGTH_LONG).show();
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    resetLoginButton();
+                    Toast.makeText(LoginActivity.this, "Network Error. Please check your connection.", Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
+    }
+
+    // ⭐ NEW: Safely handles SharedPreferences and Activity jumps
+    private void finishLoginSuccess(Profile profile, String email, String faceData) {
         SharedPreferences sharedPreferences = getSharedPreferences("UserSession", MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
 
@@ -354,20 +445,6 @@ public class LoginActivity extends AppCompatActivity {
         editor.putString("email", email);
         editor.putString("user_id", profile.getId());
         editor.putString("user_type", profile.getType());
-
-        Object faceDataObj = profile.getFace_embedding();
-        String faceData = (faceDataObj != null) ? faceDataObj.toString() : null;
-
-        if (profile.getType() != null && profile.getType().equalsIgnoreCase("Resident")) {
-            if (faceData == null || faceData.length() < 5) {
-                runOnUiThread(() -> {
-                    btnSignin.setEnabled(true);
-                    btnSignin.setText("Sign In");
-                    showErrorDialog("Face Data Missing", "Your account is missing biometric data. Contact admin.");
-                });
-                return;
-            }
-        }
 
         if (faceData != null && !faceData.isEmpty()) {
             editor.putString("face_embedding", faceData);
@@ -385,6 +462,11 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    private void resetLoginButton() {
+        btnSignin.setEnabled(true);
+        btnSignin.setText("Sign In");
+    }
+
     private void showErrorDialog(String title, String message) {
         new AlertDialog.Builder(this)
                 .setTitle(title)
@@ -396,8 +478,7 @@ public class LoginActivity extends AppCompatActivity {
     private void handleLoginFailure(String errorMessage) {
         loginAttempts++;
         runOnUiThread(() -> {
-            btnSignin.setEnabled(true);
-            btnSignin.setText("Sign In");
+            resetLoginButton();
 
             if (loginAttempts >= MAX_LOGIN_ATTEMPTS) initiateLockout();
             else Toast.makeText(LoginActivity.this, "Error: " + errorMessage, Toast.LENGTH_LONG).show();
@@ -415,9 +496,8 @@ public class LoginActivity extends AppCompatActivity {
             public void onFinish() {
                 isLockedOut = false;
                 loginAttempts = 0;
-                btnSignin.setEnabled(true);
+                resetLoginButton();
                 btnSignin.setAlpha(1.0f);
-                btnSignin.setText("Sign In");
             }
         }.start();
     }
