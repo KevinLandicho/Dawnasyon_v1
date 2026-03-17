@@ -1,7 +1,11 @@
 package com.example.dawnasyon_v1;
 
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,6 +18,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,12 +50,16 @@ public class SignUpStep3Location_fragment extends BaseFragment {
         dropdownBrgy = view.findViewById(R.id.et_brgy_dropdown);
         dropdownStreet = view.findViewById(R.id.et_street_dropdown);
 
-        // ⭐ EXPLICITLY ALLOW MANUAL TYPING IN STREET DROPDOWN
-        dropdownStreet.setInputType(InputType.TYPE_CLASS_TEXT);
-        dropdownStreet.setThreshold(1); // Show suggestions after 1 character is typed
-
         btnSubmit = view.findViewById(R.id.btn_submit);
         btnPrevious = view.findViewById(R.id.btn_previous);
+
+        // ⭐ EXPLICITLY ALLOW MANUAL TYPING IN STREET DROPDOWN
+        // We set threshold to 1 so the dropdown only appears if what they type matches the sample list
+        dropdownStreet.setInputType(InputType.TYPE_CLASS_TEXT);
+        dropdownStreet.setThreshold(1);
+
+        // ⭐ INITIALIZE VALIDATION TRACKER
+        setupRealTimeValidation();
 
         // ⭐ FETCH DATA DIRECTLY FROM CACHE, NOT ARGUMENTS
         extractedAddress = RegistrationCache.extractedAddress != null ? RegistrationCache.extractedAddress : "";
@@ -80,54 +89,33 @@ public class SignUpStep3Location_fragment extends BaseFragment {
             String house = etHouseNo.getText().toString().trim();
             String zip = etZip.getText().toString().trim();
 
-            if (prov.isEmpty() || city.isEmpty() || brgy.isEmpty() || street.isEmpty() || house.isEmpty()) {
-                Toast.makeText(getContext(), "Please fill in all address fields", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
             // ⭐ 3. ADDRESS MISMATCH LOGIC
-            // Combine all the address components the user typed to match the ID format
             String typedAddress = house + " " + street + " " + brgy + " " + city;
-
-            // Start fresh with ONLY the name mismatch notes from Step 1
             String currentNotes = existingNotes;
 
-            // If we successfully extracted an address from the ID, compare it!
             if (!extractedAddress.isEmpty()) {
-                // Normalize by converting to uppercase and changing Ñ to N for fairer comparison
                 String normalizedScanned = extractedAddress.toUpperCase().replace("Ñ", "N");
                 String normalizedTypedStreet = street.toUpperCase().replace("Ñ", "N");
                 String normalizedTypedHouse = house.toUpperCase();
                 String normalizedTypedBrgy = brgy.toUpperCase();
                 String normalizedTypedCity = city.toUpperCase();
 
-                // Check if the extracted address contains ALL the key parts the user typed
                 boolean hasMismatch = false;
 
-                if (!normalizedScanned.contains(normalizedTypedHouse)) {
-                    hasMismatch = true;
-                }
-                if (!normalizedScanned.contains(normalizedTypedStreet)) {
-                    hasMismatch = true;
-                }
-                if (!normalizedScanned.contains(normalizedTypedBrgy)) {
-                    hasMismatch = true;
-                }
-                if (!normalizedScanned.contains(normalizedTypedCity)) {
-                    hasMismatch = true;
-                }
+                if (!normalizedScanned.contains(normalizedTypedHouse)) hasMismatch = true;
+                if (!normalizedScanned.contains(normalizedTypedStreet)) hasMismatch = true;
+                if (!normalizedScanned.contains(normalizedTypedBrgy)) hasMismatch = true;
+                if (!normalizedScanned.contains(normalizedTypedCity)) hasMismatch = true;
 
                 if (hasMismatch) {
                     String addressMismatch = "⚠️ ADDRESS MISMATCH: User typed [" + typedAddress + "], but ID showed [" + extractedAddress + "].\n";
-                    Log.w("SignUpMismatch", addressMismatch); // ⭐ Print warning to Logcat
-                    currentNotes += addressMismatch; // Append to notes
+                    Log.w("SignUpMismatch", addressMismatch);
+                    currentNotes += addressMismatch;
                 }
             }
 
-            // Save all gathered notes back to the Cache to be uploaded to Supabase
             RegistrationCache.notes = currentNotes;
 
-            // ⭐ TRANSLATE LOADING STATE
             String verifyingText = "Verifying Address...";
             btnSubmit.setText(verifyingText);
             TranslationHelper.autoTranslate(getContext(), btnSubmit, verifyingText);
@@ -136,19 +124,16 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            // ⭐ USE THE NEW AddressCheckCallback
             SupabaseJavaHelper.checkAddressExists(house, street, brgy, city, new SupabaseJavaHelper.AddressCheckCallback() {
                 @Override
                 public void onResult(boolean isDuplicate) {
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
-                        // If address exists, notify them but DON'T stop them!
                         if (isDuplicate) {
                             Toast.makeText(getContext(), "📍 Address found in system! You will be registered under this existing household.", Toast.LENGTH_LONG).show();
                         }
 
-                        // Always proceed to the next step
                         proceedToAccountCreation(prov, city, brgy, street, house, zip);
                     }
                 }
@@ -158,7 +143,6 @@ public class SignUpStep3Location_fragment extends BaseFragment {
                     if (isAdded()) {
                         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
-                        // ⭐ TRANSLATE RESET STATE
                         String submitText = "Submit";
                         btnSubmit.setText(submitText);
                         TranslationHelper.autoTranslate(getContext(), btnSubmit, submitText);
@@ -171,57 +155,127 @@ public class SignUpStep3Location_fragment extends BaseFragment {
             });
         });
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
+        // Run validation once immediately to disable button on fresh load
+        validateForm();
+
         applyTagalogTranslation(view);
+    }
+
+    // ==========================================
+    // ⭐ REAL-TIME VALIDATION LOGIC
+    // ==========================================
+    private void setupRealTimeValidation() {
+        TextWatcher formWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                validateForm();
+            }
+        };
+
+        etHouseNo.addTextChangedListener(formWatcher);
+        etZip.addTextChangedListener(formWatcher);
+        dropdownProv.addTextChangedListener(formWatcher);
+        dropdownCity.addTextChangedListener(formWatcher);
+        dropdownBrgy.addTextChangedListener(formWatcher);
+        dropdownStreet.addTextChangedListener(formWatcher);
+    }
+
+    private void validateForm() {
+        boolean isHouseFilled = !etHouseNo.getText().toString().trim().isEmpty();
+        boolean isZipFilled = !etZip.getText().toString().trim().isEmpty();
+        boolean isProvFilled = !dropdownProv.getText().toString().trim().isEmpty();
+        boolean isCityFilled = !dropdownCity.getText().toString().trim().isEmpty();
+        boolean isBrgyFilled = !dropdownBrgy.getText().toString().trim().isEmpty();
+        boolean isStreetFilled = !dropdownStreet.getText().toString().trim().isEmpty();
+
+        if (isHouseFilled && isZipFilled && isProvFilled && isCityFilled && isBrgyFilled && isStreetFilled) {
+            btnSubmit.setEnabled(true);
+            btnSubmit.setAlpha(1.0f);
+        } else {
+            btnSubmit.setEnabled(false);
+            btnSubmit.setAlpha(0.5f);
+        }
+    }
+
+    // ==========================================
+    // ⭐ UI SETUP HELPERS
+    // ==========================================
+
+    private void addDropdownIcon(AutoCompleteTextView dropdown) {
+        Drawable arrow = ContextCompat.getDrawable(requireContext(), android.R.drawable.arrow_down_float);
+        if (arrow != null) {
+            arrow.setTint(Color.GRAY);
+            dropdown.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, arrow, null);
+            dropdown.setCompoundDrawablePadding(16);
+        }
+    }
+
+    private void removeDropdownIcon(AutoCompleteTextView dropdown) {
+        dropdown.setCompoundDrawablesRelativeWithIntrinsicBounds(null, null, null, null);
     }
 
     // ⭐ LOGIC FOR RESIDENTS (LOCKED FIELDS)
     private void setupResidentMode() {
-        // 1. Pre-fill fields
         dropdownProv.setText("Metro Manila");
         dropdownCity.setText("Quezon City");
         dropdownBrgy.setText("Santa Lucia");
         etZip.setText("1117");
 
-        // 2. Lock specific fields
         lockField(dropdownProv);
         lockField(dropdownCity);
         lockField(dropdownBrgy);
 
-        // 3. UNLOCK Zip Code and Street Name
         etZip.setEnabled(true);
         dropdownStreet.setEnabled(true);
         dropdownStreet.setFocusableInTouchMode(true);
         dropdownStreet.setClickable(true);
 
-        // 4. Populate Street Dropdown with Santa Lucia Streets
+        // ⭐ Only add the dropdown icon if they don't want to type freely.
+        // If we want them to type freely, it's best to not have the arrow button force-opening the menu.
+        // addDropdownIcon(dropdownStreet);
+
         List<String> streets = getSampleStreets("Santa Lucia");
-        ArrayAdapter<String> streetAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, streets);
+        // ⭐ USING CUSTOM DROPDOWN LAYOUT
+        ArrayAdapter<String> streetAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_dropdown_item, streets);
         dropdownStreet.setAdapter(streetAdapter);
 
-        // Setup Street Trigger
-        dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
-        dropdownStreet.setOnFocusChangeListener((v, hasFocus) -> {
-            if (hasFocus) dropdownStreet.showDropDown();
-        });
+        // ⭐ FIXED: Removed the on-click force dropdown so they can type their own street comfortably!
+        // dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
+        // dropdownStreet.setOnFocusChangeListener((v, hasFocus) -> {
+        //     if (hasFocus) dropdownStreet.showDropDown();
+        // });
+
+        validateForm();
     }
 
     // ⭐ LOGIC FOR NON-RESIDENTS (OPEN FIELDS)
     private void setupNonResidentMode() {
         setupCascadingDropdowns();
 
-        // Force Dropdowns to Open on Click
+        addDropdownIcon(dropdownProv);
+        addDropdownIcon(dropdownCity);
+        addDropdownIcon(dropdownBrgy);
+
+        // ⭐ Removed the forced dropdown icon for street here as well to allow free typing
+        // addDropdownIcon(dropdownStreet);
+
         setupDropdownTrigger(dropdownProv);
         setupDropdownTrigger(dropdownCity);
         setupDropdownTrigger(dropdownBrgy);
-        dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
+
+        // ⭐ FIXED: Removed the on-click force dropdown here too
+        // dropdownStreet.setOnClickListener(v -> dropdownStreet.showDropDown());
+
+        validateForm();
     }
 
     private void lockField(AutoCompleteTextView view) {
         view.setEnabled(false);
         view.setFocusable(false);
         view.setClickable(false);
-        view.setAdapter(null); // Remove dropdown adapter so it doesn't show suggestions
+        view.setAdapter(null);
+        removeDropdownIcon(view);
     }
 
     private void proceedToAccountCreation(String prov, String city, String brgy, String street, String house, String zip) {
@@ -249,7 +303,7 @@ public class SignUpStep3Location_fragment extends BaseFragment {
 
     private void setupCascadingDropdowns() {
         List<String> provinces = PhLocationHelper.getProvinces();
-        ArrayAdapter<String> provAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, provinces);
+        ArrayAdapter<String> provAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_dropdown_item, provinces);
         dropdownProv.setAdapter(provAdapter);
 
         dropdownProv.setOnItemClickListener((parent, view, position, id) -> {
@@ -258,7 +312,7 @@ public class SignUpStep3Location_fragment extends BaseFragment {
             dropdownBrgy.setAdapter(null); dropdownStreet.setAdapter(null);
 
             List<String> cities = PhLocationHelper.getCities(selectedProv);
-            ArrayAdapter<String> cityAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, cities);
+            ArrayAdapter<String> cityAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_dropdown_item, cities);
             dropdownCity.setAdapter(cityAdapter);
             dropdownCity.requestFocus(); dropdownCity.showDropDown();
         });
@@ -268,7 +322,7 @@ public class SignUpStep3Location_fragment extends BaseFragment {
             dropdownBrgy.setText(""); dropdownStreet.setText("");
 
             List<String> brgys = PhLocationHelper.getBarangays(selectedCity);
-            ArrayAdapter<String> brgyAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, brgys);
+            ArrayAdapter<String> brgyAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_dropdown_item, brgys);
             dropdownBrgy.setAdapter(brgyAdapter);
             dropdownBrgy.requestFocus(); dropdownBrgy.showDropDown();
         });
@@ -277,16 +331,16 @@ public class SignUpStep3Location_fragment extends BaseFragment {
             String selectedBrgy = (String) parent.getItemAtPosition(position);
             dropdownStreet.setText("");
             List<String> sampleStreets = getSampleStreets(selectedBrgy);
-            ArrayAdapter<String> streetAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, sampleStreets);
+            ArrayAdapter<String> streetAdapter = new ArrayAdapter<>(requireContext(), R.layout.custom_dropdown_item, sampleStreets);
             dropdownStreet.setAdapter(streetAdapter);
-            dropdownStreet.requestFocus(); dropdownStreet.showDropDown();
+
+            // ⭐ Allow them to type or see suggestions, but don't force the dropdown open instantly
+            dropdownStreet.requestFocus();
         });
     }
 
     private List<String> getSampleStreets(String brgy) {
         List<String> streets = new ArrayList<>();
-
-        // Add all unique streets from your list
         streets.add("A. Bonifacio St.");
         streets.add("A. Mabini St.");
         streets.add("Burgos St.");

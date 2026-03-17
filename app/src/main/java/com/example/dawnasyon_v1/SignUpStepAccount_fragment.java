@@ -21,6 +21,7 @@ public class SignUpStepAccount_fragment extends BaseFragment {
 
     private TextInputEditText etPassword, etConfirm;
     private CheckBox cbTerms;
+    private Button btnNext, btnPrevious;
 
     // Requirement text views
     private TextView tvReqUppercase, tvReqLowercase, tvReqNumber, tvReqSpecial, tvReqLength;
@@ -38,8 +39,8 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         etPassword = view.findViewById(R.id.et_pass);
         etConfirm = view.findViewById(R.id.et_confirm);
         cbTerms = view.findViewById(R.id.cb_terms);
-        Button btnNext = view.findViewById(R.id.btn_submit);
-        Button btnPrevious = view.findViewById(R.id.btn_previous);
+        btnNext = view.findViewById(R.id.btn_submit);
+        btnPrevious = view.findViewById(R.id.btn_previous);
         TextView tvTermsLink = view.findViewById(R.id.tv_terms_link);
 
         tvReqUppercase = view.findViewById(R.id.tv_req_uppercase);
@@ -47,6 +48,9 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         tvReqNumber = view.findViewById(R.id.tv_req_number);
         tvReqSpecial = view.findViewById(R.id.tv_req_special);
         tvReqLength = view.findViewById(R.id.tv_req_length);
+
+        // ⭐ INITIALIZE REAL-TIME VALIDATION
+        setupRealTimeValidation();
 
         // 1. DYNAMIC PASSWORD REQUIREMENTS CHECKER
         etPassword.addTextChangedListener(new TextWatcher() {
@@ -110,10 +114,15 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             });
         }
 
+        cbTerms.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            validateForm(); // Re-validate when checkbox changes
+        });
+
         tvTermsLink.setOnClickListener(v -> {
             RegistrationCache.hasViewedTerms = true;
             cbTerms.setEnabled(true);
             cbTerms.setChecked(true);
+            validateForm(); // Re-validate immediately upon checking
 
             if (getParentFragmentManager() != null) {
                 getParentFragmentManager().beginTransaction()
@@ -125,6 +134,7 @@ public class SignUpStepAccount_fragment extends BaseFragment {
 
         // 3. NEXT BUTTON LOGIC
         btnNext.setOnClickListener(v -> {
+            // These should technically be caught by the real-time validator, but it's good to keep them as double-checks
             if (!RegistrationCache.hasViewedTerms) {
                 Toast.makeText(getContext(), "Please read the Terms and Conditions first.", Toast.LENGTH_SHORT).show();
                 return;
@@ -139,37 +149,6 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             String confirm = etConfirm.getText().toString().trim();
             String email = RegistrationCache.tempEmail != null ? RegistrationCache.tempEmail : "user@example.com";
 
-            // ⭐ PASSWORD SECURITY CHECKS ⭐
-            if (password.isEmpty()) {
-                Toast.makeText(getContext(), "Please enter a password", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (password.length() < 8) {
-                Toast.makeText(getContext(), "Password must be at least 8 characters long.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!password.matches(".*[A-Z].*")) {
-                Toast.makeText(getContext(), "Password must contain at least one Uppercase letter (A-Z).", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!password.matches(".*[a-z].*")) {
-                Toast.makeText(getContext(), "Password must contain at least one Lowercase letter (a-z).", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!password.matches(".*[0-9].*")) {
-                Toast.makeText(getContext(), "Password must contain at least one Number (0-9).", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (!password.matches(".*[@#$%^&+=!._-].*")) {
-                Toast.makeText(getContext(), "Password must contain at least one Special Character (e.g., @ # $ %)", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
             if (!password.equals(confirm)) {
                 Toast.makeText(getContext(), "Passwords do not match", Toast.LENGTH_SHORT).show();
                 return;
@@ -178,8 +157,17 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             RegistrationCache.tempPassword = password;
             RegistrationCache.tempEmail = email;
 
+            // ⭐ FIXED: Lock the button's exact current width so it doesn't stretch!
+            int currentWidth = btnNext.getWidth();
+            if (currentWidth > 0) {
+                ViewGroup.LayoutParams params = btnNext.getLayoutParams();
+                params.width = currentWidth;
+                btnNext.setLayoutParams(params);
+            }
+
             // 4. INITIATE SIGNUP
             btnNext.setEnabled(false);
+            btnNext.setAlpha(0.5f);
 
             String loadingText = "Sending OTP...";
             btnNext.setText(loadingText);
@@ -190,7 +178,9 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                 @Override
                 public void onSuccess() {
                     if (getContext() == null) return;
+
                     btnNext.setEnabled(true);
+                    btnNext.setAlpha(1.0f);
 
                     String nextText = "Next";
                     btnNext.setText(nextText);
@@ -209,7 +199,9 @@ public class SignUpStepAccount_fragment extends BaseFragment {
                 @Override
                 public void onError(String message) {
                     if (getContext() == null) return;
+
                     btnNext.setEnabled(true);
+                    btnNext.setAlpha(1.0f);
 
                     String nextText = "Next";
                     btnNext.setText(nextText);
@@ -224,7 +216,55 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             if (getParentFragmentManager() != null) getParentFragmentManager().popBackStack();
         });
 
+        // Run validation once immediately to disable button on fresh load
+        validateForm();
+
         applyTagalogTranslation(view);
+    }
+
+    // ==========================================
+    // ⭐ REAL-TIME VALIDATION LOGIC
+    // ==========================================
+    private void setupRealTimeValidation() {
+        TextWatcher formWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                validateForm();
+            }
+        };
+
+        etPassword.addTextChangedListener(formWatcher);
+        etConfirm.addTextChangedListener(formWatcher);
+    }
+
+    private void validateForm() {
+        String pass = etPassword.getText().toString().trim();
+        String confirm = etConfirm.getText().toString().trim();
+
+        // Verify all password requirements are met
+        boolean hasUppercase = pass.matches(".*[A-Z].*");
+        boolean hasLowercase = pass.matches(".*[a-z].*");
+        boolean hasNumber = pass.matches(".*[0-9].*");
+        boolean hasSpecial = pass.matches(".*[@#$%^&+=!._-].*");
+        boolean isLongEnough = pass.length() >= 8;
+
+        boolean isPasswordValid = hasUppercase && hasLowercase && hasNumber && hasSpecial && isLongEnough;
+
+        // Confirm passwords match
+        boolean doPasswordsMatch = pass.equals(confirm) && !confirm.isEmpty();
+
+        // Checkbox must be checked
+        boolean isTermsAccepted = cbTerms.isChecked();
+
+        // Only light up the button if EVERYTHING is valid
+        if (isPasswordValid && doPasswordsMatch && isTermsAccepted) {
+            btnNext.setEnabled(true);
+            btnNext.setAlpha(1.0f);
+        } else {
+            btnNext.setEnabled(false);
+            btnNext.setAlpha(0.5f);
+        }
     }
 
     @Override
@@ -232,6 +272,8 @@ public class SignUpStepAccount_fragment extends BaseFragment {
         super.onResume();
         if (RegistrationCache.hasViewedTerms && cbTerms != null) {
             cbTerms.setEnabled(true);
+            // Always re-validate when returning to this screen just in case!
+            validateForm();
         }
     }
 }

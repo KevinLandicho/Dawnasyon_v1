@@ -119,10 +119,10 @@ public class SignUpValidID_fragment extends BaseFragment {
             InputImage image = InputImage.fromFilePath(requireContext(), uri);
             TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-            // ⭐ FIX: Set text directly. Do NOT call TranslationHelper here.
-            // It causes a massive race condition when the translation finishes late.
+            // ⭐ FIXED: Lock the button and fade it out while ML Kit is reading the ID!
             btnStartScan.setText("Verifying Authenticity...");
             btnStartScan.setEnabled(false);
+            btnStartScan.setAlpha(0.5f);
 
             recognizer.process(image)
                     .addOnSuccessListener(visionText -> {
@@ -157,7 +157,10 @@ public class SignUpValidID_fragment extends BaseFragment {
             getActivity().runOnUiThread(() -> {
                 String startText = "Start Scan";
                 btnStartScan.setText(startText);
+
+                // ⭐ FIXED: Bring the button back to life if the scan fails or finishes
                 btnStartScan.setEnabled(true);
+                btnStartScan.setAlpha(1.0f);
 
                 // Re-translate ONLY the safe default text
                 if (getContext() != null) {

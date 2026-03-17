@@ -2,6 +2,8 @@ package com.example.dawnasyon_v1;
 
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -60,6 +62,9 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         }
 
+        // ⭐ SETUP REAL-TIME VALIDATION
+        setupRealTimeValidation();
+
         if (getArguments() != null) {
             originalFName = getArguments().getString("FNAME", "");
             originalLName = getArguments().getString("LNAME", "");
@@ -93,6 +98,8 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 etMiddleName.setEnabled(true);
                 etMiddleName.setAlpha(1.0f);
             }
+            // ⭐ Re-validate the form when the checkbox is clicked!
+            validateForm();
         });
 
         // --- NEXT BUTTON WITH STRICT LOCAL VALIDATION ---
@@ -154,8 +161,51 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
+        // ⭐ Validate once on load to set the initial faded state
+        validateForm();
+
         applyTagalogTranslation(view);
     }
+
+    // ==========================================
+    // ⭐ REAL-TIME VALIDATION LOGIC
+    // ==========================================
+    private void setupRealTimeValidation() {
+        TextWatcher formWatcher = new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            @Override public void afterTextChanged(Editable s) {
+                validateForm();
+            }
+        };
+
+        // Attach watcher to all text fields
+        etFirstName.addTextChangedListener(formWatcher);
+        etMiddleName.addTextChangedListener(formWatcher);
+        etLastName.addTextChangedListener(formWatcher);
+        etContact.addTextChangedListener(formWatcher);
+        etEmail.addTextChangedListener(formWatcher);
+    }
+
+    private void validateForm() {
+        boolean isFirstNameFilled = !etFirstName.getText().toString().trim().isEmpty();
+        boolean isLastNameFilled = !etLastName.getText().toString().trim().isEmpty();
+        boolean isContactFilled = !etContact.getText().toString().trim().isEmpty();
+        boolean isEmailFilled = !etEmail.getText().toString().trim().isEmpty();
+
+        // Middle name is valid IF they typed something OR if they checked the "No Middle Name" box
+        boolean isMiddleNameValid = cbNoMiddleName.isChecked() || !etMiddleName.getText().toString().trim().isEmpty();
+
+        // Only light up the button if ALL required fields are filled
+        if (isFirstNameFilled && isLastNameFilled && isContactFilled && isEmailFilled && isMiddleNameValid) {
+            btnNext.setEnabled(true);
+            btnNext.setAlpha(1.0f); // Fully opaque (clickable)
+        } else {
+            btnNext.setEnabled(false);
+            btnNext.setAlpha(0.5f); // Faded (disabled)
+        }
+    }
+    // ==========================================
 
     private void checkSupabaseAndProceed(String fullName, String email, String contact, String fName, String lName) {
         SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
