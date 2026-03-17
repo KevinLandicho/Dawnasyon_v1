@@ -44,13 +44,13 @@ public class SignUpOptions_fragment extends BaseFragment {
 
         // 1. Click Logic
         btnLocal.setOnClickListener(v -> handleSelection(
-                btnLocal, R.drawable.ic_ppl,
-                btnOverseas, R.drawable.ic_glob,
+                btnLocal, R.drawable.lukalkolor,
+                btnOverseas, R.drawable.pureynfinal,
                 "Local")); // Local = Resident
 
         btnOverseas.setOnClickListener(v -> handleSelection(
-                btnOverseas, R.drawable.ic_glob,
-                btnLocal, R.drawable.ic_ppl,
+                btnOverseas, R.drawable.pureynkulor,
+                btnLocal, R.drawable.lukalfinal,
                 "Overseas")); // Overseas = Non-Resident
 
         // 2. Navigation Logic
@@ -59,8 +59,8 @@ public class SignUpOptions_fragment extends BaseFragment {
 
         // 3. Default State (Local Community)
         if (savedInstanceState == null) {
-            handleSelection(btnLocal, R.drawable.ic_ppl,
-                    btnOverseas, R.drawable.ic_glob,
+            handleSelection(btnLocal, R.drawable.lukalkolor,
+                    btnOverseas, R.drawable.pureynfinal,
                     "Local");
         }
 
@@ -85,26 +85,13 @@ public class SignUpOptions_fragment extends BaseFragment {
 
     private Drawable getIconWithCircle(int iconResId, String colorHex) {
         try {
-            int sizePx = dpToPx(48);
-            GradientDrawable circle = new GradientDrawable();
-            circle.setShape(GradientDrawable.OVAL);
-            circle.setColor(Color.parseColor(colorHex));
-            circle.setSize(sizePx, sizePx);
-
-            Drawable icon = ContextCompat.getDrawable(requireContext(), iconResId);
-            if (icon == null) return circle; // Safety check
-
-            LayerDrawable layerDrawable = new LayerDrawable(new Drawable[]{circle, icon});
-            layerDrawable.setLayerGravity(1, Gravity.CENTER);
-            int padding = dpToPx(12);
-            layerDrawable.setLayerInset(1, padding, padding, padding, padding);
-            layerDrawable.setBounds(0, 0, sizePx, sizePx);
-            return layerDrawable;
+            // ⭐ SOLUTION 2: Simply return the plain icon drawable without any dynamic circle.
+            return ContextCompat.getDrawable(requireContext(), iconResId);
         } catch (Exception e) {
+            // Return the plain icon anyway as a fallback
             return ContextCompat.getDrawable(requireContext(), iconResId);
         }
     }
-
     private int dpToPx(int dp) {
         float density = getResources().getDisplayMetrics().density;
         return Math.round(dp * density);
