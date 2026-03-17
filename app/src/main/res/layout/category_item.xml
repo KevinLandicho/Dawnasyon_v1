@@ -14,7 +14,6 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
-        <!-- Icon inside box -->
         <androidx.cardview.widget.CardView
             android:id="@+id/iconBox"
             android:layout_width="58dp"
@@ -23,60 +22,72 @@
             app:cardCornerRadius="5dp"
             app:cardElevation="4dp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-            <ImageView
-                android:id="@+id/imgIcon"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:layout_gravity="center"
-                android:src="@drawable/ic_money" />
-        </androidx.cardview.widget.CardView>
+        <ImageView
+            android:id="@+id/imgIcon"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_money"
+            android:elevation="5dp"
+            app:layout_constraintStart_toStartOf="@id/iconBox"
+            app:layout_constraintEnd_toEndOf="@id/iconBox"
+            app:layout_constraintTop_toTopOf="@id/iconBox"
+            app:layout_constraintBottom_toBottomOf="@id/iconBox" />
 
-        <!-- Title -->
         <TextView
             android:id="@+id/txtTitle"
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
+            android:layout_marginEnd="8dp"
             android:fontFamily="@font/dongle"
+            android:includeFontPadding="false"
             android:text="@string/category"
             android:textSize="32sp"
             android:textStyle="bold"
+            app:layout_constraintVertical_chainStyle="packed"
             app:layout_constraintEnd_toStartOf="@id/txtStatus"
             app:layout_constraintStart_toEndOf="@id/iconBox"
-            app:layout_constraintTop_toTopOf="@id/iconBox" />
+            app:layout_constraintTop_toTopOf="@id/iconBox"
+            app:layout_constraintBottom_toTopOf="@id/txtDescription" />
 
-        <!-- Status on the right side, fixed size -->
         <TextView
             android:id="@+id/txtStatus"
-            android:layout_width="52dp"
-            android:layout_height="19dp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:gravity="center"
             android:fontFamily="@font/dongle"
+            android:includeFontPadding="false"
             android:background="@drawable/status_red"
             android:text="@string/critical"
-            android:textSize="12sp"
-            android:textStyle="bold"
+            android:textSize="14sp"
             android:textColor="#FFFFFF"
-            android:padding="0dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
             app:layout_constraintStart_toEndOf="@id/txtTitle"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/txtTitle" />
+            app:layout_constraintTop_toTopOf="@id/txtTitle"
+            app:layout_constraintBottom_toBottomOf="@id/txtTitle" />
 
-        <!-- Description -->
         <TextView
             android:id="@+id/txtDescription"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:fontFamily="@font/dongle_light"
+            android:includeFontPadding="false"
             android:text="Description here..."
-            android:textSize="14sp"
+            android:textSize="20sp"
+            android:translationY="-6dp"
             app:layout_constraintStart_toEndOf="@id/iconBox"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/txtTitle"
-            android:layout_marginTop="4dp" />
+            app:layout_constraintBottom_toBottomOf="@id/iconBox" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>

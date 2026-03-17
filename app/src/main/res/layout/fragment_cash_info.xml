@@ -43,8 +43,8 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/dongle"
             android:text="Step 2"
-            android:textColor="@android:color/darker_gray"
-            android:textSize="16sp"
+            android:textColor="@color/black"
+            android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="@id/txtHeader"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="@id/txtHeader" />
@@ -235,23 +235,6 @@
                         android:text="PHP 1,000"
                         android:textSize="20sp" />
 
-                    <Button
-                        style="@style/AmountButtonStyle"
-                        android:fontFamily="@font/dongle"
-                        android:text="PHP 2,000"
-                        android:textSize="16sp" />
-
-                    <Button
-                        style="@style/AmountButtonStyle"
-                        android:fontFamily="@font/dongle"
-                        android:text="PHP 3,000"
-                        android:textSize="16sp" />
-
-                    <Button
-                        style="@style/AmountButtonStyle"
-                        android:fontFamily="@font/dongle"
-                        android:text="PHP 5,000"
-                        android:textSize="16sp" />
                 </GridLayout>
 
                 <LinearLayout
