@@ -62,8 +62,8 @@
             android:tag="homeTab">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
                 android:src="@drawable/ic_home"
                 />
 
@@ -74,7 +74,7 @@
                 android:fontFamily="@font/dongle"
                 android:text="@string/home"
                 android:textColor="@android:color/white"
-                android:textSize="14sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <!-- Dashboard -->
@@ -87,8 +87,8 @@
             android:tag="dashboardTab">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
                 android:src="@drawable/ic_dashboard_notselected"
                  />
 
@@ -99,7 +99,7 @@
                 android:fontFamily="@font/dongle"
                 android:text="@string/dashboard"
                 android:textColor="@color/unselected"
-                android:textSize="14sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <!-- Spacer for Center Diamond -->
@@ -117,8 +117,8 @@
             android:tag="notificationTab">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
                 android:src="@drawable/ic_notifications_notselected"
 
                 />
@@ -131,7 +131,7 @@
                 android:fontFamily="@font/dongle"
                 android:text="@string/notification"
                 android:textColor="@color/unselected"
-                android:textSize="14sp" />
+                android:textSize="16sp" />
         </LinearLayout>
 
         <!-- My Profile -->
@@ -144,8 +144,8 @@
             android:tag="profileTab">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="35dp"
+                android:layout_height="35dp"
                 android:src="@drawable/ic_profile_notselected"
                 />
 
@@ -185,8 +185,8 @@
         <!-- Plus Icon (upright) -->
         <ImageView
             android:id="@+id/ic_add_icon"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
             android:layout_gravity="center"
             android:elevation="10dp"
             android:src="@drawable/ic_add_notselected"
