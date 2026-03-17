@@ -103,12 +103,13 @@
                 </androidx.constraintlayout.widget.ConstraintLayout>
             </androidx.cardview.widget.CardView>
         </androidx.constraintlayout.widget.ConstraintLayout>
+
         <HorizontalScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:scrollbars="none"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
             android:clipToPadding="false"
             android:layout_marginTop="12dp">
 
@@ -130,7 +131,7 @@
                     android:textAllCaps="false"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    app:cornerRadius="20dp"/>
+                    app:cornerRadius="10dp"/>
 
                 <Button
                     android:id="@+id/btn_filter_general"
@@ -144,12 +145,11 @@
                     android:textAllCaps="false"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    app:cornerRadius="20dp"/>
+                    app:cornerRadius="10dp"/>
 
                 <FrameLayout
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="8dp">
+                    android:layout_height="wrap_content">
 
                     <Button
                         android:id="@+id/btn_filter_drive"
@@ -162,7 +162,7 @@
                         android:textAllCaps="false"
                         android:insetTop="0dp"
                         android:insetBottom="0dp"
-                        app:cornerRadius="20dp"/>
+                        app:cornerRadius="10dp"/>
 
                     <TextView
                         android:id="@+id/tv_drive_badge"
@@ -186,7 +186,10 @@
             android:id="@+id/carousel_container"
             android:layout_width="match_parent"
             android:layout_height="284dp"
-            android:layout_margin="16dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginEnd="20dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp"
             app:cardCornerRadius="12dp"
             app:cardElevation="4dp">
 
@@ -198,7 +201,6 @@
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/announcement_recycler_view"
-
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:nestedScrollingEnabled="false"

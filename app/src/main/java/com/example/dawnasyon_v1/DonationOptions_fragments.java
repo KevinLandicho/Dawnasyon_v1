@@ -24,7 +24,7 @@ public class DonationOptions_fragments extends BaseFragment {
     private String currentUserType = "Resident"; // Default to allow access
 
     // Thresholds for status
-    private static final int THRESHOLD_CRITICAL = 50;
+    private static final int THRESHOLD_CRITICAL = 10;
     private static final int THRESHOLD_HIGH = 100;
 
     public DonationOptions_fragments() {
@@ -138,9 +138,9 @@ public class DonationOptions_fragments extends BaseFragment {
         } else {
             // --- MODE B: SAFE DEFAULTS (Offline/Slow Wifi) ---
             foodStatus = "Critical";
-            hygieneStatus = "High Priority";
+            hygieneStatus = "Low Stock";
             medStatus = "Critical";
-            packStatus = "High Priority";
+            packStatus = "Low Stock";
         }
 
         // --- ADD CATEGORIES ---
@@ -153,10 +153,10 @@ public class DonationOptions_fragments extends BaseFragment {
         addCategory(inflater, "RELIEF PACKS", "Packed goods for distribution.", packStatus, R.drawable.ic_packs);
     }
 
-    // Helper: Logic for status text based on count
+    // ⭐ FIXED: Removed the word "left" to match the other uniform formats
     private String calculateStatus(int count) {
         if (count < THRESHOLD_CRITICAL) {
-            return "Critical (" + count + " left)";
+            return "Critical (" + count + ")";
         } else if (count < THRESHOLD_HIGH) {
             return "Low Stock (" + count + ")";
         } else {
