@@ -52,33 +52,33 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         return new AnnouncementViewHolder(view);
     }
 
-    // ⭐ MAGIC GLITCH FIX: Handles UI updates without reloading the whole card
     @Override
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position, @NonNull List<Object> payloads) {
         if (payloads.isEmpty()) {
-            // If no payloads, do a full bind
             onBindViewHolder(holder, position);
         } else {
-            // Partial bind based on payload
             for (Object payload : payloads) {
                 Announcement item = announcementList.get(position);
 
                 if (payload.equals("LIKE_UPDATE")) {
-                    holder.tvLikeCount.setText(item.getLikeCount() + " likes");
+                    holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
                     if (item.isLiked()) {
-                        holder.btnHeart.setImageResource(R.drawable.ic_heart_filled_red);
-                        holder.btnHeart.setColorFilter(Color.RED);
+                        holder.imgLikeIcon.setImageResource(R.drawable.ic_heart_filled_red);
+                        holder.imgLikeIcon.setColorFilter(Color.RED);
                     } else {
-                        holder.btnHeart.clearColorFilter();
-                        holder.btnHeart.setImageResource(R.drawable.ic_heart_outline);
+                        holder.imgLikeIcon.clearColorFilter();
+                        holder.imgLikeIcon.setImageResource(R.drawable.ic_heart_outline);
+                        holder.imgLikeIcon.setColorFilter(Color.parseColor("#F5901A"));
                     }
                 } else if (payload.equals("BOOKMARK_UPDATE")) {
+                    // Bookmark count is completely removed from UI updates
                     if (item.isBookmarked()) {
-                        holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_filled);
-                        holder.btnBookmark.setColorFilter(Color.parseColor("#F5901A"));
+                        holder.imgBookmarkIcon.setImageResource(R.drawable.ic_bookmark_filled);
+                        holder.imgBookmarkIcon.setColorFilter(Color.parseColor("#F5901A"));
                     } else {
-                        holder.btnBookmark.clearColorFilter();
-                        holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_outline);
+                        holder.imgBookmarkIcon.clearColorFilter();
+                        holder.imgBookmarkIcon.setImageResource(R.drawable.ic_bookmark_outline);
+                        holder.imgBookmarkIcon.setColorFilter(Color.parseColor("#F5901A"));
                     }
                 } else if (payload.equals("EXPAND_UPDATE")) {
                     boolean isExpanded = expandedPositions.contains(position);
@@ -92,15 +92,12 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     public void onBindViewHolder(@NonNull AnnouncementViewHolder holder, int position) {
         Announcement item = announcementList.get(position);
 
-        // ⭐ TAG VIEWS: This locks the TextView to this specific announcement
-        // to prevent late translations from overwriting it!
         holder.title.setTag(item.getTitle());
         holder.description.setTag(item.getDescription());
 
-        // 1. Basic Text Data
         holder.title.setText(item.getTitle());
         holder.description.setText(item.getDescription());
-        holder.tvLikeCount.setText(item.getLikeCount() + " likes");
+        holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
 
         TranslationHelper.autoTranslate(context, holder.title, item.getTitle());
         TranslationHelper.autoTranslate(context, holder.description, item.getDescription());
@@ -112,14 +109,13 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
 
         holder.description.setOnClickListener(v -> {
             if (expandedPositions.contains(position)) {
-                expandedPositions.remove(position); // Collapse
+                expandedPositions.remove(position);
             } else {
-                expandedPositions.add(position); // Expand
+                expandedPositions.add(position);
             }
             notifyItemChanged(position, "EXPAND_UPDATE");
         });
 
-        // 2. Image Logic
         if (item.getImageUrl() != null && !item.getImageUrl().trim().isEmpty()) {
             holder.image.setVisibility(View.VISIBLE);
             Glide.with(context)
@@ -128,13 +124,11 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                     .error(R.drawable.ic_image_placeholder)
                     .into(holder.image);
         } else {
-            // ⭐ CRITICAL FIX: Clear the old image out of memory so it doesn't show on the wrong card!
             Glide.with(context).clear(holder.image);
             holder.image.setImageDrawable(null);
             holder.image.setVisibility(View.GONE);
         }
 
-        // 3. Logic for Drives / Applications
         String type = item.getType();
         boolean isDrive = type != null && (type.equalsIgnoreCase("Donation drive") || type.equalsIgnoreCase("Ayuda Application"));
 
@@ -183,24 +177,24 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             holder.itemView.setOnClickListener(null);
         }
 
-        // 4. Like/Bookmark Visuals
         if (item.isLiked()) {
-            holder.btnHeart.setImageResource(R.drawable.ic_heart_filled_red);
-            holder.btnHeart.setColorFilter(Color.RED);
+            holder.imgLikeIcon.setImageResource(R.drawable.ic_heart_filled_red);
+            holder.imgLikeIcon.setColorFilter(Color.RED);
         } else {
-            holder.btnHeart.clearColorFilter();
-            holder.btnHeart.setImageResource(R.drawable.ic_heart_outline);
+            holder.imgLikeIcon.clearColorFilter();
+            holder.imgLikeIcon.setImageResource(R.drawable.ic_heart_outline);
+            holder.imgLikeIcon.setColorFilter(Color.parseColor("#F5901A"));
         }
 
         if (item.isBookmarked()) {
-            holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_filled);
-            holder.btnBookmark.setColorFilter(Color.parseColor("#F5901A"));
+            holder.imgBookmarkIcon.setImageResource(R.drawable.ic_bookmark_filled);
+            holder.imgBookmarkIcon.setColorFilter(Color.parseColor("#F5901A"));
         } else {
-            holder.btnBookmark.clearColorFilter();
-            holder.btnBookmark.setImageResource(R.drawable.ic_bookmark_outline);
+            holder.imgBookmarkIcon.clearColorFilter();
+            holder.imgBookmarkIcon.setImageResource(R.drawable.ic_bookmark_outline);
+            holder.imgBookmarkIcon.setColorFilter(Color.parseColor("#F5901A"));
         }
 
-        // 5. Button Click Listeners
         holder.btnApply.setOnClickListener(v -> listener.onApplyClick(item));
         holder.btnHeart.setOnClickListener(v -> listener.onLikeClick(item, position));
         holder.btnBookmark.setOnClickListener(v -> listener.onBookmarkClick(item, position));
@@ -242,7 +236,8 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     }
 
     public static class AnnouncementViewHolder extends RecyclerView.ViewHolder {
-        ImageView image, btnHeart, btnBookmark;
+        ImageView image, imgLikeIcon, imgBookmarkIcon;
+        View btnHeart, btnBookmark;
         TextView title, timestamp, description, tvLikeCount;
         LinearLayout layoutDates;
         TextView tvStartDate, tvEndDate;
@@ -255,12 +250,18 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             timestamp = itemView.findViewById(R.id.txtAnnouncementTime);
             description = itemView.findViewById(R.id.txtAnnouncementDescription);
             tvLikeCount = itemView.findViewById(R.id.tv_like_count);
+
             btnApply = itemView.findViewById(R.id.btnApply);
             btnHeart = itemView.findViewById(R.id.btnLike);
             btnBookmark = itemView.findViewById(R.id.btnBookmark);
+
             layoutDates = itemView.findViewById(R.id.layout_dates);
             tvStartDate = itemView.findViewById(R.id.tvStartDate);
             tvEndDate = itemView.findViewById(R.id.tvEndDate);
+
+            imgLikeIcon = itemView.findViewById(R.id.img_like_icon);
+            imgBookmarkIcon = itemView.findViewById(R.id.img_bookmark_icon);
+            // Removed tvBookmarkCount reference!
         }
     }
 }

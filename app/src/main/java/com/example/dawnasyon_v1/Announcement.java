@@ -32,6 +32,10 @@ public class Announcement implements Serializable {
     @SerializedName("like_count")
     private int likeCount = 0;
 
+    // ⭐ NEW: Added bookmark_count so Supabase can map it!
+    @SerializedName("bookmark_count")
+    private int bookmarkCount = 0;
+
     // Capture the nested "relief_drives" data from Supabase join
     @SerializedName("relief_drives")
     private ReliefDriveInfo driveInfo;
@@ -63,7 +67,6 @@ public class Announcement implements Serializable {
         return (driveInfo != null) ? driveInfo.endDate : null;
     }
 
-    // ⭐ NEW: Helper to get the relief items list
     public String getReliefItemList() {
         // If driveInfo is null or the list is null, return null so we can handle the default text in the fragment
         return (driveInfo != null) ? driveInfo.reliefItemList : null;
@@ -73,14 +76,18 @@ public class Announcement implements Serializable {
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
 
+    // ⭐ NEW: Getters and Setters for Bookmark Count so your Adapter can read it!
+    public int getBookmarkCount() { return bookmarkCount; }
+    public void setBookmarkCount(int bookmarkCount) { this.bookmarkCount = bookmarkCount; }
+
     public boolean isApplied() { return isApplied; }
     public void setApplied(boolean applied) { isApplied = applied; }
 
     public boolean isLiked() { return isLiked; }
-    public void setLiked(boolean liked) { isLiked = liked; }
+    public void setLiked(boolean liked) { this.isLiked = liked; }
 
     public boolean isBookmarked() { return isBookmarked; }
-    public void setBookmarked(boolean bookmarked) { isBookmarked = bookmarked; }
+    public void setBookmarked(boolean bookmarked) { this.isBookmarked = bookmarked; }
 
     // --- INNER CLASS FOR NESTED JSON ---
     public static class ReliefDriveInfo implements Serializable {
@@ -90,7 +97,6 @@ public class Announcement implements Serializable {
         @SerializedName("end_date")
         public String endDate;
 
-        // ⭐ NEW: Field to capture the list from the joined 'relief_drives' table
         @SerializedName("relief_item_list")
         public String reliefItemList;
     }

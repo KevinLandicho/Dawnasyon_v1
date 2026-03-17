@@ -48,8 +48,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textSize="13sp"
             android:textColor="@android:color/darker_gray"
+            android:textSize="13sp"
             app:layout_constraintEnd_toEndOf="@+id/txtAnnouncementTitle"
             app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
             app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementTitle"
@@ -73,31 +73,31 @@
             android:id="@+id/layout_dates"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:orientation="vertical"
             android:visibility="gone"
-            android:layout_marginTop="8dp"
-            app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementDescription"
+            app:layout_constraintEnd_toEndOf="@+id/txtAnnouncementTitle"
             app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
-            app:layout_constraintEnd_toEndOf="@+id/txtAnnouncementTitle">
+            app:layout_constraintTop_toBottomOf="@+id/txtAnnouncementDescription">
 
             <TextView
                 android:id="@+id/tvStartDate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginBottom="2dp"
                 android:text="Start: 2026-02-08"
-                android:textSize="13sp"
                 android:textColor="#F57C00"
-                android:textStyle="bold"
-                android:layout_marginBottom="2dp"/>
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tvEndDate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="End: 2026-02-10"
-                android:textSize="13sp"
                 android:textColor="#D32F2F"
-                android:textStyle="bold"/>
+                android:textSize="13sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <Button
@@ -115,45 +115,87 @@
             android:textSize="16sp"
             app:cornerRadius="5dp"
             app:layout_constrainedWidth="true"
+            app:layout_constraintEnd_toStartOf="@+id/cardBookmark"
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="@+id/txtAnnouncementTitle"
-            app:layout_constraintEnd_toStartOf="@+id/btnBookmark"
             app:layout_constraintTop_toBottomOf="@+id/layout_dates" />
 
-        <ImageButton
-            android:id="@+id/btnLike"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardBookmark"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:background="@android:color/transparent"
-            android:src="@drawable/ic_heart_outline"
+            android:layout_marginEnd="8dp"
             android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
+            app:layout_constraintEnd_toStartOf="@+id/cardLike"
+            app:layout_constraintTop_toBottomOf="@+id/layout_dates"
+            app:strokeColor="#F5901A"
+            app:strokeWidth="1dp">
+
+            <ImageView
+                android:id="@+id/img_bookmark_icon"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_bookmark_outline" />
+
+            <ImageButton
+                android:id="@+id/btnBookmark"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="Bookmark button"
+                app:tint="#00000000" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardLike"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
             android:layout_marginEnd="16dp"
+            android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@android:color/white"
+            app:cardCornerRadius="6dp"
+            app:cardElevation="0dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/layout_dates"
-            android:contentDescription="Like button" />
+            app:strokeColor="#F5901A"
+            app:strokeWidth="1dp">
 
-        <TextView
-            android:id="@+id/tv_like_count"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="0"
-            android:textSize="12sp"
-            android:textColor="#666"
-            android:layout_marginEnd="4dp"
-            app:layout_constraintEnd_toStartOf="@id/btnLike"
-            app:layout_constraintTop_toTopOf="@id/btnLike"
-            app:layout_constraintBottom_toBottomOf="@id/btnLike"/>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp">
 
-        <ImageButton
-            android:id="@+id/btnBookmark"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:background="@android:color/transparent"
-            android:src="@drawable/ic_bookmark_outline"
-            android:layout_marginEnd="8dp"
-            app:layout_constraintEnd_toStartOf="@+id/tv_like_count"
-            app:layout_constraintTop_toTopOf="@+id/btnLike"
-            android:contentDescription="Bookmark button" />
+                <ImageView
+                    android:id="@+id/img_like_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:src="@drawable/ic_heart_outline" />
+
+                <TextView
+                    android:id="@+id/tv_like_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="0"
+                    android:textColor="#F5901A"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/btnLike"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?attr/selectableItemBackground"
+                android:contentDescription="Like button"
+                app:tint="#00000000" />
+        </com.google.android.material.card.MaterialCardView>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.cardview.widget.CardView>
