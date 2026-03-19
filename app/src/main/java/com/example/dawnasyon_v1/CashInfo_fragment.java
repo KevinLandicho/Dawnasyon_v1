@@ -24,7 +24,8 @@ public class CashInfo_fragment extends BaseFragment {
     private static final String ARG_IMAGE = "arg_image";
 
     // ⭐ TRANSACTION LIMITS
-    private static final int MIN_LIMIT = 1;
+    private static final int MIN_LIMIT_PHYSICAL = 1;
+    private static final int MIN_LIMIT_ONLINE = 100; // PayMongo Minimum
     private static final int MAX_LIMIT = 20000;
 
     private String fTitle, fDescription, fStatus;
@@ -32,7 +33,7 @@ public class CashInfo_fragment extends BaseFragment {
 
     private EditText etOtherAmount;
     private Button btnConfirmOther;
-    private RadioGroup rgPaymentMethod; // ⭐ Added
+    private RadioGroup rgPaymentMethod;
 
     public CashInfo_fragment() {}
 
@@ -76,7 +77,6 @@ public class CashInfo_fragment extends BaseFragment {
 
         setupHeader(view);
 
-        // ⭐ Bind the RadioGroup
         rgPaymentMethod = view.findViewById(R.id.rg_payment_method);
 
         GridLayout amountGrid = view.findViewById(R.id.amount_grid);
@@ -116,8 +116,18 @@ public class CashInfo_fragment extends BaseFragment {
     }
 
     private void goToSummary(int amount) {
-        if (amount < MIN_LIMIT) {
-            Toast.makeText(getContext(), "Please enter a valid amount (Minimum ₱" + MIN_LIMIT + ").", Toast.LENGTH_SHORT).show();
+        // ⭐ Determine the selected method first
+        String method = "Online";
+        if (rgPaymentMethod != null && rgPaymentMethod.getCheckedRadioButtonId() == R.id.rb_physical) {
+            method = "Physical";
+        }
+
+        // ⭐ NEW: Strict validation based on selected method
+        if ("Online".equals(method) && amount < MIN_LIMIT_ONLINE) {
+            Toast.makeText(getContext(), "Minimum of PHP 100.00 is required for Online Payments.", Toast.LENGTH_SHORT).show();
+            return;
+        } else if ("Physical".equals(method) && amount < MIN_LIMIT_PHYSICAL) {
+            Toast.makeText(getContext(), "Please enter a valid amount (Minimum ₱" + MIN_LIMIT_PHYSICAL + ").", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -126,13 +136,6 @@ public class CashInfo_fragment extends BaseFragment {
             return;
         }
 
-        // ⭐ Determine the selected method
-        String method = "Online";
-        if (rgPaymentMethod != null && rgPaymentMethod.getCheckedRadioButtonId() == R.id.rb_physical) {
-            method = "Physical";
-        }
-
-        // ⭐ Pass the METHOD instead of a static "PENDING" string
         CashSummary_fragment summaryFragment = CashSummary_fragment.newInstance(amount, method);
 
         getParentFragmentManager().beginTransaction()

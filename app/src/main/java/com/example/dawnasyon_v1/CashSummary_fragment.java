@@ -19,7 +19,7 @@ import java.util.ArrayList;
 public class CashSummary_fragment extends BaseFragment {
 
     private static final String ARG_AMOUNT = "amount";
-    private static final String ARG_METHOD = "method"; // ⭐ Changed to METHOD
+    private static final String ARG_METHOD = "method";
 
     private int mAmount;
     private String mMethod;
@@ -59,7 +59,6 @@ public class CashSummary_fragment extends BaseFragment {
 
             tvAmount.setText("PHP " + mAmount + ".00");
 
-            // ⭐ Setup UI based on Method
             if ("Physical".equals(mMethod)) {
                 tvMethod.setText("Physical Drop-off");
                 btnConfirm.setText("CONFIRM DROP-OFF");
@@ -72,16 +71,29 @@ public class CashSummary_fragment extends BaseFragment {
             TranslationHelper.autoTranslate(getContext(), tvRefId, refText);
         }
 
+        // ⭐ THE SECRET DEVELOPER TRIGGER
+        // Long-press the "Online Payment" / "Physical Drop-off" text to swap modes!
+        tvMethod.setOnLongClickListener(v -> {
+            PayMongoHelper.isTestMode = !PayMongoHelper.isTestMode; // Flips the switch
+
+            String modeMessage = PayMongoHelper.isTestMode ? "DEVELOPER: TEST MODE ENABLED 🛠️" : "DEVELOPER: LIVE MODE ENABLED 💸";
+            Toast.makeText(getContext(), modeMessage, Toast.LENGTH_SHORT).show();
+            return true; // Tells Android we handled the long-click
+        });
+
         if (savedInstanceState != null) {
             currentLinkId = savedInstanceState.getString("SAVED_LINK_ID");
         }
 
         btnConfirm.setOnClickListener(v -> {
             if ("Physical".equals(mMethod)) {
-                // ⭐ Bypass PayMongo completely for physical drop-offs
                 processPhysicalDonation();
             } else {
-                // ⭐ Online Logic
+                if (mAmount < 20) {
+                    Toast.makeText(getContext(), "PayMongo requires a minimum of PHP 20.00 for online payments.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+
                 if (currentLinkId == null) {
                     startPaymentProcess();
                 } else {
@@ -95,7 +107,6 @@ public class CashSummary_fragment extends BaseFragment {
         applyTagalogTranslation(view);
     }
 
-    // ⭐ NEW: Handles Physical Cash Drop-off Logic
     private void processPhysicalDonation() {
         btnConfirm.setEnabled(false);
 
@@ -103,16 +114,14 @@ public class CashSummary_fragment extends BaseFragment {
         btnConfirm.setText(loadingText);
         TranslationHelper.autoTranslate(getContext(), btnConfirm, loadingText);
 
-        // Generate a custom physical reference ID
         currentLinkId = "PHY-" + System.currentTimeMillis();
         tvRefId.setText(currentLinkId);
 
-        // Submit to Supabase directly
         DonationHelper.submitDonation(
                 currentLinkId,
                 new ArrayList<>(),
                 "Cash",
-                "Physical Drop-off", // Pass this to DB so admin knows it's physical
+                "Physical Drop-off",
                 (double) mAmount,
                 false,
                 new DonationHelper.DonationCallback() {
@@ -229,7 +238,7 @@ public class CashSummary_fragment extends BaseFragment {
                 currentLinkId,
                 new ArrayList<>(),
                 "Cash",
-                "Online Payment", // Added descriptor
+                "Online Payment",
                 (double) mAmount,
                 false,
                 new DonationHelper.DonationCallback() {

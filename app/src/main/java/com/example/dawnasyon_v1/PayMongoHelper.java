@@ -15,9 +15,18 @@ import okhttp3.Response;
 
 public class PayMongoHelper {
 
-    // ✅ YOUR ACTUAL TEST KEY IS HERE
-    private static final String SECRET_KEY = "sk_test_X5nsvqygqWuMRLYvbmXWwu6y";
+    // ✅ BOTH KEYS SECURELY STORED
+    private static final String SECRET_KEY_LIVE = "sk_live_wWHR54R5imdxvj5xSqYhc9CR";
+    private static final String SECRET_KEY_TEST = "sk_test_WpYXAevB2ZXuMsaYXGSmbUYH";
     private static final String PAYMONGO_LINKS_URL = "https://api.paymongo.com/v1/links";
+
+    // ⭐ THE SECRET SWITCH (Defaults to LIVE mode)
+    public static boolean isTestMode = false;
+
+    // Helper method to grab the correct key instantly
+    private static String getActiveKey() {
+        return isTestMode ? SECRET_KEY_TEST : SECRET_KEY_LIVE;
+    }
 
     public interface PaymentListener {
         void onSuccess(String checkoutUrl, String linkId);
@@ -25,14 +34,13 @@ public class PayMongoHelper {
     }
 
     public interface StatusListener {
-        void onCheck(String status); // Returns "unpaid", "paid", or "error"
+        void onCheck(String status);
     }
 
     // 1. GENERATE LINK
     public static void createDonationLink(int amountPhp, String description, PaymentListener listener) {
         OkHttpClient client = new OkHttpClient();
 
-        // PayMongo uses centavos (100 PHP = 10000 centavos)
         int amountInCentavos = amountPhp * 100;
 
         JSONObject json = new JSONObject();
@@ -52,8 +60,8 @@ public class PayMongoHelper {
             return;
         }
 
-        // Basic Auth: Secret Key as username, empty password
-        String authString = SECRET_KEY + ":";
+        // ⭐ dynamically injects the active key
+        String authString = getActiveKey() + ":";
         String encodedAuth = Base64.encodeToString(authString.getBytes(), Base64.NO_WRAP);
 
         RequestBody body = RequestBody.create(json.toString(), MediaType.get("application/json"));
@@ -97,12 +105,14 @@ public class PayMongoHelper {
         });
     }
 
-    // 2. CHECK STATUS (With Detailed Logging)
+    // 2. CHECK STATUS
     public static void checkPaymentStatus(String linkId, StatusListener listener) {
         Log.d("PAYMONGO_API", "Checking status for Link ID: " + linkId);
 
         OkHttpClient client = new OkHttpClient();
-        String authString = SECRET_KEY + ":";
+
+        // ⭐ dynamically injects the active key here too
+        String authString = getActiveKey() + ":";
         String encodedAuth = Base64.encodeToString(authString.getBytes(), Base64.NO_WRAP);
 
         String url = PAYMONGO_LINKS_URL + "/" + linkId;
@@ -125,14 +135,13 @@ public class PayMongoHelper {
                 if (response.isSuccessful()) {
                     try {
                         String respData = response.body().string();
-                        // 🔍 LOG THE RAW JSON HERE SO YOU CAN SEE IT
                         Log.d("PAYMONGO_API", "Status Response: " + respData);
 
                         JSONObject jsonResp = new JSONObject(respData);
                         String status = jsonResp.getJSONObject("data").getJSONObject("attributes").getString("status");
 
                         Log.d("PAYMONGO_API", "Parsed Status: " + status);
-                        listener.onCheck(status); // "paid" or "unpaid"
+                        listener.onCheck(status);
 
                     } catch (Exception e) {
                         Log.e("PAYMONGO_API", "Check Status Parse Error: " + e.getMessage());

@@ -184,12 +184,6 @@
                     <Button
                         style="@style/AmountButtonStyle"
                         android:fontFamily="@font/dongle"
-                        android:text="PHP 50"
-                        android:textSize="24sp" />
-
-                    <Button
-                        style="@style/AmountButtonStyle"
-                        android:fontFamily="@font/dongle"
                         android:text="PHP 100"
                         android:textSize="24sp" />
 
@@ -235,6 +229,12 @@
                         android:text="PHP 1,000"
                         android:textSize="20sp" />
 
+                    <Button
+                        style="@style/AmountButtonStyle"
+                        android:fontFamily="@font/dongle"
+                        android:text="PHP 1,500"
+                        android:textSize="20sp" />
+
                 </GridLayout>
 
                 <LinearLayout
@@ -271,7 +271,7 @@
                         android:id="@+id/btn_confirm_other"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Scan"
+                        android:text="Review"
                         android:fontFamily="@font/dongle"
                         android:textSize="20sp"
                         android:backgroundTint="#27869B"
