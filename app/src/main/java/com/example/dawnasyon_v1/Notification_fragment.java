@@ -54,7 +54,7 @@ public class Notification_fragment extends BaseFragment {
 
         rvNew = view.findViewById(R.id.rv_new);
         rvOld = view.findViewById(R.id.rv_old);
-        btnSeePrevious = view.findViewById(R.id.btn_see_previous);
+
         tvHeaderNew = view.findViewById(R.id.tv_header_new);
         tvHeaderOld = view.findViewById(R.id.tv_header_old);
 

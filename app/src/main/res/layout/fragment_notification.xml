@@ -80,14 +80,7 @@
                 android:layout_height="wrap_content"
                 android:nestedScrollingEnabled="false"/>
 
-            <Button
-                android:id="@+id/btn_see_previous"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="24dp"
-                android:text="@string/see_previous_notifications"
-                android:backgroundTint="#27869B"
-                android:visibility="gone"/>
+
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
