@@ -92,7 +92,7 @@
                         android:background="@drawable/bg_rounded_gray"
                         android:fontFamily="@font/dongle"
                         android:gravity="top|start"
-                        android:hint="Lorem ipsum dolor sit amet consectetur. Duis praesent amet morbi volutpat..."
+                        android:hint="Send a Suggestion to the Barangay!"
                         android:inputType="textMultiLine"
                         android:padding="16dp"
                         android:scrollbars="vertical"
