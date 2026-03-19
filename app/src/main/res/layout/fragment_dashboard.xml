@@ -11,15 +11,15 @@
         android:id="@+id/tv_dashboard_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="40dp"
         android:layout_marginStart="24dp"
+        android:layout_marginTop="40dp"
         android:fontFamily="@font/dongle"
-        android:text="@string/dashboard"
+        android:text="DASHBOARD"
         android:textColor="@color/black"
         android:textSize="34sp"
         android:textStyle="bold"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
         android:id="@+id/icon_filter"
@@ -76,7 +76,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/dongle"
-                        android:text="💡 Analytics &amp; Predictions"
+                        android:text="Analytics &amp; Predictions"
                         android:textColor="#F5901A"
                         android:textSize="24sp"
                         android:textStyle="bold" />
