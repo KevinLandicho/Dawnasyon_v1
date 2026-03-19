@@ -62,8 +62,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private int stabilityCounter = 0;
 
     private String userType = "Resident";
-
-    // Track last message to prevent UI flickering
     private String lastMessage = "";
 
     @Override
@@ -92,12 +90,10 @@ public class FaceVerifyActivity extends AppCompatActivity {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 10);
         }
 
-        // ⭐ KEEP STATIC TRANSLATION (Only runs once at startup)
         TranslationHelper.translateViewHierarchy(this, findViewById(android.R.id.content));
     }
 
     private void checkUserTypeAndStart() {
-        // Cache First Strategy
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
         String localEmbedding = prefs.getString("face_embedding", "");
         String localType = prefs.getString("user_type", "");
@@ -219,13 +215,24 @@ public class FaceVerifyActivity extends AppCompatActivity {
         android.media.Image mediaImage = imageProxy.getImage();
         if (mediaImage != null) {
             isAnalyzing = true;
-            InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
+
+            // ⭐ CRITICAL: Get the rotation to know if the image is portrait or landscape
+            int rotation = imageProxy.getImageInfo().getRotationDegrees();
+            boolean isImageFlipped = rotation == 90 || rotation == 270;
+
+            // ⭐ CRITICAL: Get the actual dimensions of the image ML Kit is processing
+            int imageWidth = isImageFlipped ? imageProxy.getHeight() : imageProxy.getWidth();
+            int imageHeight = isImageFlipped ? imageProxy.getWidth() : imageProxy.getHeight();
+
+            InputImage image = InputImage.fromMediaImage(mediaImage, rotation);
+
             detector.process(image)
                     .addOnSuccessListener(faces -> {
                         if (faces.size() == 1) {
                             Face face = faces.get(0);
-                            runOnUiThread(() -> faceOverlay.updateFace(face, imageProxy.getWidth(), imageProxy.getHeight()));
-                            processGestures(face, imageProxy.getWidth(), imageProxy.getHeight());
+                            // ⭐ FIXED: Pass the image dimensions exactly as ML Kit sees them!
+                            runOnUiThread(() -> faceOverlay.updateFace(face, imageWidth, imageHeight));
+                            processGestures(face);
                         } else {
                             runOnUiThread(() -> {
                                 faceOverlay.updateFace(null, 0, 0);
@@ -263,7 +270,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
         return diff * 100;
     }
 
-    private void processGestures(Face face, int w, int h) {
+    private void processGestures(Face face) {
         if (userType != null && userType.equalsIgnoreCase("Foreign")) {
             currentStep = SecurityStep.VERIFYING;
         }
@@ -340,7 +347,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
-    // ⭐ REMOVED TRANSLATION TO FIX LAG/MISSING TEXT
     private void updateStatus(String msg, int color) {
         if (msg.equals(lastMessage)) return;
         lastMessage = msg;

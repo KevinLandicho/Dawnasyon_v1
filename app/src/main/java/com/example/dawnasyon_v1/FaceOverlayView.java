@@ -19,24 +19,17 @@ import java.util.List;
 
 public class FaceOverlayView extends View {
 
-    // Common Paints
-    private Paint borderPaint;
-
-    // Verification Paints (Tech Look)
-    private Paint dotPaint, linePaint;
-
-    // Registration Paints (Hole Punch Look)
-    private Paint backgroundPaint, transparentPaint;
+    private Paint borderPaint, dotPaint, linePaint, backgroundPaint, transparentPaint;
     private RectF ovalRect;
-
-    // Data
     private Face mFace;
     private int mImgWidth, mImgHeight;
-    private float mScaleFactor = 1.0f;
-    private float mOffsetX = 0f, mOffsetY = 0f;
     private final Path mPath = new Path();
 
-    // ⭐ MODE SWITCH: Default is False (Verification Mode)
+    // ⭐ THE FIX: Using a single Scale Factor to prevent "shrinking"
+    private float mScale = 1.0f;
+    private float mPostScaleWidthOffset = 0f;
+    private float mPostScaleHeightOffset = 0f;
+
     private boolean isRegistrationMode = false;
 
     public FaceOverlayView(Context context, AttributeSet attrs) {
@@ -45,7 +38,6 @@ public class FaceOverlayView extends View {
     }
 
     private void init() {
-        // --- 1. SETUP VERIFICATION PAINTS (Your Original Code) ---
         dotPaint = new Paint();
         dotPaint.setColor(Color.WHITE);
         dotPaint.setStyle(Paint.Style.FILL);
@@ -65,19 +57,17 @@ public class FaceOverlayView extends View {
         borderPaint.setStrokeCap(Paint.Cap.SQUARE);
         borderPaint.setAntiAlias(true);
 
-        // --- 2. SETUP REGISTRATION PAINTS (New Code) ---
         backgroundPaint = new Paint();
-        backgroundPaint.setColor(Color.parseColor("#99000000")); // Dark semi-transparent
+        backgroundPaint.setColor(Color.parseColor("#99000000"));
 
         transparentPaint = new Paint();
         transparentPaint.setColor(Color.TRANSPARENT);
-        transparentPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR)); // Cuts the hole
+        transparentPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
     }
 
-    // ⭐ Call this in your Activity to switch modes
     public void setRegistrationMode(boolean enable) {
         this.isRegistrationMode = enable;
-        invalidate(); // Trigger redraw
+        invalidate();
     }
 
     public void updateFace(Face face, int imgWidth, int imgHeight) {
@@ -93,62 +83,35 @@ public class FaceOverlayView extends View {
     }
 
     @Override
-    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
-        // Calculate the oval hole for Registration Mode
-        float width = getWidth();
-        float height = getHeight();
-        float holeWidth = width * 0.75f;
-        float holeHeight = height * 0.55f;
-        float leftPos = (width - holeWidth) / 2;
-        float topPos = (height - holeHeight) / 2;
-        ovalRect = new RectF(leftPos, topPos, leftPos + holeWidth, topPos + holeHeight);
-    }
-
-    @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
         if (isRegistrationMode) {
-            // ==================================================
-            // MODE A: REGISTRATION (Static Guide + Dark Screen)
-            // ==================================================
-            // 1. Save Layer to allow "Clear" mode to work
+            // Draw registration hole (unchanged)
+            float width = getWidth();
+            float height = getHeight();
+            ovalRect = new RectF(width * 0.125f, height * 0.225f, width * 0.875f, height * 0.775f);
             int saveCount = canvas.saveLayer(0, 0, getWidth(), getHeight(), null);
-
-            // 2. Draw Dark Background
             canvas.drawRect(0, 0, getWidth(), getHeight(), backgroundPaint);
-
-            // 3. Cut the Oval Hole
             canvas.drawOval(ovalRect, transparentPaint);
-
-            // 4. Draw the Colored Ring (Re-using borderPaint)
             canvas.drawOval(ovalRect, borderPaint);
-
             canvas.restoreToCount(saveCount);
 
         } else {
-            // ==================================================
-            // MODE B: VERIFICATION (Your Dynamic Tech Look)
-            // ==================================================
             if (mFace == null || mImgWidth == 0 || mImgHeight == 0) return;
 
-            // Scale Logic (Your original logic)
-            float inputWidth = mImgHeight;
-            float inputHeight = mImgWidth;
-            float scaleX = (float) getWidth() / inputWidth;
-            float scaleY = (float) getHeight() / inputHeight;
-            mScaleFactor = Math.max(scaleX, scaleY);
-            mOffsetX = (getWidth() - (inputWidth * mScaleFactor)) / 2f;
-            mOffsetY = (getHeight() - (inputHeight * mScaleFactor)) / 2f;
+            // ⭐ IMPROVED SCALING MATH
+            // We use Math.max to make sure the face fills the screen view
+            float viewWidth = (float) getWidth();
+            float viewHeight = (float) getHeight();
 
-            // Draw Border Corners
-            if (mFace.getBoundingBox() != null) {
-                drawTechCorners(canvas, mFace.getBoundingBox().left, mFace.getBoundingBox().top,
-                        mFace.getBoundingBox().right, mFace.getBoundingBox().bottom);
-            }
+            float scaleX = viewWidth / (float) mImgWidth;
+            float scaleY = viewHeight / (float) mImgHeight;
+            mScale = Math.max(scaleX, scaleY);
 
-            // Draw Contours
+            mPostScaleWidthOffset = (viewWidth - (float) mImgWidth * mScale) / 2;
+            mPostScaleHeightOffset = (viewHeight - (float) mImgHeight * mScale) / 2;
+
             int[] contours = {
                     FaceContour.FACE, FaceContour.LEFT_EYEBROW_TOP, FaceContour.RIGHT_EYEBROW_TOP,
                     FaceContour.LEFT_EYE, FaceContour.RIGHT_EYE, FaceContour.NOSE_BRIDGE,
@@ -158,10 +121,22 @@ public class FaceOverlayView extends View {
             for (int c : contours) {
                 drawContourOptimized(canvas, mFace.getContour(c));
             }
+
+            if (mFace.getBoundingBox() != null) {
+                drawTechCorners(canvas, mFace.getBoundingBox());
+            }
         }
     }
 
-    // --- Helper Methods for Verification Mode (Untouched) ---
+    private float translateX(float x) {
+        // Front camera is mirrored
+        float flippedX = mImgWidth - x;
+        return (flippedX * mScale) + mPostScaleWidthOffset;
+    }
+
+    private float translateY(float y) {
+        return (y * mScale) + mPostScaleHeightOffset;
+    }
 
     private void drawContourOptimized(Canvas canvas, FaceContour contour) {
         if (contour == null) return;
@@ -171,29 +146,27 @@ public class FaceOverlayView extends View {
         mPath.reset();
         for (int i = 0; i < points.size(); i++) {
             PointF p = points.get(i);
-            float mirroredX = mImgHeight - p.x; // Mirror logic for front camera
-            float sx = (mirroredX * mScaleFactor) + mOffsetX;
-            float sy = (p.y * mScaleFactor) + mOffsetY;
+            float sx = translateX(p.x);
+            float sy = translateY(p.y);
 
             if (i == 0) mPath.moveTo(sx, sy);
             else mPath.lineTo(sx, sy);
+
             canvas.drawCircle(sx, sy, 4f, dotPaint);
         }
         canvas.drawPath(mPath, linePaint);
     }
 
-    private void drawTechCorners(Canvas canvas, float l, float t, float r, float b) {
-        float inputWidth = mImgHeight;
-
-        float left = ((inputWidth - l) * mScaleFactor) + mOffsetX;
-        float right = ((inputWidth - r) * mScaleFactor) + mOffsetX;
-        float top = (t * mScaleFactor) + mOffsetY;
-        float bottom = (b * mScaleFactor) + mOffsetY;
+    private void drawTechCorners(Canvas canvas, android.graphics.Rect boundingBox) {
+        float left = translateX(boundingBox.right);
+        float right = translateX(boundingBox.left);
+        float top = translateY(boundingBox.top);
+        float bottom = translateY(boundingBox.bottom);
 
         if (left > right) { float temp = left; left = right; right = temp; }
+
         float len = (right - left) * 0.2f;
 
-        // Draw corners
         canvas.drawLine(left, top, left + len, top, borderPaint);
         canvas.drawLine(left, top, left, top + len, borderPaint);
         canvas.drawLine(right, top, right - len, top, borderPaint);
