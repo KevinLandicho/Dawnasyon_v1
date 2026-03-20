@@ -3,7 +3,6 @@ package com.example.dawnasyon_v1;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -90,10 +89,8 @@ public class Profile_fragment extends BaseFragment {
         LinearLayout menuSuggestion = view.findViewById(R.id.menu_suggestion);
         LinearLayout menuPassword = view.findViewById(R.id.menu_password);
         LinearLayout menuTerms = view.findViewById(R.id.menu_terms);
-
         LinearLayout menuLogout = view.findViewById(R.id.menu_logout);
 
-        Button btnLanguage = view.findViewById(R.id.btn_language);
         Button btnEditProfile = view.findViewById(R.id.btn_edit_profile);
         Button btnViewQR = view.findViewById(R.id.btn_view_qr);
         MaterialButton btnPinLocation = view.findViewById(R.id.btn_pin_location);
@@ -116,10 +113,6 @@ public class Profile_fragment extends BaseFragment {
 
         if (cardPriority != null) cardPriority.setOnClickListener(v -> toggleBreakdown());
 
-        // Get Current Language Preference
-        SharedPreferences prefs = requireActivity().getSharedPreferences("AppSettings", Context.MODE_PRIVATE);
-        boolean isTagalogEnabled = prefs.getBoolean("is_tagalog", false);
-
         // ⭐ 2. Setup Menu Icons & Titles
         setupMenuItem(menuTracker, R.drawable.ic_assignment, "Application tracker");
         setupMenuItem(menuHistory, R.drawable.ic_history, "Donation history");
@@ -127,17 +120,6 @@ public class Profile_fragment extends BaseFragment {
         setupMenuItem(menuPassword, R.drawable.ic_lock, "Change password");
         setupMenuItem(menuTerms, R.drawable.ic_terms, "Terms and Conditions");
         setupMenuItem(menuLogout, R.drawable.ic_logout, "Log out");
-
-        if (btnLanguage != null) {
-            btnLanguage.setText(isTagalogEnabled ? "TAGALOG" : "ENGLISH");
-            if (btnLanguage instanceof MaterialButton) {
-                if (isTagalogEnabled) {
-                    ((MaterialButton) btnLanguage).setIconResource(R.drawable.ic_check_circle);
-                } else {
-                    ((MaterialButton) btnLanguage).setIcon(null);
-                }
-            }
-        }
 
         // ⭐ 3. Setup Click Listeners
         btnEditProfile.setOnClickListener(v -> navigateToFragment(new EditProfile_fragment()));
@@ -157,10 +139,6 @@ public class Profile_fragment extends BaseFragment {
         if (menuPassword != null) menuPassword.setOnClickListener(v -> navigateToFragment(new ChangePassword_fragment()));
         if (menuTerms != null) menuTerms.setOnClickListener(v -> navigateToFragment(new TermsAndConditions_fragment()));
         if (menuLogout != null) menuLogout.setOnClickListener(v -> showLogoutConfirmationDialog());
-
-        if (btnLanguage != null) {
-            btnLanguage.setOnClickListener(v -> toggleLanguage(prefs, btnLanguage, view));
-        }
 
         // ⭐ 4. Load Data
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
@@ -253,26 +231,6 @@ public class Profile_fragment extends BaseFragment {
         }
 
         applyTagalogTranslation(view);
-    }
-
-    private void toggleLanguage(SharedPreferences prefs, Button btnLanguage, View rootView) {
-        boolean currentTagalog = prefs.getBoolean("is_tagalog", false);
-        boolean newTagalog = !currentTagalog;
-
-        prefs.edit().putBoolean("is_tagalog", newTagalog).apply();
-        TranslationHelper.translateViewHierarchy(getContext(), rootView);
-
-        if (btnLanguage != null) {
-            btnLanguage.setText(newTagalog ? "TAGALOG" : "ENGLISH");
-            if (btnLanguage instanceof MaterialButton) {
-                if (newTagalog) {
-                    ((MaterialButton) btnLanguage).setIconResource(R.drawable.ic_check_circle);
-                } else {
-                    ((MaterialButton) btnLanguage).setIcon(null);
-                }
-            }
-        }
-        Toast.makeText(getContext(), newTagalog ? "Tagalog Mode ON" : "English Mode ON", Toast.LENGTH_SHORT).show();
     }
 
     private void loadAndCircleCropImage(String urlString, ImageView imageView) {
@@ -373,7 +331,7 @@ public class Profile_fragment extends BaseFragment {
     }
 
     // =========================================================================
-    // ⭐ DYNAMIC PRIORITY LOGIC (FIXED)
+    // ⭐ DYNAMIC PRIORITY LOGIC
     // =========================================================================
     private void calculateDynamicPriorityScore(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
@@ -421,7 +379,6 @@ public class Profile_fragment extends BaseFragment {
                             String json = response.body().string();
                             JSONArray array = new JSONArray(json);
 
-                            // ⭐ TRACKERS: Ensures we only add points ONCE per disaster type, but without breaking the loop!
                             boolean scoredFire = false;
                             boolean scoredFlood = false;
                             boolean scoredQuake = false;
@@ -435,19 +392,16 @@ public class Profile_fragment extends BaseFragment {
                                 if (disasterLat != 0.0 && disasterLon != 0.0) {
                                     float distance = getDistance(userLat, userLon, disasterLat, disasterLon);
 
-                                    // ⭐ FIRE: Must be VERY close (< 100 meters)
                                     if (!scoredFire && type.contains("fire") && distance < 100) {
                                         score[0] += 40;
                                         breakdown.append("• High Risk: Extreme proximity to Active Fire Alert\n");
                                         scoredFire = true;
                                     }
-                                    // FLOOD / TYPHOON (< 300 meters)
                                     else if (!scoredFlood && (type.contains("flood") || type.contains("typhoon")) && distance < 300) {
                                         score[0] += 30;
                                         breakdown.append("• Proximity to Active Flood Alert\n");
                                         scoredFlood = true;
                                     }
-                                    // EARTHQUAKE (< 1000 meters)
                                     else if (!scoredQuake && type.contains("earthquake") && distance < 1000) {
                                         score[0] += 40;
                                         breakdown.append("• Proximity to Recent Earthquake Epicenter\n");
@@ -591,7 +545,6 @@ public class Profile_fragment extends BaseFragment {
         new AlertDialog.Builder(getContext()).setTitle("Log Out").setMessage("Are you sure?").setPositiveButton("Yes", (d, w) -> performLogout()).setNegativeButton("Cancel", null).show();
     }
 
-    // ⭐ UPDATED LOGOUT METHOD WITH CACHE CLEARING
     private void performLogout() {
         if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
@@ -600,11 +553,7 @@ public class Profile_fragment extends BaseFragment {
             public void onSuccess() {
                 if (getActivity() != null) {
                     if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-
-                    // ⭐ Wipe the User Session Cache
                     getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE).edit().clear().apply();
-
-                    // ⭐ Wipe the Profile/Home Screen Cache
                     getActivity().getSharedPreferences("ProfileCache", Context.MODE_PRIVATE).edit().clear().apply();
 
                     Intent intent = new Intent(getActivity(), LoginActivity.class);
@@ -617,8 +566,6 @@ public class Profile_fragment extends BaseFragment {
             public void onError(String message) {
                 if (getActivity() != null) {
                     if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-
-                    // ⭐ Wipe Caches even if there's a network error during logout
                     getActivity().getSharedPreferences("UserSession", Context.MODE_PRIVATE).edit().clear().apply();
                     getActivity().getSharedPreferences("ProfileCache", Context.MODE_PRIVATE).edit().clear().apply();
 
