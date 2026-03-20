@@ -68,7 +68,7 @@
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <LinearLayout
-                    android:id="@+id/banner_qc_id"
+                    android:id="@+id/layout_id_selection"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
@@ -82,26 +82,55 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/dongle"
-                        android:text="Accepted ID Type"
+                        android:text="Select ID Type"
                         android:textColor="#F5901A"
                         android:textSize="20sp"
                         android:textStyle="bold" />
 
-                    <TextView
+                    <RadioGroup
+                        android:id="@+id/rg_id_type"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:fontFamily="@font/dongle"
-                        android:text="Quezon City ID (QCitizen Card)"
-                        android:textColor="#27869B"
-                        android:textSize="28sp"
-                        android:textStyle="bold" />
+                        android:layout_marginTop="8dp">
+
+                        <RadioButton
+                            android:id="@+id/rb_qcitizen"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/dongle"
+                            android:text="Quezon City ID (QCitizen)"
+                            android:textColor="#27869B"
+                            android:textSize="26sp"
+                            android:textStyle="bold"
+                            android:checked="true" />
+
+                        <RadioButton
+                            android:id="@+id/rb_national_id"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/dongle"
+                            android:text="National ID (PhilSys)"
+                            android:textColor="#27869B"
+                            android:textSize="26sp"
+                            android:textStyle="bold" />
+
+                        <RadioButton
+                            android:id="@+id/rb_drivers_license"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/dongle"
+                            android:text="Driver's License"
+                            android:textColor="#27869B"
+                            android:textSize="26sp"
+                            android:textStyle="bold" />
+                    </RadioGroup>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_marginTop="8dp"
                         android:fontFamily="@font/dongle"
-                        android:text="As per barangay policy, only the QCitizen Card is accepted for application."
+                        android:text="Please select the type of valid ID you will be scanning."
                         android:textColor="#555555"
                         android:textSize="20sp" />
                 </LinearLayout>
@@ -117,7 +146,7 @@
                     android:textSize="32sp"
                     android:textStyle="bold"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@id/banner_qc_id" />
+                    app:layout_constraintTop_toBottomOf="@id/layout_id_selection" />
 
                 <TextView
                     android:id="@+id/tv_scan_subtitle"
@@ -125,7 +154,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:fontFamily="@font/dongle"
-                    android:text="Take a clear photo of the front of your QCitizen Card."
+                    android:text="Take a clear photo of the front of your selected ID. Make sure the address will match what will you input later."
                     android:textColor="#444444"
                     android:textSize="20sp"
                     app:layout_constraintStart_toStartOf="parent"

@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,7 +23,6 @@ import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions;
-import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
@@ -34,9 +34,7 @@ public class SignUpValidID_fragment extends BaseFragment {
 
     private Button btnStartScan, btnPrevious;
     private TextView tvHowToQcid;
-
-    // Hardcoded to QC ID as per client request
-    private final String selectedIdType = "QC_ID";
+    private RadioGroup rgIdType;
 
     private Uri capturedImageUri = null;
     private String extractFName = "", extractLName = "", extractMName = "", extractAddress = "";
@@ -55,7 +53,6 @@ public class SignUpValidID_fragment extends BaseFragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ⭐ CLEAR OLD NOTES WHEN STARTING A NEW SCAN
         RegistrationCache.notes = "";
         RegistrationCache.nameMismatchNotes = "";
 
@@ -96,11 +93,11 @@ public class SignUpValidID_fragment extends BaseFragment {
         btnStartScan = view.findViewById(R.id.btn_start_scan);
         btnPrevious = view.findViewById(R.id.btn_previous);
         tvHowToQcid = view.findViewById(R.id.tv_how_to_qcid);
+        rgIdType = view.findViewById(R.id.rg_id_type);
 
         btnStartScan.setOnClickListener(v -> showScanOptionsDialog());
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ Click listener for QCID Link
         tvHowToQcid.setOnClickListener(v -> {
             String url = "https://quezoncity.gov.ph/qcitizen-guides/how-to-apply-for-a-qcitizen-id/";
             Intent i = new Intent(Intent.ACTION_VIEW);
@@ -108,8 +105,15 @@ public class SignUpValidID_fragment extends BaseFragment {
             startActivity(i);
         });
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
+    }
+
+    private String getCurrentIdType() {
+        if (rgIdType == null) return "QC_ID";
+        int checkedId = rgIdType.getCheckedRadioButtonId();
+        if (checkedId == R.id.rb_national_id) return "NATIONAL_ID";
+        if (checkedId == R.id.rb_drivers_license) return "DRIVERS_LICENSE";
+        return "QC_ID";
     }
 
     // --- 🛡️ SECURE VERIFICATION LOGIC ---
@@ -119,22 +123,29 @@ public class SignUpValidID_fragment extends BaseFragment {
             InputImage image = InputImage.fromFilePath(requireContext(), uri);
             TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-            // ⭐ FIXED: Lock the button and fade it out while ML Kit is reading the ID!
             btnStartScan.setText("Verifying Authenticity...");
             btnStartScan.setEnabled(false);
             btnStartScan.setAlpha(0.5f);
 
+            String selectedType = getCurrentIdType();
+
             recognizer.process(image)
                     .addOnSuccessListener(visionText -> {
-                        // 1. RUN SECURITY CHECK (Strict to QC ID)
-                        if (isContentValid(visionText.getText())) {
-                            // 2. If valid, proceed to extraction
-                            parseQCID(visionText.getText().split("\n"));
-                            resetScanButton(); // Reset before moving to next page
+                        if (isContentValid(visionText.getText(), selectedType)) {
+
+                            String[] lines = visionText.getText().split("\n");
+                            if (selectedType.equals("NATIONAL_ID")) {
+                                parseNationalID(lines);
+                            } else if (selectedType.equals("DRIVERS_LICENSE")) {
+                                parseDriversLicense(lines);
+                            } else {
+                                parseQCID(lines);
+                            }
+
+                            resetScanButton();
                             proceedToStep1();
                         } else {
-                            // 3. If invalid, reject
-                            showInvalidIdDialog();
+                            showInvalidIdDialog(selectedType);
                         }
                     })
                     .addOnFailureListener(e -> {
@@ -151,18 +162,14 @@ public class SignUpValidID_fragment extends BaseFragment {
         }
     }
 
-    // ⭐ BULLETPROOF RESET HELPER
     private void resetScanButton() {
         if (getActivity() != null) {
             getActivity().runOnUiThread(() -> {
                 String startText = "Start Scan";
                 btnStartScan.setText(startText);
-
-                // ⭐ FIXED: Bring the button back to life if the scan fails or finishes
                 btnStartScan.setEnabled(true);
                 btnStartScan.setAlpha(1.0f);
 
-                // Re-translate ONLY the safe default text
                 if (getContext() != null) {
                     TranslationHelper.autoTranslate(getContext(), btnStartScan, startText);
                 }
@@ -170,33 +177,38 @@ public class SignUpValidID_fragment extends BaseFragment {
         }
     }
 
-    // ⭐ STRICT QC ID VALIDATION
-    private boolean isContentValid(String rawText) {
+    private boolean isContentValid(String rawText, String idType) {
         String text = rawText.toUpperCase();
-        return text.contains("QCITIZEN") ||
-                text.contains("QUEZON CITY") ||
-                text.contains("LUNGSOD QUEZON") ||
-                text.contains("CITIZEN CARD") ||
-                text.contains("KASAMA KA");
+
+        if (idType.equals("NATIONAL_ID")) {
+            return text.contains("PAMBANSANG") || text.contains("PAGKAKAKILANLAN") || text.contains("PHILIPPINE IDENTIFICATION") || text.contains("PHILID");
+        } else if (idType.equals("DRIVERS_LICENSE")) {
+            return text.contains("DRIVER") || text.contains("LICENSE") || text.contains("TRANSPORTATION") || text.contains("LTO");
+        } else {
+            return text.contains("QCITIZEN") || text.contains("QUEZON CITY") || text.contains("LUNGSOD QUEZON") || text.contains("CITIZEN CARD") || text.contains("KASAMA KA");
+        }
     }
 
-    private void showInvalidIdDialog() {
+    private void showInvalidIdDialog(String idType) {
+        String expectedName = "Quezon City ID";
+        if (idType.equals("NATIONAL_ID")) expectedName = "National ID (PhilSys)";
+        if (idType.equals("DRIVERS_LICENSE")) expectedName = "Driver's License";
+
         new AlertDialog.Builder(getContext())
                 .setTitle("Incorrect ID Type")
-                .setMessage("The scanned image does not appear to be a Quezon City ID (QCitizen Card).\n\nPlease ensure you captured a clear photo of the correct document.")
-                // ⭐ Reset happens securely when "Try Again" is clicked
+                .setMessage("The scanned image does not appear to be a valid " + expectedName + ".\n\nPlease ensure you captured a clear photo of the correct document.")
                 .setPositiveButton("Try Again", (dialog, which) -> {
                     resetScanButton();
                     capturedImageUri = null;
                 })
-                .setCancelable(false) // Prevents clicking outside
+                .setCancelable(false)
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .show();
     }
 
     private void showScanOptionsDialog() {
         new AlertDialog.Builder(getContext())
-                .setTitle("Scan QCitizen Card")
+                .setTitle("Scan ID")
                 .setMessage("Choose an option:")
                 .setPositiveButton("Camera", (dialog, which) -> startCameraScan())
                 .setNegativeButton("Gallery", (dialog, which) -> galleryLauncher.launch("image/*"))
@@ -218,15 +230,11 @@ public class SignUpValidID_fragment extends BaseFragment {
         SignUpStep1Personal_fragment step1 = new SignUpStep1Personal_fragment();
         Bundle args = new Bundle();
 
-        // Pass Names
         args.putString("FNAME", extractFName);
         args.putString("LNAME", extractLName);
         args.putString("MNAME", extractMName);
-
-        // PASS THE EXTRACTED ADDRESS via Arguments
         args.putString("EXTRACTED_ADDRESS", extractAddress);
 
-        // CRITICAL FIX: Save the address globally to the Cache
         RegistrationCache.extractedAddress = extractAddress;
 
         if (capturedImageUri != null) args.putString("ID_IMAGE_URI", capturedImageUri.toString());
@@ -238,7 +246,160 @@ public class SignUpValidID_fragment extends BaseFragment {
                 .commit();
     }
 
-    // --- 🔍 ADVANCED TEXT EXTRACTION LOGIC (QC ID SPECIFIC) ---
+    // =========================================================================
+    // 🔍 TEXT EXTRACTION PARSERS
+    // =========================================================================
+
+    // ⭐ National ID (PhilSys) Parser
+    private void parseNationalID(String[] lines) {
+        extractFName = ""; extractLName = ""; extractMName = ""; extractAddress = "";
+
+        boolean nextIsLast = false, nextIsFirst = false, nextIsMiddle = false, readingAddress = false;
+        StringBuilder addressBuilder = new StringBuilder();
+
+        for (String line : lines) {
+            String upper = line.toUpperCase().trim();
+            if (upper.isEmpty()) continue;
+
+            // 1. Name Extraction (Handles multiline)
+            if (nextIsLast) { extractLName = cleanText(upper); nextIsLast = false; continue; }
+            if (nextIsFirst) { extractFName = cleanText(upper); nextIsFirst = false; continue; }
+            if (nextIsMiddle) { extractMName = cleanText(upper); nextIsMiddle = false; continue; }
+
+            // Order matters! Check for "Middle Name / Gitnang Apelyido" FIRST
+            // so the word "Apelyido" doesn't accidentally trigger the Last Name block.
+            if (upper.contains("MIDDLE NAME") || upper.contains("GITNANG APELYIDO") || upper.contains("GITNANG")) {
+                String inline = upper.replace("GITNANG APELYIDO", "").replace("MIDDLE NAME", "").replace("/", "").replace(":", "").trim();
+                if (inline.length() > 1) extractMName = cleanText(inline);
+                else nextIsMiddle = true;
+                continue;
+            }
+
+            // Check for Last Name SECOND
+            if (upper.contains("LAST NAME") || upper.contains("APELYIDO")) {
+                String inline = upper.replace("APELYIDO", "").replace("LAST NAME", "").replace("/", "").replace(":", "").trim();
+                if (inline.length() > 1) extractLName = cleanText(inline);
+                else nextIsLast = true;
+                continue;
+            }
+
+            // Check for First Name THIRD
+            if (upper.contains("GIVEN NAME") || upper.contains("MGA PANGALAN") || upper.contains("PANGALAN")) {
+                String inline = upper.replace("MGA PANGALAN", "").replace("PANGALAN", "").replace("GIVEN NAMES", "").replace("GIVEN NAME", "").replace("/", "").replace(":", "").trim();
+                if (inline.length() > 1) extractFName = cleanText(inline);
+                else nextIsFirst = true;
+                continue;
+            }
+
+            // 2. Address Extraction (National ID address is at the bottom)
+            if (upper.contains("TIRAHAN") || upper.contains("ADDRESS")) {
+                readingAddress = true;
+                // Try to grab inline address if it's on the same line
+                int idx = Math.max(upper.indexOf("TIRAHAN"), upper.indexOf("ADDRESS"));
+                String inlineAddr = upper.substring(idx)
+                        .replace("TIRAHAN/ADDRESS", "")
+                        .replace("TIRAHAN", "")
+                        .replace("ADDRESS", "")
+                        .replace(":", "").trim();
+                if (!inlineAddr.isEmpty()) {
+                    addressBuilder.append(inlineAddr).append(" ");
+                }
+                continue;
+            }
+
+            if (readingAddress) {
+                // Ignore random micro-text or logos that might be at the bottom corners
+                if (!upper.contains("BLOOD") && !upper.contains("PHILHEALTH") && upper.length() > 3) {
+                    addressBuilder.append(upper).append(" ");
+                }
+            }
+        }
+
+        extractAddress = cleanText(addressBuilder.toString());
+    }
+
+    private void parseDriversLicense(String[] lines) {
+        extractFName = ""; extractLName = ""; extractMName = ""; extractAddress = "";
+
+        StringBuilder sb = new StringBuilder();
+        for (String line : lines) {
+            sb.append(line.toUpperCase().trim()).append(" ");
+        }
+        String fullCard = sb.toString().replaceAll("\\s+", " ");
+
+        int idxMidName = fullCard.indexOf("MIDDLE NAME");
+        int idxNat = fullCard.indexOf("NATIONALITY");
+        int idxSex = fullCard.indexOf("SEX");
+
+        int endNameIdx = (idxNat != -1) ? idxNat : idxSex;
+
+        if (idxMidName != -1 && endNameIdx != -1 && idxMidName < endNameIdx) {
+            String rawName = fullCard.substring(idxMidName + 11, endNameIdx).trim();
+            extractNameFromString(rawName);
+        }
+
+        int startIdx = -1;
+        int endIdx = fullCard.length();
+
+        Matcher dobMatcher = Pattern.compile("\\b(19|20)\\d{2}/\\d{2}/\\d{2}\\b").matcher(fullCard);
+        if (dobMatcher.find()) {
+            startIdx = dobMatcher.end();
+        } else if (fullCard.indexOf("ADDRESS") != -1) {
+            startIdx = fullCard.indexOf("ADDRESS") + 7;
+        }
+
+        Matcher licMatcher = Pattern.compile("\\b[A-Z]\\d{2}-\\d{2}\\b").matcher(fullCard);
+        if (licMatcher.find()) {
+            endIdx = licMatcher.start();
+        } else if (fullCard.indexOf("LICENSE NO") != -1) {
+            endIdx = fullCard.indexOf("LICENSE NO");
+        } else if (fullCard.indexOf("EXPIRATION") != -1) {
+            endIdx = fullCard.indexOf("EXPIRATION");
+        }
+
+        if (startIdx != -1 && startIdx < endIdx) {
+            String rawAddress = fullCard.substring(startIdx, endIdx);
+
+            rawAddress = rawAddress.replaceAll("ADDRESS", " ");
+            rawAddress = rawAddress.replaceAll("WEIGHT", " ");
+            rawAddress = rawAddress.replaceAll("HEIGHT", " ");
+            rawAddress = rawAddress.replaceAll("\\(KG\\)", " ");
+            rawAddress = rawAddress.replaceAll("\\(M\\)", " ");
+            rawAddress = rawAddress.replaceAll("\\b\\d\\.\\d{2}\\b", " ");
+
+            extractAddress = cleanText(rawAddress);
+            extractAddress = extractAddress.replaceFirst("^\\d{2}\\s+", "");
+        }
+
+        if (extractAddress.isEmpty() || extractAddress.length() < 10) {
+            Pattern philPattern = Pattern.compile("(\\d{1,4}\\s+[A-Z0-9\\s,.-]+?PHILIPPINES)\\b");
+            Matcher m = philPattern.matcher(fullCard);
+            if (m.find()) {
+                extractAddress = cleanText(m.group(1));
+            }
+        }
+    }
+
+    private void extractNameFromString(String text) {
+        String[] parts = text.split(",");
+        if (parts.length >= 3) {
+            extractLName = cleanText(parts[0]);
+            extractFName = cleanText(parts[1]);
+            extractMName = cleanText(parts[2]);
+        } else {
+            String[] words = text.split(" ");
+            if (words.length >= 3) {
+                extractLName = cleanText(words[0]);
+                extractMName = cleanText(words[words.length - 1]);
+                extractFName = cleanText(text.replace(words[0], "").replace(words[words.length - 1], "").trim());
+            } else if (words.length == 2) {
+                extractLName = cleanText(words[0]);
+                extractFName = cleanText(words[1]);
+            } else {
+                extractLName = cleanText(text);
+            }
+        }
+    }
 
     private void parseQCID(String[] lines) {
         extractFName = ""; extractLName = ""; extractMName = ""; extractAddress = "";
@@ -246,7 +407,6 @@ public class SignUpValidID_fragment extends BaseFragment {
         StringBuilder rawBlocks = new StringBuilder();
 
         for (int i = 0; i < lines.length; i++) {
-            // Aggressively remove watermarks so they don't break the name parser
             String line = lines[i].toUpperCase()
                     .replaceAll("PREVIEW ONLY", "")
                     .replaceAll("PREVIEW", "")
@@ -255,11 +415,8 @@ public class SignUpValidID_fragment extends BaseFragment {
 
             if (line.isEmpty()) continue;
 
-            // Build a continuous string of the whole card for Regex to parse later
             rawBlocks.append(line).append(" ");
 
-            // --- 1. EXTRACT NAME ---
-            // Updated to catch both "M.I." (digital card) and "MIDDLE NAME" (physical card)
             if (line.contains("LAST NAME") && (line.contains("FIRST NAME") || line.contains("M.I.") || line.contains("MIDDLE"))) {
                 expectName = true;
                 continue;
@@ -269,28 +426,23 @@ public class SignUpValidID_fragment extends BaseFragment {
                 parseCommaSeparatedName(line);
                 expectName = false;
             }
-            // Fallback for Name: If we missed the header, but the line fits the format
             else if (extractLName.isEmpty() && line.contains(",") && !line.contains("EMERGENCY") && !line.matches(".*\\d.*") && !line.contains("QUEZON CITY")) {
                 parseCommaSeparatedName(line);
             }
         }
 
-        // --- 2. EXTRACT ADDRESS VIA REGEX ---
         extractAddress = extractCleanAddress(rawBlocks.toString());
     }
 
-    // ⭐ COMPLETELY REWRITTEN: Isolates address using structure, not exact spelling
     private String extractCleanAddress(String fullCardText) {
         String cleanText = fullCardText.toUpperCase()
                 .replaceAll("SINGLE", " ")
                 .replaceAll("MARRIED", " ")
                 .replaceAll("WIDOWED", " ");
 
-        // Step 1: Remove the dates that usually bleed into the front of the address
         cleanText = cleanText.replaceAll("\\d{4}/\\d{2}/\\d{2}", " ");
         cleanText = cleanText.replaceAll("20\\d{5}\\s*\\d*", " ");
 
-        // Step 2: Extract everything starting from the first standalone number (House Number)
         Pattern addressStartPattern = Pattern.compile("(?<!\\d)\\d{1,4}\\s*[A-Z]?\\s+[A-ZÑ]+");
         Matcher startMatcher = addressStartPattern.matcher(cleanText);
 
@@ -298,10 +450,9 @@ public class SignUpValidID_fragment extends BaseFragment {
         if (startMatcher.find()) {
             potentialAddress = cleanText.substring(startMatcher.start());
         } else {
-            return ""; // Could not find a house number to start from
+            return "";
         }
 
-        // Step 3: Chop off the garbage at the end (Emergency Info, Cardholder, Phone numbers)
         String[] stopWords = {"IN CASE", "EMERGENCY", "CESE", "SERGENC", "CONTACT", "CARDHOLDER", "RESIDENT", "09"};
         int earliestStopIndex = potentialAddress.length();
 
@@ -312,7 +463,6 @@ public class SignUpValidID_fragment extends BaseFragment {
             }
         }
 
-        // Also look for long string of digits (phone number or barcode number) and cut there
         Pattern numbersPattern = Pattern.compile("\\d{5,}");
         Matcher numberMatcher = numbersPattern.matcher(potentialAddress);
         if (numberMatcher.find()) {
@@ -321,10 +471,7 @@ public class SignUpValidID_fragment extends BaseFragment {
             }
         }
 
-        // Make the cut
         potentialAddress = potentialAddress.substring(0, earliestStopIndex);
-
-        // Step 4: Final Polish
         potentialAddress = potentialAddress.replace("QUEZON TO", "QUEZON CITY");
 
         return potentialAddress.replaceAll("[^a-zA-Z0-9 Ññ.,-]", " ").replaceAll("\\s+", " ").trim();
@@ -332,10 +479,7 @@ public class SignUpValidID_fragment extends BaseFragment {
 
     private void parseCommaSeparatedName(String fullText) {
         if (!fullText.contains(",")) return;
-
-        // Split only at the first comma to separate Last Name from the rest
         String[] parts = fullText.split(",", 2);
-
         extractLName = cleanText(parts[0]);
 
         if (parts.length > 1) {
@@ -347,10 +491,7 @@ public class SignUpValidID_fragment extends BaseFragment {
     private void splitFirstAndMiddleName(String text) {
         String[] parts = text.trim().split("\\s+");
         if (parts.length > 1) {
-            // Usually, the last word is the Middle Name (M.I. or full)
             extractMName = cleanText(parts[parts.length - 1]);
-
-            // Everything else before it is the First Name
             StringBuilder first = new StringBuilder();
             for (int i = 0; i < parts.length - 1; i++) {
                 first.append(parts[i]).append(" ");
@@ -366,8 +507,8 @@ public class SignUpValidID_fragment extends BaseFragment {
         if (input == null) return "";
         return input.replace("Name:", "")
                 .replace("Last Name", "")
-                .replaceAll("[^a-zA-Z0-9 Ññ.,-]", "") // Keeps letters, numbers, and Ñ
-                .replaceAll("\\s+", " ") // Removes extra spaces
+                .replaceAll("[^a-zA-Z0-9 Ññ.,\\-/#]", "")
+                .replaceAll("\\s+", " ")
                 .trim();
     }
 }
