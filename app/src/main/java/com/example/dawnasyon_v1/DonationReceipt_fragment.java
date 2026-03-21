@@ -74,8 +74,17 @@ public class DonationReceipt_fragment extends BaseFragment {
                 if (itemsContainer != null) {
                     String type = item.getType();
 
-                    if (type != null && type.equalsIgnoreCase("Cash")) {
-                        addReceiptRow(itemsContainer, "Cash Donation", "₱" + item.getAmount());
+                    // ⭐ Added extra checks here in case donors use GCash/PayMongo
+                    boolean isMonetary = false;
+                    if (type != null) {
+                        String t = type.toLowerCase();
+                        if (t.contains("cash") || t.contains("paymongo") || t.contains("gcash") || t.contains("bank")) {
+                            isMonetary = true;
+                        }
+                    }
+
+                    if (isMonetary) {
+                        addReceiptRow(itemsContainer, type + " Donation", "₱" + item.getAmount());
 
                     } else if (type != null && type.equalsIgnoreCase("Relief Pack")) {
                         List<DonationItem> subItems = item.getDonationItems();
@@ -103,7 +112,6 @@ public class DonationReceipt_fragment extends BaseFragment {
                         }
                     }
 
-                    // ⭐ Pass the whole item so we can check the status
                     loadTrackingTimeline(itemsContainer, item);
                 }
             }
@@ -129,11 +137,10 @@ public class DonationReceipt_fragment extends BaseFragment {
         container.addView(header);
         TranslationHelper.autoTranslate(getContext(), header, "Donation Journey");
 
-        // ⭐ NEW: Immediate check for Declined Status
         String currentStatus = item.getStatus() != null ? item.getStatus() : "";
         if (currentStatus.equalsIgnoreCase("Declined") || currentStatus.equalsIgnoreCase("Rejected")) {
             addTimelineRow(container, "❌ Declined", "Sorry, this donation was not accepted by the admin at this time.", true);
-            return; // Stop here, no need to load further tracking
+            return;
         }
 
         TextView tvLoading = new TextView(getContext());
@@ -150,12 +157,40 @@ public class DonationReceipt_fragment extends BaseFragment {
             if (trackingDTO != null) {
                 addTimelineRow(container, "✅ Received", "Verified by Admin on " + formatDate(trackingDTO.getDonation_date()), true);
 
-                if (trackingDTO.getInventory_status() != null) {
-                    String desc = "Status: " + trackingDTO.getInventory_status();
-                    if (trackingDTO.getQuantity_on_hand() != null) {
-                        desc += " (" + trackingDTO.getQuantity_on_hand() + " items in stock)";
+                // ⭐ THE BULLETPROOF FIX: Safely detect Cash even if it's GCash, PayMongo, etc.
+                boolean isCash = false;
+                String type = item.getType() != null ? item.getType().toLowerCase().trim() : "";
+                if (type.contains("cash") || type.contains("paymongo") || type.contains("gcash") || type.contains("bank") || type.contains("monetary")) {
+                    isCash = true;
+                } else if (item.getAmount() > 0 && (item.getDonationItems() == null || item.getDonationItems().isEmpty())) {
+                    isCash = true; // Fallback: If it has money but no physical items, it's treasury.
+                }
+
+                // Safely extract integers and strings to prevent NullPointerExceptions
+                Integer qtyObj = trackingDTO.getQuantity_on_hand();
+                int qty = (qtyObj != null) ? qtyObj : 0;
+                String invStatus = trackingDTO.getInventory_status();
+
+                // ⭐ We no longer skip if invStatus is null. If it's cash and qty is 0, we force it to show!
+                if (invStatus != null || qtyObj != null || isCash) {
+                    String rowTitle = isCash ? "💰 Treasury" : "📦 Inventory";
+                    String desc = "";
+
+                    if (isCash) {
+                        if (qty <= 0) {
+                            desc = "✅ Funds Utilized (Converted to Relief Goods)";
+                        } else {
+                            desc = "Status: " + (invStatus != null ? invStatus : "Funds Available in Treasury");
+                        }
+                    } else {
+                        desc = "Status: " + (invStatus != null ? invStatus : "Updated");
+                        if (qty <= 0) {
+                            desc += " (Fully Distributed / Converted)";
+                        } else {
+                            desc += " (" + qty + " items in stock)";
+                        }
                     }
-                    addTimelineRow(container, "📦 Inventory", desc, true);
+                    addTimelineRow(container, rowTitle, desc, true);
                 }
 
                 if (trackingDTO.getDate_claimed() != null) {
@@ -182,9 +217,8 @@ public class DonationReceipt_fragment extends BaseFragment {
         tvTitle.setTypeface(null, Typeface.BOLD);
         tvTitle.setTextSize(14);
 
-        // ⭐ If declined, set color to Red. Otherwise, keep Green/Gray.
         if (title.contains("Declined")) {
-            tvTitle.setTextColor(Color.parseColor("#C62828")); // Red
+            tvTitle.setTextColor(Color.parseColor("#C62828"));
         } else {
             tvTitle.setTextColor(isActive ? Color.parseColor("#2E7D32") : Color.GRAY);
         }
