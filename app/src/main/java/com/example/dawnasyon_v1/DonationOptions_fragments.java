@@ -148,9 +148,9 @@ public class DonationOptions_fragments extends BaseFragment {
         addCategory(inflater, "CASH", "Funds for supplies and relief support.", "Hidden", R.drawable.ic_money);
 
         addCategory(inflater, "FOOD", "Rice, noodles, and canned goods.", foodStatus, R.drawable.ic_food);
-        addCategory(inflater, "HYGIENE KIT", "Soap, toothpaste, and essentials.", hygieneStatus, R.drawable.ic_hygiene);
+        addCategory(inflater, "HYGIENE KITS", "Soap, toothpaste, and essentials.", hygieneStatus, R.drawable.ic_hygiene);
         addCategory(inflater, "MEDICINE", "Vitamins and first aid.", medStatus, R.drawable.ic_health);
-        addCategory(inflater, "RELIEF PACK", "Packed goods for distribution.", packStatus, R.drawable.ic_packs);
+        addCategory(inflater, "RELIEF PACKS", "Packed goods for distribution.", packStatus, R.drawable.ic_packs);
     }
 
     // ⭐ FIXED: Removed the word "left" to match the other uniform formats
