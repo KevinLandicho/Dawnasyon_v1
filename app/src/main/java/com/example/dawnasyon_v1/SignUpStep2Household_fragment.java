@@ -22,10 +22,14 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanner;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,31 +39,24 @@ public class SignUpStep2Household_fragment extends BaseFragment {
     private LinearLayout membersContainer;
     private EditText etHouseNum;
 
-    // Document Scanner Variables
     private GmsDocumentScanner scanner;
     private int currentScanningIndex = -1;
 
-    // Temporarily store scanned document URIs mapped to the member's row index
-    // This is public static so the Final Registration step can access these URIs to upload them
     public static Map<Integer, Uri> memberDocuments = new HashMap<>();
 
     public SignUpStep2Household_fragment() {}
 
-    // Launcher for the Document Scanner
+    // ⭐ UPDATED LAUNCHER: Now intercepts the image and runs the OCR Validation!
     private final ActivityResultLauncher<IntentSenderRequest> scannerLauncher =
             registerForActivityResult(new ActivityResultContracts.StartIntentSenderForResult(), result -> {
                 if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                     GmsDocumentScanningResult scanningResult = GmsDocumentScanningResult.fromActivityResultIntent(result.getData());
                     if (scanningResult != null && scanningResult.getPages() != null && !scanningResult.getPages().isEmpty()) {
 
-                        // Get the cropped image URI
                         Uri imageUri = scanningResult.getPages().get(0).getImageUri();
 
-                        // Save it to our map for this specific member
-                        memberDocuments.put(currentScanningIndex, imageUri);
-
-                        // Update UI to show success
-                        updateButtonToSuccess(currentScanningIndex);
+                        // Pass the image to our AI Text Recognizer to verify it's a real document
+                        validateDocumentWithOCR(imageUri, currentScanningIndex);
                     }
                 } else if (result.getResultCode() == Activity.RESULT_CANCELED) {
                     Toast.makeText(getContext(), "Scan cancelled", Toast.LENGTH_SHORT).show();
@@ -80,36 +77,26 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         Button btnNext = view.findViewById(R.id.btn_next);
         Button btnPrevious = view.findViewById(R.id.btn_previous);
 
-        // Clear documents when entering the page fresh
         memberDocuments.clear();
 
-        // Initialize the Document Scanner (Auto-Crop Box Mode)
         GmsDocumentScannerOptions options = new GmsDocumentScannerOptions.Builder()
-                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_BASE)
-                .setGalleryImportAllowed(true) // Allows uploading from gallery!
-                .setPageLimit(1) // Only need 1 page (front of ID or Birth Cert)
+                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+                .setGalleryImportAllowed(false)
+                .setPageLimit(1)
                 .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
                 .build();
         scanner = GmsDocumentScanning.getClient(options);
 
-        // --- DYNAMIC POPULATION LOGIC ---
         etHouseNum.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 updateMemberRows(s.toString());
             }
-
-            @Override
-            public void afterTextChanged(Editable s) {}
+            @Override public void afterTextChanged(Editable s) {}
         });
 
-        // Automatically set to 1 so the first row appears
         etHouseNum.setText("1");
 
-        // Navigation
         btnNext.setOnClickListener(v -> {
             if (saveMembersToCache()) {
                 getParentFragmentManager().beginTransaction()
@@ -121,8 +108,37 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
 
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
+    }
+
+    // ⭐ THE FIX: AI Document Validation Method
+    private void validateDocumentWithOCR(Uri imageUri, int index) {
+        try {
+            InputImage image = InputImage.fromFilePath(requireContext(), imageUri);
+            TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+
+            Toast.makeText(getContext(), "Validating document...", Toast.LENGTH_SHORT).show();
+
+            recognizer.process(image)
+                    .addOnSuccessListener(visionText -> {
+                        String text = visionText.getText().trim();
+
+                        // Check if the image contains enough text to be an ID or Certificate (10 characters minimum)
+                        if (text.length() < 10) {
+                            Toast.makeText(getContext(), "❌ DECLINED: Not a valid document. No text detected.", Toast.LENGTH_LONG).show();
+                        } else {
+                            // ✅ Success! The AI found text, meaning it's a real document!
+                            memberDocuments.put(index, imageUri);
+                            updateButtonToSuccess(index);
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(getContext(), "❌ DECLINED: Unreadable document.", Toast.LENGTH_LONG).show();
+                    });
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "Error processing image.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void startScanner(int index) {
@@ -137,7 +153,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
     }
 
     private void updateButtonToSuccess(int index) {
-        // Find the button in the specific row and change it to green/success
         if (membersContainer != null && index - 1 < membersContainer.getChildCount()) {
             View row = membersContainer.getChildAt(index - 1);
             Button btnUploadDoc = row.findViewById(R.id.btn_upload_doc);
@@ -149,7 +164,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
     }
 
     private boolean saveMembersToCache() {
-        RegistrationCache.tempHouseholdList.clear(); // Start fresh
+        RegistrationCache.tempHouseholdList.clear();
         int childCount = membersContainer.getChildCount();
 
         if (childCount == 0) {
@@ -178,7 +193,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
                 return false;
             }
 
-            // Validate that everyone except the Head has uploaded a document
             if (memberIndex > 1 && !memberDocuments.containsKey(memberIndex)) {
                 Toast.makeText(getContext(), "Please scan the required document for member #" + memberIndex, Toast.LENGTH_SHORT).show();
                 return false;
@@ -186,16 +200,8 @@ public class SignUpStep2Household_fragment extends BaseFragment {
 
             int age = Integer.parseInt(ageStr);
 
-            // Create Member Object
             HouseholdMember member = new HouseholdMember(
-                    0L,    // member_id
-                    null,  // head_id
-                    name,
-                    relation,
-                    age,
-                    gender,
-                    true,  // is_registered_census
-                    false  // is_authorized_proxy
+                    0L, null, name, relation, age, gender, true, false, null
             );
 
             RegistrationCache.tempHouseholdList.add(member);
@@ -204,15 +210,16 @@ public class SignUpStep2Household_fragment extends BaseFragment {
     }
 
     private void updateMemberRows(String input) {
-        int count = 0;
+        int count = 1;
         try {
-            if (!input.isEmpty()) {
-                count = Integer.parseInt(input);
+            if (!input.trim().isEmpty()) {
+                count = Integer.parseInt(input.trim());
             }
         } catch (NumberFormatException e) {
-            count = 0;
+            count = 1;
         }
 
+        if (count < 1) count = 1;
         if (count > 15) count = 15;
 
         int currentChildCount = membersContainer.getChildCount();
@@ -224,7 +231,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         } else if (count < currentChildCount) {
             for (int i = currentChildCount - 1; i >= count; i--) {
                 int indexToRemove = i + 1;
-                memberDocuments.remove(indexToRemove); // Clean up removed images
+                memberDocuments.remove(indexToRemove);
                 membersContainer.removeViewAt(i);
             }
         }
@@ -240,13 +247,12 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         Spinner spGender = row.findViewById(R.id.sp_gender);
         Spinner spRelation = row.findViewById(R.id.sp_relation);
         EditText etAge = row.findViewById(R.id.et_age);
-        Button btnUploadDoc = row.findViewById(R.id.btn_upload_doc); // From your XML
+        Button btnUploadDoc = row.findViewById(R.id.btn_upload_doc);
 
         String[] genders = {"Male", "Female", "Other"};
         ArrayAdapter<String> genderAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, genders);
         spGender.setAdapter(genderAdapter);
 
-        // Logic for first row (Registrant / Head)
         if (index == 1) {
             if (!RegistrationCache.tempFullName.isEmpty()) {
                 etName.setText(RegistrationCache.tempFullName);
@@ -254,7 +260,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             etName.setEnabled(false);
             etName.setFocusable(false);
 
-            // Head only gets "Head" option
             String[] headRelation = {"Head"};
             ArrayAdapter<String> relationAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, headRelation);
             spRelation.setAdapter(relationAdapter);
@@ -262,23 +267,18 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             spRelation.setEnabled(false);
             spRelation.setClickable(false);
 
-            // Hide document button for the Head
             if (btnUploadDoc != null) btnUploadDoc.setVisibility(View.GONE);
 
         } else {
-            // Logic for dynamically added members
-            // Removed "Head", Added "Sibling"
             String[] relations = {"Spouse", "Son", "Daughter", "Parent", "Sibling", "Relative"};
             ArrayAdapter<String> relationAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_spinner_dropdown_item, relations);
             spRelation.setAdapter(relationAdapter);
-            spRelation.setSelection(1); // Default to Son/Daughter
+            spRelation.setSelection(1);
 
-            // Setup document button for members
             if (btnUploadDoc != null) {
                 btnUploadDoc.setVisibility(View.VISIBLE);
                 btnUploadDoc.setOnClickListener(v -> startScanner(index));
 
-                // If they already scanned it (e.g., scrolled away and back), keep it green
                 if (memberDocuments.containsKey(index)) {
                     btnUploadDoc.setText("✅ Document Scanned Successfully");
                     btnUploadDoc.setBackgroundColor(getResources().getColor(android.R.color.holo_green_dark));
@@ -286,7 +286,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
             }
         }
 
-        // Setup Age Up/Down logic and Document text changes
         View btnUp = row.findViewById(R.id.btn_age_up);
         View btnDown = row.findViewById(R.id.btn_age_down);
 
@@ -300,7 +299,7 @@ public class SignUpStep2Household_fragment extends BaseFragment {
                     try { age = Integer.parseInt(s.toString()); } catch (Exception ignored) {}
 
                     if (age < 18) {
-                        btnUploadDoc.setText("Upload Birth Certificate");
+                        btnUploadDoc.setText("Scan Birth Certificate");
                     } else {
                         btnUploadDoc.setText("Scan ID Document");
                     }
@@ -327,8 +326,6 @@ public class SignUpStep2Household_fragment extends BaseFragment {
         });
 
         membersContainer.addView(row);
-
-        // ⭐ TRANSLATE THE NEW DYNAMIC ROW IMMEDIATELY
         TranslationHelper.translateViewHierarchy(getContext(), row);
     }
 }

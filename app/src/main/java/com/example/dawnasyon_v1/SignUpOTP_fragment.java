@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -20,6 +21,14 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.io.InputStream;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class SignUpOTP_fragment extends BaseFragment {
 
@@ -210,25 +219,94 @@ public class SignUpOTP_fragment extends BaseFragment {
         });
     }
 
+    // ⭐ THE FINAL FIX: Background image upload happens right here!
     private void createProfile() {
         if (getContext() == null) return;
 
-        AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
-            @Override
-            public void onSuccess() {
-                if (!isAdded()) return;
-                Toast.makeText(getContext(), "Welcome aboard!", Toast.LENGTH_LONG).show();
-                Intent intent = new Intent(getActivity(), LoginActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                startActivity(intent);
-            }
+        Toast.makeText(getContext(), "Uploading documents and finalizing...", Toast.LENGTH_LONG).show();
 
-            @Override
-            public void onError(String message) {
-                if (!isAdded()) return;
-                Toast.makeText(getContext(), "Profile Save Error: " + message, Toast.LENGTH_LONG).show();
+        new Thread(() -> {
+            try {
+                OkHttpClient client = new OkHttpClient();
+                String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
+                String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
+
+                // 1. Iterate through the cached members and upload their documents
+                if (RegistrationCache.tempHouseholdList != null) {
+                    for (int i = 0; i < RegistrationCache.tempHouseholdList.size(); i++) {
+                        HouseholdMember member = RegistrationCache.tempHouseholdList.get(i);
+                        int originalRowIndex = i + 1; // Because index 1 is Head, index 2 is first relative
+
+                        // If a document URI exists for this specific row...
+                        if (SignUpStep2Household_fragment.memberDocuments != null &&
+                                SignUpStep2Household_fragment.memberDocuments.containsKey(originalRowIndex)) {
+
+                            android.net.Uri imageUri = SignUpStep2Household_fragment.memberDocuments.get(originalRowIndex);
+
+                            // Convert local URI into raw bytes for uploading
+                            InputStream is = requireContext().getContentResolver().openInputStream(imageUri);
+                            byte[] fileBytes = new byte[is.available()];
+                            is.read(fileBytes);
+                            is.close();
+
+                            // Generate a unique filename for Supabase Storage
+                            String fileName = System.currentTimeMillis() + "_member_" + originalRowIndex + ".jpg";
+
+                            // Perform the POST request to the household_docs bucket
+                            RequestBody body = RequestBody.create(fileBytes, MediaType.parse("image/jpeg"));
+                            Request request = new Request.Builder()
+                                    .url(SUPABASE_URL + "/storage/v1/object/household_docs/" + fileName)
+                                    .addHeader("apikey", SUPABASE_KEY)
+                                    .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                                    .post(body)
+                                    .build();
+
+                            try (Response response = client.newCall(request).execute()) {
+                                if (response.isSuccessful()) {
+                                    // SUCCESS! Attach the public URL to the Kotlin HouseholdMember model
+                                    String publicUrl = SUPABASE_URL + "/storage/v1/object/public/household_docs/" + fileName;
+                                    member.setIdImageUrl(publicUrl);
+                                } else {
+                                    Log.e("Upload", "Failed to upload document for member " + originalRowIndex);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Now that the URLs are attached, proceed to save the profile & household in Supabase
+                requireActivity().runOnUiThread(() -> {
+                    AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
+                        @Override
+                        public void onSuccess() {
+                            if (!isAdded()) return;
+
+                            // Free up memory by clearing the temporary document URIs
+                            if (SignUpStep2Household_fragment.memberDocuments != null) {
+                                SignUpStep2Household_fragment.memberDocuments.clear();
+                            }
+
+                            Toast.makeText(getContext(), "Welcome aboard!", Toast.LENGTH_LONG).show();
+                            Intent intent = new Intent(getActivity(), LoginActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            if (!isAdded()) return;
+                            Toast.makeText(getContext(), "Profile Save Error: " + message, Toast.LENGTH_LONG).show();
+                        }
+                    });
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                requireActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), "Error uploading documents. Please try again.", Toast.LENGTH_SHORT).show();
+                });
             }
-        });
+        }).start();
     }
 
     private void startTimer(long duration) {

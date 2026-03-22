@@ -157,7 +157,7 @@ public class SignUpStepAccount_fragment extends BaseFragment {
             RegistrationCache.tempPassword = password;
             RegistrationCache.tempEmail = email;
 
-            // ⭐ FIXED: Lock the button's exact current width so it doesn't stretch!
+            // Lock the button's exact current width so it doesn't stretch!
             int currentWidth = btnNext.getWidth();
             if (currentWidth > 0) {
                 ViewGroup.LayoutParams params = btnNext.getLayoutParams();
@@ -253,6 +253,15 @@ public class SignUpStepAccount_fragment extends BaseFragment {
 
         // Confirm passwords match
         boolean doPasswordsMatch = pass.equals(confirm) && !confirm.isEmpty();
+
+        // ⭐ NEW: Visual Red Error for Password Mismatch
+        // If the confirm box has text, but it doesn't match the password box, show a red error
+        if (!confirm.isEmpty() && !pass.equals(confirm)) {
+            etConfirm.setError("Passwords do not match");
+        } else {
+            // Clear the error if they match perfectly, or if the box is completely empty
+            etConfirm.setError(null);
+        }
 
         // Checkbox must be checked
         boolean isTermsAccepted = cbTerms.isChecked();

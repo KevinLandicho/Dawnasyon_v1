@@ -28,5 +28,10 @@ data class HouseholdMember(
     val is_registered_census: Boolean? = false,
 
     @get:JvmName("getIs_authorized_proxy")
-    val is_authorized_proxy: Boolean? = false
+    val is_authorized_proxy: Boolean? = false,
+
+    // ⭐ THE FIX: Added the image URL field as a 'var' so Java can update it after uploading
+    @get:JvmName("getIdImageUrl")
+    @set:JvmName("setIdImageUrl")
+    var id_image_url: String? = null
 )
