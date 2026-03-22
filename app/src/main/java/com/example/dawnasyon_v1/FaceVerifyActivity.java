@@ -57,7 +57,8 @@ public class FaceVerifyActivity extends AppCompatActivity {
     private boolean isAnalyzing = false;
     private FaceDetector detector;
 
-    private enum SecurityStep { ALIGN, LOOK_LEFT, LOOK_RIGHT, LOOK_UP, VERIFYING }
+    // ⭐ Removed LOOK_UP from the steps
+    private enum SecurityStep { ALIGN, LOOK_LEFT, LOOK_RIGHT, VERIFYING }
     private SecurityStep currentStep = SecurityStep.ALIGN;
     private int stabilityCounter = 0;
 
@@ -187,7 +188,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
-                // ⭐ THE FIX 1: Set everything to 16:9 to fix the "Big Face" UI bug on newer phones
                 Preview preview = new Preview.Builder()
                         .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                         .build();
@@ -315,31 +315,23 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     updateStatus("Good! Hold Right...", Color.GREEN);
                     stabilityCounter++;
                     if (stabilityCounter > 5) {
-                        currentStep = SecurityStep.LOOK_UP;
+                        // ⭐ Go straight to VERIFYING instead of LOOK_UP
+                        currentStep = SecurityStep.VERIFYING;
+                        runOnUiThread(() -> faceOverlay.setBorderColor(Color.GREEN));
                         stabilityCounter = 0;
                     }
                 } else {
                     updateStatus("Turn Head RIGHT ➡️", Color.CYAN);
                 }
                 break;
-            case LOOK_UP:
-                if (rotX > 4) {
-                    updateStatus("Good! Hold Up...", Color.GREEN);
-                    stabilityCounter++;
-                    if (stabilityCounter > 5) {
-                        currentStep = SecurityStep.VERIFYING;
-                        runOnUiThread(() -> faceOverlay.setBorderColor(Color.GREEN));
-                        stabilityCounter = 0;
-                    }
-                } else {
-                    updateStatus("Look UP ⬆️", Color.CYAN);
-                }
-                break;
             case VERIFYING:
                 updateStatus("Look Straight!", Color.GREEN);
-                if (Math.abs(rotY) < 10) {
+                // ⭐ Strict check: Make sure they bring their head back to the center before capturing!
+                if (Math.abs(rotY) < 10 && Math.abs(rotX) < 10) {
                     stabilityCounter++;
                     if (stabilityCounter > 3) triggerCapture();
+                } else {
+                    stabilityCounter = 0; // Reset if they are still moving
                 }
                 break;
         }
@@ -441,7 +433,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
-    // ⭐ THE FIX 2: Properly rotate the image so other phone brands don't scan a sideways face!
     private Bitmap imageProxyToBitmap(ImageProxy image) {
         ByteBuffer buffer = image.getPlanes()[0].getBuffer();
         byte[] bytes = new byte[buffer.remaining()];
@@ -450,11 +441,9 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
         int rotationDegrees = image.getImageInfo().getRotationDegrees();
 
-        // If the phone's hardware gives us a sideways image, we fix it here.
         if (rotationDegrees != 0) {
             Matrix matrix = new Matrix();
             matrix.postRotate(rotationDegrees);
-            // DO NOT postScale (no mirroring) because mirroring ruins the mathematical embedding.
             return Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.getWidth(), rawBitmap.getHeight(), matrix, true);
         }
 
