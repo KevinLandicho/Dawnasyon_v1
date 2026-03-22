@@ -86,7 +86,7 @@ public class MainActivity extends BaseActivity {
     }
 
     // -----------------------------------------------------------
-    // ⭐ NEW: SECURITY CHECK (Runs every time app opens)
+    // ⭐ NEW: SECURE CLOUD TIMER CHECK
     // -----------------------------------------------------------
     @Override
     protected void onResume() {
@@ -97,35 +97,62 @@ public class MainActivity extends BaseActivity {
     private void checkSecurityTimer() {
         SharedPreferences prefs = getSharedPreferences("UserSession", MODE_PRIVATE);
 
-        // ⭐ 0. CHECK USER TYPE FIRST (Bypass for Overseas)
+        // 0. CHECK USER TYPE FIRST (Bypass for Foreign/Overseas)
         String userType = prefs.getString("user_type", "Resident");
         if (userType != null && (userType.equalsIgnoreCase("Foreign") || userType.equalsIgnoreCase("Overseas"))) {
-            return; // Stop here. Do not check face data or timer.
-        }
-
-        // 1. Check if user has a face registered
-        String faceData = prefs.getString("face_embedding", "");
-        if (faceData.isEmpty()) {
-            // If you see this toast, it means you need to Logout & Login again!
-            android.widget.Toast.makeText(this, "DEBUG: No Face Data found in phone memory.", android.widget.Toast.LENGTH_LONG).show();
             return;
         }
-        // 2. Get Timestamps
-        long lastTime = prefs.getLong("last_verified_timestamp", 0);
-        long currentTime = System.currentTimeMillis();
 
-        // 3. Set Limit (24 Hours = 86400000 ms)
-        // 💡 TIP: Change this to 60000 (1 min) to test it quickly!
-        long timeLimit = 86400000;
-        long timelim = 10000;
-//for
-        // 4. Check if expired
-        if (currentTime - lastTime > timeLimit) {
-            Intent intent = new Intent(this, FaceVerifyActivity.class);
-            // Clear back stack so they can't press "Back" to return here
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-        }
+        // ⭐ 1. Fetch fresh, un-cheatable data from Supabase
+        AuthHelper.fetchUserProfile(profile -> {
+            runOnUiThread(() -> {
+                if (profile != null) {
+
+                    // Check if they even have a face registered in DB
+                    if (profile.getFace_embedding() == null || profile.getFace_embedding().isEmpty()) {
+                        android.widget.Toast.makeText(this, "DEBUG: No Face Data found in DB.", android.widget.Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    // ⭐ 2. Get the exact timestamp they last verified from the Database
+                    String lastVerifiedStr = profile.getLast_face_verified_at();
+
+                    if (lastVerifiedStr == null || lastVerifiedStr.isEmpty()) {
+                        // They have NEVER verified before. Force them to do it.
+                        triggerFaceVerification();
+                    } else {
+                        try {
+                            // Convert the Supabase timestamp (UTC) to a Java long
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+                            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                            java.util.Date lastVerifiedDate = sdf.parse(lastVerifiedStr);
+
+                            long lastTime = lastVerifiedDate.getTime();
+                            long currentTime = System.currentTimeMillis();
+
+                            // 24 Hours = 86400000 ms. (If you want to test quickly, change this to 10000 for 10 seconds!)
+                            long timeLimit = 86400000;
+
+                            // ⭐ 3. Compare DB time vs Current time
+                            if (currentTime - lastTime > timeLimit) {
+                                triggerFaceVerification();
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            triggerFaceVerification(); // Safe fallback: if math fails, force verify.
+                        }
+                    }
+                }
+            });
+            return null;
+        });
+    }
+
+    private void triggerFaceVerification() {
+        Intent intent = new Intent(this, FaceVerifyActivity.class);
+        // Clear back stack so they can't press "Back" to bypass it
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
     }
 
     // -----------------------------------------------------------
