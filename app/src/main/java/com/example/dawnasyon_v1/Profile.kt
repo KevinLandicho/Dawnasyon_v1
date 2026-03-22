@@ -39,5 +39,8 @@ data class Profile(
     val rejection_reason: String? = null,
 
     // ⭐ ADDED NOTES FIELD HERE TO SAVE ID MISMATCH WARNINGS
-    val notes: String? = null
+    val notes: String? = null,
+
+    // ⭐ ADDED THIS LINE FOR THE SECURITY TIMER
+    val last_face_verified_at: String? = null
 )

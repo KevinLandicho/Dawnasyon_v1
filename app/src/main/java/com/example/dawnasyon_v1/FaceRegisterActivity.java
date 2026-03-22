@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Size;
@@ -15,6 +16,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.AspectRatio;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageAnalysis;
@@ -58,7 +60,7 @@ public class FaceRegisterActivity extends AppCompatActivity {
     private boolean isCapturing = false;
     private int alignCounter = 0;
 
-    private String followUpUserId = null; // ⭐ Added to track if this is a follow-up registration
+    private String followUpUserId = null;
 
     // ⭐ Threshold set to 10 for a quick 1-second capture
     private static final int ALIGN_THRESHOLD = 10;
@@ -73,7 +75,6 @@ public class FaceRegisterActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_face_register);
 
-        // ⭐ Check if this was launched from LoginActivity (Follow-up registration)
         if (getIntent() != null && getIntent().hasExtra("USER_ID")) {
             followUpUserId = getIntent().getStringExtra("USER_ID");
         }
@@ -92,8 +93,6 @@ public class FaceRegisterActivity extends AppCompatActivity {
         }
     }
 
-    // ⭐ CRITICAL FIX FOR THE BLACK SCREEN!
-    // This tells the camera to turn on immediately after the user clicks "Allow"
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -112,13 +111,19 @@ public class FaceRegisterActivity extends AppCompatActivity {
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                Preview preview = new Preview.Builder().build();
+
+                Preview preview = new Preview.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
+                        .build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
-                imageCapture = new ImageCapture.Builder().build();
+
+                imageCapture = new ImageCapture.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
+                        .build();
 
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setTargetResolution(new Size(480, 640))
                         .build();
 
                 imageAnalysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
@@ -139,15 +144,24 @@ public class FaceRegisterActivity extends AppCompatActivity {
 
         android.media.Image mediaImage = imageProxy.getImage();
         if (mediaImage != null) {
-            InputImage image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
+            // ⭐ THE FIX 1: Properly calculate the TRUE frame width and height based on the phone's rotation!
+            int rotation = imageProxy.getImageInfo().getRotationDegrees();
+            int imageWidth = (rotation == 90 || rotation == 270) ? imageProxy.getHeight() : imageProxy.getWidth();
+            int imageHeight = (rotation == 90 || rotation == 270) ? imageProxy.getWidth() : imageProxy.getHeight();
+
+            InputImage image = InputImage.fromMediaImage(mediaImage, rotation);
+
             FaceDetector detector = FaceDetection.getClient(new FaceDetectorOptions.Builder()
                     .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_FAST)
+                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_NONE)
+                    .setContourMode(FaceDetectorOptions.CONTOUR_MODE_NONE)
                     .build());
 
             detector.process(image)
                     .addOnSuccessListener(faces -> {
                         if (faces.size() == 1) {
-                            checkAlignment(faces.get(0).getBoundingBox(), image.getWidth(), image.getHeight());
+                            // ⭐ THE FIX 2: Pass the true rotated width and height to checkAlignment
+                            checkAlignment(faces.get(0).getBoundingBox(), imageWidth, imageHeight);
                         } else if (faces.size() > 1) {
                             resetAlignment("Please scan alone");
                         } else {
@@ -163,11 +177,13 @@ public class FaceRegisterActivity extends AppCompatActivity {
         float faceCenterX = faceBox.centerX() / (float) frameW;
         float faceCenterY = faceBox.centerY() / (float) frameH;
 
-        boolean centeredX = faceCenterX > 0.35 && faceCenterX < 0.65;
-        boolean centeredY = faceCenterY > 0.30 && faceCenterY < 0.70;
+        // ⭐ Relaxed the center bounds so it's much easier and less frustrating to hit the "sweet spot"
+        boolean centeredX = faceCenterX > 0.25 && faceCenterX < 0.75;
+        boolean centeredY = faceCenterY > 0.20 && faceCenterY < 0.80;
 
         float faceRatio = (float) faceBox.width() / frameW;
-        boolean isCorrectDistance = faceRatio > 0.30 && faceRatio < 0.80;
+        // ⭐ Relaxed the distance bounds so you don't have to hold the phone perfectly still
+        boolean isCorrectDistance = faceRatio > 0.20 && faceRatio < 0.85;
 
         if (centeredX && centeredY && isCorrectDistance) {
             alignCounter++;
@@ -184,7 +200,7 @@ public class FaceRegisterActivity extends AppCompatActivity {
             }
         } else {
             if (!isCorrectDistance) {
-                if (faceRatio < 0.30) resetAlignment("Move a bit closer");
+                if (faceRatio < 0.20) resetAlignment("Move a bit closer");
                 else resetAlignment("Move further back");
             } else {
                 resetAlignment("Align face in the center");
@@ -227,24 +243,20 @@ public class FaceRegisterActivity extends AppCompatActivity {
         });
     }
 
-    // ⭐ DUAL-FLOW LOGIC ADDED HERE
     private void saveFaceData(float[] embedding) {
         StringBuilder sb = new StringBuilder();
         for (float f : embedding) sb.append(f).append(",");
         String embeddingString = sb.toString();
 
         if (followUpUserId != null && !followUpUserId.isEmpty()) {
-            // ➡️ FLOW 2: Follow-up Registration from Login Screen (Saves direct to Supabase)
             updateFaceDataInSupabase(followUpUserId, embeddingString);
         } else {
-            // ➡️ FLOW 1: Original Sign-Up Flow (Saves to cache and goes back to previous screen)
             RegistrationCache.faceEmbedding = embeddingString;
             setResult(RESULT_OK, new Intent());
             finish();
         }
     }
 
-    // ⭐ Direct database updater for follow-up registrations
     private void updateFaceDataInSupabase(String userId, String embedding) {
         runOnUiThread(() -> tvStatus.setText("Saving to Database..."));
 
@@ -268,8 +280,6 @@ public class FaceRegisterActivity extends AppCompatActivity {
                     if (response.isSuccessful()) {
                         runOnUiThread(() -> {
                             Toast.makeText(this, "Face registered successfully!", Toast.LENGTH_SHORT).show();
-
-                            // Automatically take them into the app now that they are verified!
                             Intent intent = new Intent(this, MainActivity.class);
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                             startActivity(intent);
@@ -292,7 +302,17 @@ public class FaceRegisterActivity extends AppCompatActivity {
         ByteBuffer buffer = image.getPlanes()[0].getBuffer();
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+        Bitmap rawBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+
+        int rotationDegrees = image.getImageInfo().getRotationDegrees();
+
+        if (rotationDegrees != 0) {
+            Matrix matrix = new Matrix();
+            matrix.postRotate(rotationDegrees);
+            return Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.getWidth(), rawBitmap.getHeight(), matrix, true);
+        }
+
+        return rawBitmap;
     }
 
     private boolean allPermissionsGranted() {

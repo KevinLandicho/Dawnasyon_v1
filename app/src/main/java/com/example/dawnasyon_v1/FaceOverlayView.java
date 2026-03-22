@@ -25,10 +25,10 @@ public class FaceOverlayView extends View {
     private int mImgWidth, mImgHeight;
     private final Path mPath = new Path();
 
-    // ⭐ THE FIX: Using a single Scale Factor to prevent "shrinking"
+    // ⭐ OFFICIAL ML KIT SCALING VARIABLES
     private float mScale = 1.0f;
-    private float mPostScaleWidthOffset = 0f;
-    private float mPostScaleHeightOffset = 0f;
+    private float mOffsetX = 0f;
+    private float mOffsetY = 0f;
 
     private boolean isRegistrationMode = false;
 
@@ -87,7 +87,6 @@ public class FaceOverlayView extends View {
         super.onDraw(canvas);
 
         if (isRegistrationMode) {
-            // Draw registration hole (unchanged)
             float width = getWidth();
             float height = getHeight();
             ovalRect = new RectF(width * 0.125f, height * 0.225f, width * 0.875f, height * 0.775f);
@@ -100,17 +99,12 @@ public class FaceOverlayView extends View {
         } else {
             if (mFace == null || mImgWidth == 0 || mImgHeight == 0) return;
 
-            // ⭐ IMPROVED SCALING MATH
-            // We use Math.max to make sure the face fills the screen view
-            float viewWidth = (float) getWidth();
-            float viewHeight = (float) getHeight();
+            // ⭐ 1. THE BULLETPROOF SCALING MATH
+            mScale = Math.max((float) getWidth() / mImgWidth, (float) getHeight() / mImgHeight);
 
-            float scaleX = viewWidth / (float) mImgWidth;
-            float scaleY = viewHeight / (float) mImgHeight;
-            mScale = Math.max(scaleX, scaleY);
-
-            mPostScaleWidthOffset = (viewWidth - (float) mImgWidth * mScale) / 2;
-            mPostScaleHeightOffset = (viewHeight - (float) mImgHeight * mScale) / 2;
+            // Calculate exactly how much image is hidden off-screen (cropping)
+            mOffsetX = (mImgWidth * mScale - getWidth()) / 2.0f;
+            mOffsetY = (mImgHeight * mScale - getHeight()) / 2.0f;
 
             int[] contours = {
                     FaceContour.FACE, FaceContour.LEFT_EYEBROW_TOP, FaceContour.RIGHT_EYEBROW_TOP,
@@ -128,14 +122,16 @@ public class FaceOverlayView extends View {
         }
     }
 
+    // ⭐ 2. OFFICIAL COORDINATE TRANSLATORS
     private float translateX(float x) {
-        // Front camera is mirrored
-        float flippedX = mImgWidth - x;
-        return (flippedX * mScale) + mPostScaleWidthOffset;
+        float scaledX = x * mScale;
+        // Flip the X coordinate for the Front Camera!
+        return getWidth() - (scaledX - mOffsetX);
     }
 
     private float translateY(float y) {
-        return (y * mScale) + mPostScaleHeightOffset;
+        float scaledY = y * mScale;
+        return scaledY - mOffsetY;
     }
 
     private void drawContourOptimized(Canvas canvas, FaceContour contour) {
@@ -158,11 +154,12 @@ public class FaceOverlayView extends View {
     }
 
     private void drawTechCorners(Canvas canvas, android.graphics.Rect boundingBox) {
-        float left = translateX(boundingBox.right);
+        float left = translateX(boundingBox.right); // Right maps to Left because mirrored
         float right = translateX(boundingBox.left);
         float top = translateY(boundingBox.top);
         float bottom = translateY(boundingBox.bottom);
 
+        // Safety check to ensure left is actually the smaller value
         if (left > right) { float temp = left; left = right; right = temp; }
 
         float len = (right - left) * 0.2f;

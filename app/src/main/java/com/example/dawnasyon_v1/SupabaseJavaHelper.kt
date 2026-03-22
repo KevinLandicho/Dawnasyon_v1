@@ -579,6 +579,26 @@ object SupabaseJavaHelper {
             } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to delete account") } }
         }
     }
+
+    // ====================================================
+    // ⭐ UPDATE FACE VERIFICATION TIME
+    // ====================================================
+    @JvmStatic
+    fun updateFaceVerificationTime(currentTimeUTC: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull() ?: return@launch
+                val updateData = mapOf("last_face_verified_at" to currentTimeUTC)
+
+                SupabaseManager.client.from("profiles").update(updateData) {
+                    filter { eq("id", currentUser.id) }
+                }
+                Log.d("Supabase", "Timestamp Update Success: $currentTimeUTC")
+            } catch (e: Exception) {
+                Log.e("Supabase", "Timestamp Update Error: ${e.message}")
+            }
+        }
+    }
 }
 
 // --- DTO CLASSES ---

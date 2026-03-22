@@ -7,12 +7,11 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.Size;
 import android.view.View;
-import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -20,6 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.OptIn;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.AspectRatio;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalGetImage;
 import androidx.camera.core.ImageAnalysis;
@@ -186,14 +186,24 @@ public class FaceVerifyActivity extends AppCompatActivity {
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-                Preview preview = new Preview.Builder().build();
-                preview.setSurfaceProvider(previewView.getSurfaceProvider());
-                imageCapture = new ImageCapture.Builder().build();
-                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                        .setTargetResolution(new Size(640, 480))
+
+                // ⭐ THE FIX 1: Set everything to 16:9 to fix the "Big Face" UI bug on newer phones
+                Preview preview = new Preview.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                         .build();
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+                imageCapture = new ImageCapture.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
+                        .build();
+
+                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setTargetAspectRatio(AspectRatio.RATIO_16_9)
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build();
+
                 imageAnalysis.setAnalyzer(cameraExecutor, this::analyzeFrame);
+
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA;
                 cameraProvider.unbindAll();
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
@@ -216,11 +226,9 @@ public class FaceVerifyActivity extends AppCompatActivity {
         if (mediaImage != null) {
             isAnalyzing = true;
 
-            // ⭐ CRITICAL: Get the rotation to know if the image is portrait or landscape
             int rotation = imageProxy.getImageInfo().getRotationDegrees();
             boolean isImageFlipped = rotation == 90 || rotation == 270;
 
-            // ⭐ CRITICAL: Get the actual dimensions of the image ML Kit is processing
             int imageWidth = isImageFlipped ? imageProxy.getHeight() : imageProxy.getWidth();
             int imageHeight = isImageFlipped ? imageProxy.getWidth() : imageProxy.getHeight();
 
@@ -230,7 +238,6 @@ public class FaceVerifyActivity extends AppCompatActivity {
                     .addOnSuccessListener(faces -> {
                         if (faces.size() == 1) {
                             Face face = faces.get(0);
-                            // ⭐ FIXED: Pass the image dimensions exactly as ML Kit sees them!
                             runOnUiThread(() -> faceOverlay.updateFace(face, imageWidth, imageHeight));
                             processGestures(face);
                         } else {
@@ -408,6 +415,7 @@ public class FaceVerifyActivity extends AppCompatActivity {
 
             if (score > 0.60f) {
                 Toast.makeText(this, "✅ Welcome!", Toast.LENGTH_SHORT).show();
+                updateSupabaseVerificationTimer();
                 prefs.edit().putLong("last_verified_timestamp", System.currentTimeMillis()).apply();
                 startActivity(new Intent(FaceVerifyActivity.this, MainActivity.class));
                 finish();
@@ -422,11 +430,35 @@ public class FaceVerifyActivity extends AppCompatActivity {
         }
     }
 
+    private void updateSupabaseVerificationTimer() {
+        try {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            String currentTimeUTC = sdf.format(new java.util.Date());
+            SupabaseJavaHelper.updateFaceVerificationTime(currentTimeUTC);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    // ⭐ THE FIX 2: Properly rotate the image so other phone brands don't scan a sideways face!
     private Bitmap imageProxyToBitmap(ImageProxy image) {
         ByteBuffer buffer = image.getPlanes()[0].getBuffer();
         byte[] bytes = new byte[buffer.remaining()];
         buffer.get(bytes);
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+        Bitmap rawBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+
+        int rotationDegrees = image.getImageInfo().getRotationDegrees();
+
+        // If the phone's hardware gives us a sideways image, we fix it here.
+        if (rotationDegrees != 0) {
+            Matrix matrix = new Matrix();
+            matrix.postRotate(rotationDegrees);
+            // DO NOT postScale (no mirroring) because mirroring ruins the mathematical embedding.
+            return Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.getWidth(), rawBitmap.getHeight(), matrix, true);
+        }
+
+        return rawBitmap;
     }
 
     @Override
