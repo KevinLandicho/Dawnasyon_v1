@@ -28,7 +28,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
     private OnItemClickListener listener;
     private Context context;
 
-    // Tracks which posts are expanded
     private Set<Integer> expandedPositions = new HashSet<>();
 
     public interface OnItemClickListener {
@@ -71,7 +70,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
                         holder.imgLikeIcon.setColorFilter(Color.parseColor("#F5901A"));
                     }
                 } else if (payload.equals("BOOKMARK_UPDATE")) {
-                    // Bookmark count is completely removed from UI updates
                     if (item.isBookmarked()) {
                         holder.imgBookmarkIcon.setImageResource(R.drawable.ic_bookmark_filled);
                         holder.imgBookmarkIcon.setColorFilter(Color.parseColor("#F5901A"));
@@ -135,14 +133,36 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
         if (isDrive) {
             holder.btnApply.setVisibility(View.VISIBLE);
 
+            // ⭐ LOGIC: Applied > Full > Open
             if (item.isApplied()) {
                 holder.btnApply.setText("Applied");
                 holder.btnApply.setBackgroundColor(Color.GRAY);
                 holder.btnApply.setEnabled(false);
-            } else {
+            }
+            else if (item.isDriveFull()) {
+                // ⭐ This will now trigger even if limit is 0
+                holder.btnApply.setText("FULL");
+                holder.btnApply.setBackgroundColor(Color.parseColor("#D32F2F")); // Material Red
+                holder.btnApply.setEnabled(false);
+            }
+            else {
                 holder.btnApply.setText("Apply Now");
                 holder.btnApply.setBackgroundColor(Color.parseColor("#F5901A"));
                 holder.btnApply.setEnabled(true);
+            }
+
+            // ⭐ Slot Display Logic
+            String slots = item.getSlotsRemaining();
+            if (slots != null && !item.isApplied()) {
+                holder.layoutDates.setVisibility(View.VISIBLE);
+                holder.tvStartDate.setVisibility(View.VISIBLE);
+                holder.tvStartDate.setText(slots);
+
+                if (item.isDriveFull()) {
+                    holder.tvStartDate.setTextColor(Color.RED);
+                } else {
+                    holder.tvStartDate.setTextColor(Color.parseColor("#2E7D32")); // Green
+                }
             }
 
             holder.btnApply.setTag(holder.btnApply.getText().toString());
@@ -151,22 +171,13 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
             String start = item.getDriveStartDate();
             String end = item.getDriveEndDate();
 
-            if (start != null || end != null) {
+            // Handle Dates display alongside slots
+            if (end != null) {
                 holder.layoutDates.setVisibility(View.VISIBLE);
-                if (start != null) {
-                    holder.tvStartDate.setVisibility(View.VISIBLE);
-                    holder.tvStartDate.setText("Start: " + formatDateTime(start, false));
-                } else {
-                    holder.tvStartDate.setVisibility(View.GONE);
-                }
-                if (end != null) {
-                    holder.tvEndDate.setVisibility(View.VISIBLE);
-                    holder.tvEndDate.setText("End: " + formatDateTime(end, false));
-                } else {
-                    holder.tvEndDate.setVisibility(View.GONE);
-                }
+                holder.tvEndDate.setVisibility(View.VISIBLE);
+                holder.tvEndDate.setText("End: " + formatDateTime(end, false));
             } else {
-                holder.layoutDates.setVisibility(View.GONE);
+                holder.tvEndDate.setVisibility(View.GONE);
             }
 
             holder.itemView.setOnClickListener(v -> listener.onCardClick(item));
@@ -261,7 +272,6 @@ public class AnnouncementAdapter extends RecyclerView.Adapter<AnnouncementAdapte
 
             imgLikeIcon = itemView.findViewById(R.id.img_like_icon);
             imgBookmarkIcon = itemView.findViewById(R.id.img_bookmark_icon);
-            // Removed tvBookmarkCount reference!
         }
     }
 }

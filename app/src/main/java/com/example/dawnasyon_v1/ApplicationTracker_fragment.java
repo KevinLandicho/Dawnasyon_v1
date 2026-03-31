@@ -135,18 +135,12 @@ public class ApplicationTracker_fragment extends BaseFragment {
         });
     }
 
-    // ========================================================================
-    // ⭐ BULLETPROOF FILTER LOGIC
-    // ========================================================================
     private void applyFilter(String targetStatus, Button activeBtn) {
-        // 1. Reset all button colors to gray
         resetButtonStyles();
 
-        // 2. Highlight the clicked button to Teal
         activeBtn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#27869B")));
         activeBtn.setTextColor(Color.WHITE);
 
-        // 3. Filter the actual list
         filteredList.clear();
         for (ApplicationHistoryDTO app : fullAppList) {
             if (targetStatus.equals("All")) {
@@ -177,7 +171,6 @@ public class ApplicationTracker_fragment extends BaseFragment {
             }
         }
 
-        // 4. Show Empty state if filter returns 0 results
         if (filteredList.isEmpty()) {
             tvEmpty.setText("No " + targetStatus + " applications found.");
             tvEmpty.setVisibility(View.VISIBLE);
@@ -187,7 +180,6 @@ public class ApplicationTracker_fragment extends BaseFragment {
             rvApplications.setVisibility(View.VISIBLE);
         }
 
-        // 5. Tell the RecyclerView to refresh
         if (adapter != null) {
             adapter.updateList(filteredList);
         }
@@ -195,7 +187,7 @@ public class ApplicationTracker_fragment extends BaseFragment {
 
     private void resetButtonStyles() {
         Button[] buttons = {btnAll, btnPending, btnApproved, btnDeclined, btnClaimed};
-        int inactiveColor = Color.parseColor("#E0E0E0"); // Light Gray
+        int inactiveColor = Color.parseColor("#E0E0E0");
         int inactiveTextColor = Color.BLACK;
 
         for (Button b : buttons) {
@@ -209,18 +201,22 @@ public class ApplicationTracker_fragment extends BaseFragment {
     private void showProcessDialog(ApplicationHistoryDTO app) {
         String title = (app.getRelief_drives() != null) ? app.getRelief_drives().getName() : "Relief Operation";
 
+        // ⭐ THE FIX: Extract the Relief Item List from the Drive
+        String itemList = "Items not specified.";
+        if (app.getRelief_drives() != null && app.getRelief_drives().getRelief_item_list() != null) {
+            itemList = app.getRelief_drives().getRelief_item_list();
+        }
+
         TrackerDetailsDialog_Fragment dialog = TrackerDetailsDialog_Fragment.newInstance(
                 title,
                 app.getStatus(),
                 app.getCreated_at(),
-                app.getProof_photo()
+                app.getProof_photo(),
+                itemList // ⭐ Passed to dialog
         );
         dialog.show(getParentFragmentManager(), "TrackerDetails");
     }
 
-    // ====================================================
-    // ⭐ INNER ADAPTER CLASS
-    // ====================================================
     private static class TrackerAdapter extends RecyclerView.Adapter<TrackerAdapter.ViewHolder> {
         private List<ApplicationHistoryDTO> list;
         private final OnItemClickListener listener;
@@ -251,11 +247,9 @@ public class ApplicationTracker_fragment extends BaseFragment {
             ApplicationHistoryDTO item = list.get(position);
             Context context = holder.itemView.getContext();
 
-            // 1. Title
             String title = (item.getRelief_drives() != null) ? item.getRelief_drives().getName() : "Relief Operation";
             holder.tvTitle.setText(title);
 
-            // 2. Date
             String date = item.getCreated_at();
             if (date != null && date.length() > 10) {
                 date = date.substring(0, 10);
@@ -263,12 +257,8 @@ public class ApplicationTracker_fragment extends BaseFragment {
             String dateText = "Applied: " + date;
             holder.tvDate.setText(dateText);
 
-            // 3. Status & Colors
             String status = item.getStatus().toUpperCase();
             holder.tvStatus.setText(status);
-
-            // ⭐ CRITICAL FIX: Removed dynamic TranslationHelper calls here
-            // to prevent the Race Condition text overlapping bug when filtering!
 
             if (status.equals("PENDING")) {
                 holder.tvStatus.setTextColor(Color.parseColor("#E65100"));

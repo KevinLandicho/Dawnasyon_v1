@@ -29,14 +29,16 @@ public class Announcement implements Serializable {
     @SerializedName("affected_street")
     private String affectedStreet;
 
+    // ⭐ THE FIX: Mapped the status column from Supabase!
+    @SerializedName("status")
+    private String status;
+
     @SerializedName("like_count")
     private int likeCount = 0;
 
-    // ⭐ NEW: Added bookmark_count so Supabase can map it!
     @SerializedName("bookmark_count")
     private int bookmarkCount = 0;
 
-    // Capture the nested "relief_drives" data from Supabase join
     @SerializedName("relief_drives")
     private ReliefDriveInfo driveInfo;
 
@@ -51,12 +53,14 @@ public class Announcement implements Serializable {
     public long getPostId() { return postId; }
     public String getTitle() { return title; }
     public String getTimestamp() { return timestamp; }
-    public String getCreated_at() { return timestamp; } // Alias for Home_fragment compatibility
+    public String getCreated_at() { return timestamp; }
     public String getDescription() { return description; }
     public String getImageUrl() { return imageUrl; }
     public Long getLinkedDriveId() { return linkedDriveId; }
     public String getType() { return type; }
     public String getAffected_street() { return affectedStreet; }
+
+    public String getStatus() { return status; }
 
     // --- HELPER METHODS FOR NESTED DATA ---
     public String getDriveStartDate() {
@@ -68,15 +72,28 @@ public class Announcement implements Serializable {
     }
 
     public String getReliefItemList() {
-        // If driveInfo is null or the list is null, return null so we can handle the default text in the fragment
         return (driveInfo != null) ? driveInfo.reliefItemList : null;
+    }
+
+    public boolean isDriveFull() {
+        if (driveInfo == null) return false;
+        return driveInfo.currentApplications >= driveInfo.applicationLimit;
+    }
+
+    public String getSlotsRemaining() {
+        if (driveInfo == null) return null;
+        int remaining = driveInfo.applicationLimit - driveInfo.currentApplications;
+
+        if (remaining <= 0) {
+            return "No slots remaining";
+        }
+        return remaining + " slots remaining";
     }
 
     // --- LOCAL STATE SETTERS/GETTERS ---
     public int getLikeCount() { return likeCount; }
     public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
 
-    // ⭐ NEW: Getters and Setters for Bookmark Count so your Adapter can read it!
     public int getBookmarkCount() { return bookmarkCount; }
     public void setBookmarkCount(int bookmarkCount) { this.bookmarkCount = bookmarkCount; }
 
@@ -99,5 +116,11 @@ public class Announcement implements Serializable {
 
         @SerializedName("relief_item_list")
         public String reliefItemList;
+
+        @SerializedName("application_limit")
+        public int applicationLimit;
+
+        @SerializedName("current_applications")
+        public int currentApplications;
     }
 }
