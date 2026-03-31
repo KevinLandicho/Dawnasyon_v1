@@ -76,7 +76,7 @@ public class Home_fragment extends BaseFragment {
 
     // Preference Keys
     private static final String PREF_NAME = "UserPrefs";
-    private static final String CACHE_PREF = "ProfileCache"; // ⭐ NEW
+    private static final String CACHE_PREF = "ProfileCache";
     private static final String KEY_LAST_CHECKED_DRIVE = "last_checked_drive_time";
 
     // Carousel Runnable
@@ -160,7 +160,6 @@ public class Home_fragment extends BaseFragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // ⭐ INSTANT UI LOAD: Read the user's name and avatar from local memory
         SharedPreferences profileCache = requireContext().getSharedPreferences(CACHE_PREF, Context.MODE_PRIVATE);
         String cachedName = profileCache.getString("full_name", "");
         String cachedAvatar = profileCache.getString("avatar_name", "");
@@ -168,10 +167,9 @@ public class Home_fragment extends BaseFragment {
         if (!cachedName.isEmpty()) {
             welcomeText.setText("Welcome, " + cachedName + "!");
         } else {
-            welcomeText.setText("Welcome!"); // Safe fallback for brand new users
+            welcomeText.setText("Welcome!");
         }
 
-        // Instantly load avatar from cache if we have one
         if (!cachedAvatar.isEmpty()) {
             try {
                 if (cachedAvatar.startsWith("http://") || cachedAvatar.startsWith("https://")) {
@@ -190,9 +188,6 @@ public class Home_fragment extends BaseFragment {
     public void onResume() {
         super.onResume();
         sliderHandler.postDelayed(sliderRunnable, SLIDE_INTERVAL_MS);
-
-        // ⭐ ALWAYS call this onResume. It acts as a silent background refresh
-        // if Supabase failed the first time.
         loadUserProfileAndAnnouncements();
     }
 
@@ -213,7 +208,6 @@ public class Home_fragment extends BaseFragment {
     // ====================================================
 
     private void loadUserProfileAndAnnouncements() {
-        // Only show the loading spinner dialog on the very first load
         if (isFirstLoad && getActivity() instanceof BaseActivity) {
             ((BaseActivity) getActivity()).showLoading();
         }
@@ -226,14 +220,12 @@ public class Home_fragment extends BaseFragment {
                 if (!isAdded() || getActivity() == null) return;
 
                 if (profile != null) {
-                    // ⭐ SAVE TO CACHE FOR NEXT TIME
                     SharedPreferences profileCache = requireContext().getSharedPreferences(CACHE_PREF, Context.MODE_PRIVATE);
                     profileCache.edit()
                             .putString("full_name", profile.getFull_name())
                             .putString("avatar_name", profile.getAvatarName())
                             .apply();
 
-                    // Update UI
                     String welcomeMsg = "Welcome, " + profile.getFull_name() + "!";
                     welcomeText.setText(welcomeMsg);
 
@@ -304,6 +296,13 @@ public class Home_fragment extends BaseFragment {
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
                 for (Announcement item : data) {
+
+                    // ⭐ THE FIX: Strict gatekeeper logic based on the mapped status!
+                    // If the post does NOT say "Approved", it gets completely ignored.
+                    if (item.getStatus() == null || !item.getStatus().equalsIgnoreCase("Approved")) {
+                        continue;
+                    }
+
                     boolean showIt = true;
                     boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
                     boolean isGeneral = (item.getType() == null || item.getType().equalsIgnoreCase("General"));
@@ -362,7 +361,6 @@ public class Home_fragment extends BaseFragment {
 
                 applyFilters(searchView.getQuery().toString());
 
-                // ⭐ Prevents the loading spinner from showing again during tab switches
                 isFirstLoad = false;
             }
 
@@ -372,7 +370,6 @@ public class Home_fragment extends BaseFragment {
                 if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                 if (fullAnnouncementList.isEmpty()) updatePlaceholder(true);
 
-                // ⭐ Ensure we mark this as false even on error, so it doesn't get stuck loading forever
                 isFirstLoad = false;
             }
         });

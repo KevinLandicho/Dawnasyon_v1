@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -56,7 +57,7 @@ import org.osmdroid.tileprovider.tilesource.OnlineTileSourceBase;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.util.MapTileIndex;
-import org.osmdroid.views.CustomZoomButtonsController; // ⭐ IMPORTED THIS
+import org.osmdroid.views.CustomZoomButtonsController;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.MapEventsOverlay;
 import org.osmdroid.views.overlay.Marker;
@@ -72,8 +73,10 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
@@ -99,14 +102,13 @@ public class LiveMap_fragment extends BaseFragment {
 
     // ⭐ SUPABASE CONFIGURATION
     private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
-    // Using the key you provided
     private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
 
     // BRGY STA. LUCIA COORDINATES
     private static final double STA_LUCIA_LAT = 14.7046;
     private static final double STA_LUCIA_LON = 121.0560;
 
-    // ⭐ IMAGE UPLOAD VARIABLES
+    // IMAGE UPLOAD VARIABLES
     private Uri selectedImageUri = null;
     private TextView tvImageStatus;
 
@@ -117,7 +119,7 @@ public class LiveMap_fragment extends BaseFragment {
                     selectedImageUri = uri;
                     if (tvImageStatus != null) {
                         tvImageStatus.setText("📸 Image Selected ✓");
-                        tvImageStatus.setTextColor(Color.parseColor("#2E7D32")); // Green success
+                        tvImageStatus.setTextColor(Color.parseColor("#2E7D32"));
                     }
                 }
             });
@@ -170,7 +172,6 @@ public class LiveMap_fragment extends BaseFragment {
         map.setTileSource(TileSourceFactory.MAPNIK);
         map.setMultiTouchControls(true);
 
-        // ⭐ FIXED: Hide the default Osmdroid zoom buttons (+/-) so they don't overlap your UI!
         map.getZoomController().setVisibility(CustomZoomButtonsController.Visibility.NEVER);
 
         GeoPoint startPoint = new GeoPoint(STA_LUCIA_LAT, STA_LUCIA_LON);
@@ -180,21 +181,19 @@ public class LiveMap_fragment extends BaseFragment {
         drawStaLuciaBorder();
         addMapTapListener();
 
-        // Updated instructions for the new tap-to-pin interaction
         Toast.makeText(getContext(), "Tip: Tap anywhere to drop a pin, then tap the pin again to Report an Emergency.", Toast.LENGTH_LONG).show();
 
-        // ⭐ FETCH REAL ALERTS (Approved only)
-        fetchSupabaseAnnouncements();
-
-        setupWindTiles();
-        checkAndRequestLocation();
-
+        // 1. Fetch user's home address FIRST, then fetch announcements so the Radar works!
         if (targetAddress != null && !targetAddress.isEmpty()) {
             String betterAddress = targetAddress + ", Philippines";
             locateAddressOnMap(betterAddress, startPoint);
+            fetchSupabaseAnnouncements();
         } else {
             fetchRegisteredAddress(startPoint);
         }
+
+        setupWindTiles();
+        checkAndRequestLocation();
 
         fetchUSGSData();
         fetchPhivolcsData();
@@ -254,6 +253,7 @@ public class LiveMap_fragment extends BaseFragment {
 
                     for (int i = 0; i < array.length(); i++) {
                         JSONObject item = array.getJSONObject(i);
+                        String postId = item.optString("post_id", "");
                         String type = item.optString("type", "General");
                         String typeLower = type.toLowerCase();
 
@@ -273,9 +273,11 @@ public class LiveMap_fragment extends BaseFragment {
                             if (lat != 0.0 && lon != 0.0) {
                                 GeoPoint point = new GeoPoint(lat, lon);
                                 String finalAffected = affected.isEmpty() ? location : affected;
-                                new Handler(Looper.getMainLooper()).post(() ->
-                                        addAlertMarkerAndZone(point, type, title, body, finalAffected)
-                                );
+
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    addAlertMarkerAndZone(point, type, title, body, finalAffected);
+                                    checkProximityAndWarn(postId, type, title, point); // ⭐ RADAR CHECK
+                                });
                             }
                             else {
                                 String targetLocation = "";
@@ -311,9 +313,11 @@ public class LiveMap_fragment extends BaseFragment {
 
                                             GeoPoint point = new GeoPoint(addr.getLatitude(), addr.getLongitude());
                                             String finalAffected = targetLocation;
-                                            new Handler(Looper.getMainLooper()).post(() ->
-                                                    addAlertMarkerAndZone(point, type, title, body, finalAffected)
-                                            );
+
+                                            new Handler(Looper.getMainLooper()).post(() -> {
+                                                addAlertMarkerAndZone(point, type, title, body, finalAffected);
+                                                checkProximityAndWarn(postId, type, title, point); // ⭐ RADAR CHECK
+                                            });
                                         }
                                     }
                                 } catch (Exception e) { e.printStackTrace(); }
@@ -324,6 +328,73 @@ public class LiveMap_fragment extends BaseFragment {
             } catch (Exception e) { e.printStackTrace(); }
         }).start();
     }
+
+    // =========================================================================
+    // ⭐ PROXIMITY RADAR & NOTIFICATION INSERTER
+    // =========================================================================
+    private void checkProximityAndWarn(String postId, String type, String title, GeoPoint disasterPoint) {
+        if (getContext() == null || homeMarker == null || postId.isEmpty()) return;
+
+        // Calculate distance in meters
+        double distance = disasterPoint.distanceToAsDouble(homeMarker.getPosition());
+
+        // If disaster is within 1000 meters (1km)
+        if (distance <= 500) {
+            SharedPreferences prefs = requireContext().getSharedPreferences("RadarCache", Context.MODE_PRIVATE);
+            Set<String> alertedPosts = prefs.getStringSet("alerted_posts", new HashSet<>());
+
+            // Prevent spam! Only alert if we haven't seen this post ID yet.
+            if (!alertedPosts.contains(postId)) {
+
+                Set<String> newSet = new HashSet<>(alertedPosts);
+                newSet.add(postId);
+                prefs.edit().putStringSet("alerted_posts", newSet).apply();
+
+                // 1. POPUP WARNING IN UI
+                new AlertDialog.Builder(getContext())
+                        .setTitle("⚠️")
+                        .setMessage("A " + type + " has been reported roughly " + Math.round(distance) + " meters from your home!\n\n" + title)
+                        .setPositiveButton("Understood", null)
+                        .setIcon(android.R.drawable.ic_dialog_alert)
+                        .show();
+
+                // 2. INSERT NOTIFICATION TO DB (Triggers your Push Function)
+                insertEmergencyNotificationIntoDb(type, title);
+            }
+        }
+    }
+
+    private void insertEmergencyNotificationIntoDb(String type, String disasterTitle) {
+        AuthHelper.fetchUserProfile(profile -> {
+            if (profile != null && profile.getId() != null) {
+                new Thread(() -> {
+                    try {
+                        JSONObject json = new JSONObject();
+                        json.put("user_id", profile.getId());
+                        json.put("title", "Emergency!" + type);
+                        json.put("message", "A " + type + " (" + disasterTitle + ") is dangerously close to your registered address! Please check the map immediately.");
+                        json.put("type", "Emergency Alert");
+                        json.put("sender_name", "Live Map Radar");
+
+                        RequestBody body = RequestBody.create(json.toString(), MediaType.parse("application/json; charset=utf-8"));
+                        Request request = new Request.Builder()
+                                .url(SUPABASE_URL + "/rest/v1/notifications")
+                                .addHeader("apikey", SUPABASE_KEY)
+                                .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
+                                .post(body)
+                                .build();
+
+                        client.newCall(request).execute().close();
+                        Log.d("LiveMap", "Successfully inserted emergency notification!");
+                    } catch (Exception e) {
+                        Log.e("LiveMap", "Failed to insert notification", e);
+                    }
+                }).start();
+            }
+            return null;
+        });
+    }
+    // =========================================================================
 
     private void addAlertMarkerAndZone(GeoPoint point, String type, String title, String body, String affected) {
         Marker marker = new Marker(map);
@@ -524,7 +595,6 @@ public class LiveMap_fragment extends BaseFragment {
         MapEventsReceiver receiver = new MapEventsReceiver() {
             @Override
             public boolean singleTapConfirmedHelper(GeoPoint p) {
-                // Pin the location on a single tap
                 addSelectedLocationMarker(p);
                 return true;
             }
@@ -537,9 +607,6 @@ public class LiveMap_fragment extends BaseFragment {
         map.getOverlays().add(new MapEventsOverlay(receiver));
     }
 
-    // =========================================================================
-    // ⭐ TAP-TO-PIN LOGIC
-    // =========================================================================
     private void addSelectedLocationMarker(GeoPoint p) {
         if (selectedLocationMarker != null) map.getOverlays().remove(selectedLocationMarker);
 
@@ -551,15 +618,12 @@ public class LiveMap_fragment extends BaseFragment {
         DecimalFormat df = new DecimalFormat("#.#####");
         String coords = df.format(p.getLatitude()) + ", " + df.format(p.getLongitude());
 
-        // Instructional snippet
         selectedLocationMarker.setSnippet("Coords: " + coords + "\n👉 TAP THIS PIN AGAIN TO REPORT INCIDENT");
 
-        // CLICKING THE MARKER ITSELF OPENS THE REPORT DIALOG
         selectedLocationMarker.setOnMarkerClickListener((marker, mapView) -> {
             if (!marker.isInfoWindowShown()) {
                 marker.showInfoWindow();
             } else {
-                // Tap again! Open the custom report dialog
                 showReportEmergencyDialog(marker.getPosition());
             }
             return true;
@@ -570,45 +634,36 @@ public class LiveMap_fragment extends BaseFragment {
         selectedLocationMarker.showInfoWindow();
     }
 
-    // =========================================================================
-    // ⭐ BEAUTIFUL PROGRAMMATIC UI FOR EMERGENCY REPORT
-    // =========================================================================
     private void showReportEmergencyDialog(GeoPoint p) {
         Context context = getContext();
         if (context == null) return;
 
-        // Reset variables for new report
         selectedImageUri = null;
 
-        // Main Container
         LinearLayout layout = new LinearLayout(context);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(60, 50, 60, 40);
         layout.setBackgroundColor(Color.WHITE);
 
-        // Title
         TextView tvTitle = new TextView(context);
         tvTitle.setText("🚨 Report Emergency");
         tvTitle.setTextSize(22f);
-        tvTitle.setTextColor(Color.parseColor("#C62828")); // Dark Red
+        tvTitle.setTextColor(Color.parseColor("#C62828"));
         tvTitle.setTypeface(null, Typeface.BOLD);
         tvTitle.setPadding(0, 0, 0, 20);
         layout.addView(tvTitle);
 
-        // Subtitle
         TextView tvSub = new TextView(context);
         tvSub.setText("Please select the type of emergency and attach a photo (REQUIRED) to alert the barangay.");
         tvSub.setTextColor(Color.DKGRAY);
         tvSub.setPadding(0, 0, 0, 40);
         layout.addView(tvSub);
 
-        // Spinner (Emergency Type)
         String[] emergencyTypes = {"Fire", "Flood", "Earthquake"};
         Spinner spinner = new Spinner(context);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_dropdown_item, emergencyTypes);
         spinner.setAdapter(adapter);
 
-        // Spinner Styling
         GradientDrawable spinnerBg = new GradientDrawable();
         spinnerBg.setColor(Color.parseColor("#F5F5F5"));
         spinnerBg.setCornerRadius(12f);
@@ -620,7 +675,6 @@ public class LiveMap_fragment extends BaseFragment {
         spinParams.setMargins(0, 0, 0, 30);
         layout.addView(spinner, spinParams);
 
-        // EditText (Details)
         EditText inputDetails = new EditText(context);
         inputDetails.setHint("Add details (e.g., 'House on fire', 'Waist-deep flood')...");
         inputDetails.setHintTextColor(Color.GRAY);
@@ -629,7 +683,6 @@ public class LiveMap_fragment extends BaseFragment {
         inputDetails.setGravity(Gravity.TOP | Gravity.START);
         inputDetails.setMinLines(3);
 
-        // EditText Styling
         GradientDrawable etBg = new GradientDrawable();
         etBg.setColor(Color.parseColor("#FAFAFA"));
         etBg.setCornerRadius(16f);
@@ -641,15 +694,13 @@ public class LiveMap_fragment extends BaseFragment {
         etParams.setMargins(0, 0, 0, 40);
         layout.addView(inputDetails, etParams);
 
-        // Image Selection Button
         Button btnSelectImage = new Button(context);
         btnSelectImage.setText("Attach Proof Photo (Required)");
         btnSelectImage.setTextColor(Color.WHITE);
         btnSelectImage.setAllCaps(false);
 
-        // Button Styling
         GradientDrawable btnBg = new GradientDrawable();
-        btnBg.setColor(Color.parseColor("#1976D2")); // Blue
+        btnBg.setColor(Color.parseColor("#1976D2"));
         btnBg.setCornerRadius(16f);
         btnSelectImage.setBackground(btnBg);
 
@@ -658,7 +709,6 @@ public class LiveMap_fragment extends BaseFragment {
         btnParams.setMargins(0, 0, 0, 15);
         layout.addView(btnSelectImage, btnParams);
 
-        // Image Status Text
         tvImageStatus = new TextView(context);
         tvImageStatus.setText("No image attached");
         tvImageStatus.setTextColor(Color.RED);
@@ -666,7 +716,6 @@ public class LiveMap_fragment extends BaseFragment {
         tvImageStatus.setGravity(Gravity.CENTER);
         layout.addView(tvImageStatus);
 
-        // Create Dialog
         AlertDialog dialog = new AlertDialog.Builder(context)
                 .setView(layout)
                 .setPositiveButton("Submit Report", null)
@@ -677,16 +726,12 @@ public class LiveMap_fragment extends BaseFragment {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#C62828"));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.GRAY);
 
-        // Handle Submit Click
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-
-            // ⭐ REQUIRED IMAGE VALIDATION
             if (selectedImageUri == null) {
                 Toast.makeText(context, "A proof photo is required to submit a report.", Toast.LENGTH_SHORT).show();
-                return; // Stop execution, don't close dialog
+                return;
             }
 
-            // ⭐ 1. PREVENT DOUBLE CLICKS
             v.setEnabled(false);
             if (v instanceof Button) {
                 ((Button) v).setText("Submitting...");
@@ -695,22 +740,19 @@ public class LiveMap_fragment extends BaseFragment {
             String selectedType = spinner.getSelectedItem().toString() + " Alert";
             String details = inputDetails.getText().toString().trim();
 
-            // ⭐ FETCH USER NAME THEN SUBMIT
             fetchUserNameAndSubmit(context, p, selectedType, details, dialog);
         });
     }
 
-    // Helper to fetch user's name before submitting
     private void fetchUserNameAndSubmit(Context safeContext, GeoPoint p, String type, String details, AlertDialog dialog) {
         Toast.makeText(safeContext, "Preparing report...", Toast.LENGTH_SHORT).show();
 
-        // ⭐ 2. PREVENT DOUBLE CALLBACKS (Blocks offline + online cache from firing twice)
         final boolean[] hasProcessed = {false};
 
         SupabaseJavaHelper.fetchUserProfile(safeContext, new SupabaseJavaHelper.ProfileCallback() {
             @Override
             public void onLoaded(Profile profile) {
-                if (hasProcessed[0]) return; // If already processed, ignore second trigger
+                if (hasProcessed[0]) return;
                 hasProcessed[0] = true;
 
                 String authorName = "Unknown Citizen";
@@ -724,7 +766,7 @@ public class LiveMap_fragment extends BaseFragment {
 
             @Override
             public void onError(String message) {
-                if (hasProcessed[0]) return; // If already processed, ignore second trigger
+                if (hasProcessed[0]) return;
                 hasProcessed[0] = true;
 
                 submitEmergencyReport(safeContext, p, type, details, "Unknown Citizen");
@@ -733,7 +775,6 @@ public class LiveMap_fragment extends BaseFragment {
         });
     }
 
-    // Helper to read bytes for uploading
     private byte[] getBytes(InputStream inputStream) throws IOException {
         ByteArrayOutputStream byteBuffer = new ByteArrayOutputStream();
         int bufferSize = 1024;
@@ -745,13 +786,11 @@ public class LiveMap_fragment extends BaseFragment {
         return byteBuffer.toByteArray();
     }
 
-    // ⭐ UPDATED TO INCLUDE AUTHOR NAME
     private void submitEmergencyReport(Context safeContext, GeoPoint p, String type, String details, String authorName) {
         Toast.makeText(safeContext, "Uploading report...", Toast.LENGTH_SHORT).show();
 
         new Thread(() -> {
             try {
-                // 1. Upload image (We know it's not null due to validation)
                 String uploadedImageUrl = null;
                 try {
                     InputStream is = safeContext.getContentResolver().openInputStream(selectedImageUri);
@@ -777,7 +816,6 @@ public class LiveMap_fragment extends BaseFragment {
                     Log.e("UploadError", "Image upload failed: " + e.getMessage());
                 }
 
-                // 2. Reverse Geocode for street name
                 String affectedStreet = "Pinned Location";
                 try {
                     Geocoder geocoder = new Geocoder(safeContext, Locale.getDefault());
@@ -787,7 +825,6 @@ public class LiveMap_fragment extends BaseFragment {
                     }
                 } catch (Exception ignored) {}
 
-                // 3. Build the JSON Payload for Database
                 JSONObject json = new JSONObject();
                 json.put("type", type);
                 json.put("title", "Citizen Report");
@@ -797,7 +834,6 @@ public class LiveMap_fragment extends BaseFragment {
                 json.put("affected_street", affectedStreet);
                 json.put("status", "Pending");
 
-                // ⭐ ADDED AUTHOR
                 json.put("author", authorName);
 
                 if (uploadedImageUrl != null) {
@@ -815,7 +851,6 @@ public class LiveMap_fragment extends BaseFragment {
                         .post(body)
                         .build();
 
-                // 4. Send Database Request
                 try (Response response = client.newCall(request).execute()) {
                     if (response.isSuccessful()) {
                         new Handler(Looper.getMainLooper()).post(() -> {
@@ -834,7 +869,6 @@ public class LiveMap_fragment extends BaseFragment {
             }
         }).start();
     }
-    // =========================================================================
 
     private void openGoogleMapsStreetView() {
         double lat, lon;
@@ -1005,8 +1039,13 @@ public class LiveMap_fragment extends BaseFragment {
             if (profile != null) {
                 String address = (profile.getHouse_number() + " " + profile.getStreet() + ", " + profile.getBarangay() + ", " + profile.getCity() + ", Philippines").replace("null", "").trim();
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    if (address.length() > 5) locateAddressOnMap(address, defaultPoint);
-                    else { addHomeMarker(STA_LUCIA_LAT, STA_LUCIA_LON, "My Location", "Sta. Lucia (Default)"); }
+                    if (address.length() > 5) {
+                        locateAddressOnMap(address, defaultPoint);
+                        fetchSupabaseAnnouncements(); // Fetch after we know the home point
+                    } else {
+                        addHomeMarker(STA_LUCIA_LAT, STA_LUCIA_LON, "My Location", "Sta. Lucia (Default)");
+                        fetchSupabaseAnnouncements(); // Fetch after default point is set
+                    }
                 });
             }
             return null;
