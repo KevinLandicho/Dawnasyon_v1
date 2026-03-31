@@ -10,13 +10,12 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentTransaction;
 
 public class SignUpResident_fragment extends BaseFragment {
 
     private Button btnResident;
     private Button btnNonResident;
-    private String selectedResidency = null; // Stores "Resident" or "Non-Resident"
+    private String selectedResidency = null;
 
     public SignUpResident_fragment() {
         // Required empty public constructor
@@ -76,13 +75,12 @@ public class SignUpResident_fragment extends BaseFragment {
             return;
         }
 
-        // ⭐ ADDED: Save the selection to Cache so it can be sent to DB later
         RegistrationCache.userType = selectedResidency;
 
         Fragment nextFragment = null;
 
         if (selectedResidency.equals("Resident")) {
-            // --- ACTION: Go to Step 1 (Personal Info) ---
+            // Action for Resident
             nextFragment = new SignUpValidID_fragment();
         } else {
             // Action for Non-Resident
@@ -92,13 +90,14 @@ public class SignUpResident_fragment extends BaseFragment {
         // Perform the transition
         if (nextFragment != null) {
             getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container_signup, nextFragment) // Replace current screen
-                    .addToBackStack(null) // Add to back stack so "Back" button works
+                    .replace(R.id.fragment_container_signup, nextFragment)
+                    .addToBackStack(null)
                     .commit();
         }
     }
 
     private void navigatePrevious() {
-        requireActivity().getSupportFragmentManager().popBackStack();
+        // ⭐ THE FIX: Since this is now the FIRST screen, pressing "Previous" should close the Sign Up screen and return to Login
+        requireActivity().finish();
     }
 }

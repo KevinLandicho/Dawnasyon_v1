@@ -223,10 +223,11 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         RegistrationCache.tempContact = contact;
         RegistrationCache.tempEmail = email;
 
+        // ⭐ THE FIX: Pass an empty string instead of null!
         if (finalIdUri != null) {
             RegistrationCache.tempIdImageUri = finalIdUri.toString();
         } else {
-            RegistrationCache.tempIdImageUri = null;
+            RegistrationCache.tempIdImageUri = "";
         }
 
         String nameMismatchNote = "";

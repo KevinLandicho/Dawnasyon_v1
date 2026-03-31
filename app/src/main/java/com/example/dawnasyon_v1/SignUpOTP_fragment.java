@@ -7,7 +7,6 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,6 +20,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import android.util.Log;
 
 public class SignUpOTP_fragment extends BaseFragment {
 
@@ -199,7 +199,7 @@ public class SignUpOTP_fragment extends BaseFragment {
         });
     }
 
-    // ⭐ THE FIX: Profile creation now triggers Census linking!
+    // ⭐ THE FIX: Check userType before linking to Census!
     private void createProfile() {
         if (getContext() == null) return;
 
@@ -215,20 +215,25 @@ public class SignUpOTP_fragment extends BaseFragment {
             public void onSuccess() {
                 if (!isAdded()) return;
 
-                // 2. ⭐ Link the newly created profile to the Master Census!
-                SupabaseJavaHelper.markFamilyAsRegistered(RegistrationCache.tempFullName, new SupabaseJavaHelper.SimpleCallback() {
-                    @Override
-                    public void onSuccess() {
-                        finishRegistrationAndLogin();
-                    }
+                // ⭐ 2. Only link to Master Census if the user is a Resident
+                if ("Resident".equalsIgnoreCase(RegistrationCache.userType)) {
+                    SupabaseJavaHelper.markFamilyAsRegistered(RegistrationCache.tempFullName, new SupabaseJavaHelper.SimpleCallback() {
+                        @Override
+                        public void onSuccess() {
+                            finishRegistrationAndLogin();
+                        }
 
-                    @Override
-                    public void onError(String message) {
-                        // Even if linking fails for a rare reason, the account was created successfully, so proceed.
-                        Log.e("CensusLink", "Failed to link census: " + message);
-                        finishRegistrationAndLogin();
-                    }
-                });
+                        @Override
+                        public void onError(String message) {
+                            // Even if linking fails for a rare reason, the account was created successfully, so proceed.
+                            Log.e("CensusLink", "Failed to link census: " + message);
+                            finishRegistrationAndLogin();
+                        }
+                    });
+                } else {
+                    // Non-Residents / Overseas don't have census records, so skip linking!
+                    finishRegistrationAndLogin();
+                }
             }
 
             @Override
