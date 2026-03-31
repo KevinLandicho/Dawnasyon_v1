@@ -69,6 +69,8 @@ object SupabaseJavaHelper {
     interface ApplicationHistoryCallback { fun onLoaded(data: List<ApplicationHistoryDTO>); fun onError(message: String) }
     interface BrgyInfoCallback { fun onSuccess(info: BrgyInfoDTO); fun onError(message: String) }
 
+    interface CensusFamilyCallback { fun onSuccess(familyId: String, houseNo: String, street: String, memberNames: List<String>); fun onError(message: String) }
+
     // ====================================================
     // ⭐ LOGIN FUNCTION
     // ====================================================
@@ -87,7 +89,47 @@ object SupabaseJavaHelper {
             }
         }
     }
+    // ====================================================
+    // ⭐ FETCH FAMILY MEMBERS FROM CENSUS
+    // ====================================================
+    @JvmStatic
+    fun fetchFamilyFromCensus(fullName: String, callback: CensusFamilyCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // 1. Get the user's family_id from the census
+                val userResult = SupabaseManager.client.from("master_residents").select {
+                    filter { ilike("full_name", fullName) }
+                }.data
 
+                val type = object : TypeToken<List<MasterResidentDTO>>() {}.type
+                val users = gson.fromJson<List<MasterResidentDTO>>(userResult, type)
+
+                if (users.isNullOrEmpty()) {
+                    runOnUi { callback.onError("User not found in census.") }
+                    return@launch
+                }
+
+                val targetFamilyId = users[0].family_id ?: ""
+                val houseNo = users[0].house_number ?: ""
+                val street = users[0].street ?: ""
+
+                // 2. Fetch all household members tied to that exact family_id
+                val familyResult = SupabaseManager.client.from("master_residents").select {
+                    filter { eq("family_id", targetFamilyId) }
+                }.data
+
+                val familyMembers = gson.fromJson<List<MasterResidentDTO>>(familyResult, type)
+
+                // Extract just the names into a clean List of Strings
+                val names = familyMembers.map { it.full_name }
+
+                runOnUi { callback.onSuccess(targetFamilyId, houseNo, street, names) }
+
+            } catch(e: Exception) {
+                runOnUi { callback.onError(e.message ?: "Failed to fetch family") }
+            }
+        }
+    }
     // ====================================================
     // ⭐ LOGOUT FUNCTION
     // ====================================================
@@ -580,7 +622,107 @@ object SupabaseJavaHelper {
             } catch (e: Exception) { runOnUi { callback.onError(e.message ?: "Failed to delete account") } }
         }
     }
+    // ====================================================
+    // ⭐ VERIFY AGAINST MASTER CENSUS
+    // ====================================================
+    @JvmStatic
+    fun verifyAgainstMasterCensus(fullName: String, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Query the master_residents table using 'ilike' for case-insensitive match
+                val result = SupabaseManager.client.from("master_residents").select {
+                    filter {
+                        ilike("full_name", fullName)
+                    }
+                }.data
 
+                // Parse the JSON result
+                val type = object : TypeToken<List<MasterResidentDTO>>() {}.type
+                val residents = gson.fromJson<List<MasterResidentDTO>>(result, type)
+
+                if (residents.isNullOrEmpty()) {
+                    runOnUi {
+                        callback.onError("Your name was NOT FOUND in the official Brgy. Sta. Lucia Census. Ensure your spelling is exact, or visit the Barangay Hall to update your records.")
+                    }
+                } else {
+                    // Check if already registered
+                    val resident = residents[0]
+                    if (resident.registration_status.equals("Registered", ignoreCase = true)) {
+                        runOnUi {
+                            callback.onError("This name is already registered in the system. If this is an error, please contact the Barangay Hall.")
+                        }
+                    } else {
+                        runOnUi { callback.onSuccess() }
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUi { callback.onError("Network error validating census data: ${e.message}") }
+            }
+        }
+    }
+    // ====================================================
+    // ⭐ FINALIZE REGISTRATION IN MASTER CENSUS
+    // ====================================================
+    @JvmStatic
+    fun markFamilyAsRegistered(headFullName: String, callback: SimpleCallback) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                // Get the user who just successfully registered
+                val currentUser = SupabaseManager.client.auth.currentUserOrNull()
+                if (currentUser == null) {
+                    runOnUi { callback.onError("No authenticated user") }
+                    return@launch
+                }
+
+                // 1. Get their family_id from master_residents using their name
+                val userResult = SupabaseManager.client.from("master_residents").select {
+                    filter { ilike("full_name", headFullName) }
+                }.data
+
+                val type = object : TypeToken<List<MasterResidentDTO>>() {}.type
+                val users = gson.fromJson<List<MasterResidentDTO>>(userResult, type)
+
+                // If they are a Donor or Overseas (not in census), just skip successfully
+                if (users.isNullOrEmpty()) {
+                    runOnUi { callback.onSuccess() }
+                    return@launch
+                }
+
+                val targetFamilyId = users[0].family_id ?: ""
+
+                // 2. Mark the ENTIRE family as 'Registered'
+                SupabaseManager.client.from("master_residents").update(mapOf("registration_status" to "Registered")) {
+                    filter { eq("family_id", targetFamilyId) }
+                }
+
+                // 3. Link the Head of Family's Profile ID
+                SupabaseManager.client.from("master_residents").update(mapOf("linked_profile_id" to currentUser.id)) {
+                    filter { ilike("full_name", headFullName) }
+                }
+
+                // 4. Fetch the newly created household members to get their database member_ids
+                val membersResult = SupabaseManager.client.from("household_members").select(columns = io.github.jan.supabase.postgrest.query.Columns.list("member_id", "full_name")) {
+                    filter { eq("head_id", currentUser.id) }
+                }.data
+
+                val memberType = object : TypeToken<List<HouseholdMemberDTO>>() {}.type
+                val newMembers = gson.fromJson<List<HouseholdMemberDTO>>(membersResult, memberType)
+
+                // 5. Link each dependent's member_id to their specific census record
+                if (newMembers != null) {
+                    for (member in newMembers) {
+                        SupabaseManager.client.from("master_residents").update(mapOf("linked_member_id" to member.member_id)) {
+                            filter { ilike("full_name", member.full_name ?: "") }
+                        }
+                    }
+                }
+
+                runOnUi { callback.onSuccess() }
+            } catch (e: Exception) {
+                runOnUi { callback.onError(e.message ?: "Failed to link census") }
+            }
+        }
+    }
     @JvmStatic
     fun updateFaceVerificationTime(currentTimeUTC: String) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -636,7 +778,20 @@ data class ApplicationHistoryDTO(
     val application_limit: Int? = 0,
     val current_applications: Int? = 0
 )
-
+@Serializable
+data class HouseholdMemberDTO(
+    val member_id: Long,
+    val full_name: String? = null
+)
+@Serializable
+data class MasterResidentDTO(
+    val resident_id: Long,
+    val family_id: String? = null,
+    val full_name: String,
+    val house_number: String? = null,
+    val street: String? = null,
+    val registration_status: String? = "Not Registered"
+)
 @Serializable data class TransactionProofDTO(val proof_photo: String?)
 
 @Serializable

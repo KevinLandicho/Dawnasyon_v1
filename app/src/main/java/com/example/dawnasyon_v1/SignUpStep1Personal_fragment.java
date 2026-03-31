@@ -52,17 +52,13 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         btnPrevious = view.findViewById(R.id.btn_previous);
         ivIdPreview = view.findViewById(R.id.iv_id_preview);
 
-        // ⭐ THE FIX: Hide both the image AND its parent container (the orange box/label)
         if ("Overseas".equalsIgnoreCase(RegistrationCache.userType) || "Non-Resident".equalsIgnoreCase(RegistrationCache.userType)) {
             ivIdPreview.setVisibility(View.GONE);
-
-            // This safely hides the CardView/FrameLayout wrapping the image and text
             if (ivIdPreview.getParent() instanceof View) {
                 ((View) ivIdPreview.getParent()).setVisibility(View.GONE);
             }
         }
 
-        // ⭐ SETUP REAL-TIME VALIDATION
         setupRealTimeValidation();
 
         if (getArguments() != null) {
@@ -79,7 +75,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 cbNoMiddleName.setChecked(false);
             }
 
-            // Only process and attach the ID image if the user is a Resident
             String uriString = getArguments().getString("ID_IMAGE_URI", "");
             if (!uriString.isEmpty() && "Resident".equalsIgnoreCase(RegistrationCache.userType)) {
                 finalIdUri = Uri.parse(uriString);
@@ -98,11 +93,10 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
                 etMiddleName.setEnabled(true);
                 etMiddleName.setAlpha(1.0f);
             }
-            // ⭐ Re-validate the form when the checkbox is clicked!
             validateForm();
         });
 
-        // --- NEXT BUTTON WITH STRICT LOCAL VALIDATION ---
+        // --- NEXT BUTTON WITH STRICT CENSUS VALIDATION ---
         btnNext.setOnClickListener(v -> {
             String fName = etFirstName.getText().toString().trim();
             String lName = etLastName.getText().toString().trim();
@@ -111,24 +105,13 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             String email = etEmail.getText().toString().trim();
 
             if (fName.isEmpty() || lName.isEmpty() || contact.isEmpty() || email.isEmpty()) {
-                Toast.makeText(getContext(), "Please fill in all required fields (Name, Contact, Email)", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), "Please fill in all required fields", Toast.LENGTH_SHORT).show();
                 return;
             }
 
             if ("Resident".equalsIgnoreCase(RegistrationCache.userType) || "Non-Resident".equalsIgnoreCase(RegistrationCache.userType)) {
-                if (contact.length() != 11) {
-                    etContact.setError("Contact number must be exactly 11 digits.");
-                    etContact.requestFocus();
-                    return;
-                }
-                if (!contact.startsWith("09")) {
-                    etContact.setError("Contact number must start with '09'.");
-                    etContact.requestFocus();
-                    return;
-                }
-            } else {
-                if (contact.length() < 7) {
-                    etContact.setError("Please enter a valid contact number.");
+                if (contact.length() != 11 || !contact.startsWith("09")) {
+                    etContact.setError("Must be an 11-digit number starting with '09'.");
                     etContact.requestFocus();
                     return;
                 }
@@ -136,13 +119,6 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (!email.toLowerCase().endsWith("@gmail.com")) {
                 etEmail.setError("Email must be a valid @gmail.com address.");
-                etEmail.requestFocus();
-                return;
-            }
-
-            String usernamePart = email.split("@")[0];
-            if (usernamePart.length() < 6) {
-                etEmail.setError("Fake email detected. Gmail usernames must be at least 6 characters.");
                 etEmail.requestFocus();
                 return;
             }
@@ -156,30 +132,69 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
 
             if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).showLoading();
 
-            checkSupabaseAndProceed(fullName, email, contact, fName, lName);
+            // ⭐ 1. Check if email/name is already in our app
+            SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
+                @Override
+                public void onSuccess() {
+
+                    // ⭐ 2. If they are a Resident, STRICTLY verify them against the Master Census
+                    if ("Resident".equalsIgnoreCase(RegistrationCache.userType)) {
+
+                        SupabaseJavaHelper.verifyAgainstMasterCensus(fullName, new SupabaseJavaHelper.SimpleCallback() {
+                            @Override
+                            public void onSuccess() {
+                                // FOUND IN CENSUS! Let them pass.
+                                if (isAdded()) {
+                                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                                    proceedToNextStep(fullName, contact, email, fName, lName);
+                                }
+                            }
+
+                            @Override
+                            public void onError(String msg) {
+                                // NOT FOUND IN CENSUS (Or already registered)
+                                if (isAdded()) {
+                                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                                    // Alert Dialog to be very clear to the user
+                                    new androidx.appcompat.app.AlertDialog.Builder(getContext())
+                                            .setTitle("Validation Failed")
+                                            .setMessage(msg)
+                                            .setPositiveButton("OK", null)
+                                            .show();
+                                }
+                            }
+                        });
+
+                    } else {
+                        // If they are a Donor/Overseas, skip the census check and let them pass
+                        if (isAdded()) {
+                            if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                            proceedToNextStep(fullName, contact, email, fName, lName);
+                        }
+                    }
+                }
+
+                @Override
+                public void onError(String message) {
+                    if (isAdded()) {
+                        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                        Toast.makeText(getContext(), "Error: " + message, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
-
-        // ⭐ Validate once on load to set the initial faded state
         validateForm();
-
         applyTagalogTranslation(view);
     }
 
-    // ==========================================
-    // ⭐ REAL-TIME VALIDATION LOGIC
-    // ==========================================
     private void setupRealTimeValidation() {
         TextWatcher formWatcher = new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override public void afterTextChanged(Editable s) {
-                validateForm();
-            }
+            @Override public void afterTextChanged(Editable s) { validateForm(); }
         };
-
-        // Attach watcher to all text fields
         etFirstName.addTextChangedListener(formWatcher);
         etMiddleName.addTextChangedListener(formWatcher);
         etLastName.addTextChangedListener(formWatcher);
@@ -192,39 +207,15 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
         boolean isLastNameFilled = !etLastName.getText().toString().trim().isEmpty();
         boolean isContactFilled = !etContact.getText().toString().trim().isEmpty();
         boolean isEmailFilled = !etEmail.getText().toString().trim().isEmpty();
-
-        // Middle name is valid IF they typed something OR if they checked the "No Middle Name" box
         boolean isMiddleNameValid = cbNoMiddleName.isChecked() || !etMiddleName.getText().toString().trim().isEmpty();
 
-        // Only light up the button if ALL required fields are filled
         if (isFirstNameFilled && isLastNameFilled && isContactFilled && isEmailFilled && isMiddleNameValid) {
             btnNext.setEnabled(true);
-            btnNext.setAlpha(1.0f); // Fully opaque (clickable)
+            btnNext.setAlpha(1.0f);
         } else {
             btnNext.setEnabled(false);
-            btnNext.setAlpha(0.5f); // Faded (disabled)
+            btnNext.setAlpha(0.5f);
         }
-    }
-    // ==========================================
-
-    private void checkSupabaseAndProceed(String fullName, String email, String contact, String fName, String lName) {
-        SupabaseJavaHelper.checkUserExists(fullName, email, new SupabaseJavaHelper.SimpleCallback() {
-            @Override
-            public void onSuccess() {
-                if (isAdded()) {
-                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-                    proceedToNextStep(fullName, contact, email, fName, lName);
-                }
-            }
-
-            @Override
-            public void onError(String message) {
-                if (isAdded()) {
-                    if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
-                    Toast.makeText(getContext(), "Validation Failed: " + message, Toast.LENGTH_LONG).show();
-                }
-            }
-        });
     }
 
     private void proceedToNextStep(String fullName, String contact, String email, String typedFName, String typedLName) {

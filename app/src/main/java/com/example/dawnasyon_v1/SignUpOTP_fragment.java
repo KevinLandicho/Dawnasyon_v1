@@ -22,14 +22,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.io.InputStream;
-
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-
 public class SignUpOTP_fragment extends BaseFragment {
 
     private EditText[] otpInputs;
@@ -77,7 +69,6 @@ public class SignUpOTP_fragment extends BaseFragment {
         if (tvSubtitle != null) {
             String subText = "We've sent a code to " + (email != null ? email : "your email");
             tvSubtitle.setText(subText);
-            // Translate dynamic subtitle
             TranslationHelper.autoTranslate(getContext(), tvSubtitle, subText);
         }
 
@@ -88,10 +79,8 @@ public class SignUpOTP_fragment extends BaseFragment {
         };
         setupOTPInputs();
 
-        // Start the 5-minute timer immediately
         startTimer(TIMER_DURATION);
 
-        // Resend Button Logic
         tvTimer.setOnClickListener(v -> {
             if (isResendEnabled) {
                 performResendOtp();
@@ -99,8 +88,6 @@ public class SignUpOTP_fragment extends BaseFragment {
         });
 
         btnPrevious.setOnClickListener(v -> getParentFragmentManager().popBackStack());
-
-        // ⭐ ENABLE AUTO-TRANSLATION FOR STATIC LAYOUT
         applyTagalogTranslation(view);
     }
 
@@ -111,7 +98,6 @@ public class SignUpOTP_fragment extends BaseFragment {
             return;
         }
 
-        // Disable button immediately to prevent double-clicks
         String sendingText = "Sending...";
         tvTimer.setText(sendingText);
         TranslationHelper.autoTranslate(getContext(), tvTimer, sendingText);
@@ -119,13 +105,11 @@ public class SignUpOTP_fragment extends BaseFragment {
         tvTimer.setEnabled(false);
         tvTimer.setTextColor(Color.GRAY);
 
-        // Call Supabase (which now uses Resend)
         AuthHelper.resendOtp(email, new AuthHelper.RegistrationCallback() {
             @Override
             public void onSuccess() {
                 if (!isAdded()) return;
                 Toast.makeText(getContext(), "Code resent! Check your inbox.", Toast.LENGTH_LONG).show();
-                // Restart 5 minute timer
                 startTimer(TIMER_DURATION);
             }
 
@@ -134,7 +118,6 @@ public class SignUpOTP_fragment extends BaseFragment {
                 if (!isAdded()) return;
                 Toast.makeText(getContext(), "Resend failed: " + message, Toast.LENGTH_SHORT).show();
 
-                // Allow clicking again after 3 seconds if it failed (so they aren't stuck)
                 tvTimer.postDelayed(() -> {
                     if (isAdded()) {
                         String resendText = "Resend Code";
@@ -191,7 +174,6 @@ public class SignUpOTP_fragment extends BaseFragment {
         StringBuilder code = new StringBuilder();
         for (EditText et : otpInputs) code.append(et.getText().toString());
 
-        // Disable inputs while verifying to prevent editing
         for (EditText et : otpInputs) et.setEnabled(false);
         Toast.makeText(getContext(), "Verifying...", Toast.LENGTH_SHORT).show();
 
@@ -208,105 +190,62 @@ public class SignUpOTP_fragment extends BaseFragment {
             @Override
             public void onError(String message) {
                 if (!isAdded()) return;
-                // Re-enable inputs on failure so user can retry
                 for (EditText et : otpInputs) et.setEnabled(true);
                 Toast.makeText(getContext(), "Invalid Code. Please try again.", Toast.LENGTH_SHORT).show();
 
-                // Clear inputs and focus first box
                 for (EditText et : otpInputs) et.setText("");
                 otpInputs[0].requestFocus();
             }
         });
     }
 
-    // ⭐ THE FINAL FIX: Background image upload happens right here!
+    // ⭐ THE FIX: Profile creation now triggers Census linking!
     private void createProfile() {
         if (getContext() == null) return;
 
-        Toast.makeText(getContext(), "Uploading documents and finalizing...", Toast.LENGTH_LONG).show();
+        Toast.makeText(getContext(), "Finalizing registration...", Toast.LENGTH_LONG).show();
 
-        new Thread(() -> {
-            try {
-                OkHttpClient client = new OkHttpClient();
-                String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
-                String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
+        if (getActivity() instanceof BaseActivity) {
+            ((BaseActivity) getActivity()).showLoading();
+        }
 
-                // 1. Iterate through the cached members and upload their documents
-                if (RegistrationCache.tempHouseholdList != null) {
-                    for (int i = 0; i < RegistrationCache.tempHouseholdList.size(); i++) {
-                        HouseholdMember member = RegistrationCache.tempHouseholdList.get(i);
-                        int originalRowIndex = i + 1; // Because index 1 is Head, index 2 is first relative
+        // 1. Save the profile & household in Supabase
+        AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
+            @Override
+            public void onSuccess() {
+                if (!isAdded()) return;
 
-                        // If a document URI exists for this specific row...
-                        if (SignUpStep2Household_fragment.memberDocuments != null &&
-                                SignUpStep2Household_fragment.memberDocuments.containsKey(originalRowIndex)) {
-
-                            android.net.Uri imageUri = SignUpStep2Household_fragment.memberDocuments.get(originalRowIndex);
-
-                            // Convert local URI into raw bytes for uploading
-                            InputStream is = requireContext().getContentResolver().openInputStream(imageUri);
-                            byte[] fileBytes = new byte[is.available()];
-                            is.read(fileBytes);
-                            is.close();
-
-                            // Generate a unique filename for Supabase Storage
-                            String fileName = System.currentTimeMillis() + "_member_" + originalRowIndex + ".jpg";
-
-                            // Perform the POST request to the household_docs bucket
-                            RequestBody body = RequestBody.create(fileBytes, MediaType.parse("image/jpeg"));
-                            Request request = new Request.Builder()
-                                    .url(SUPABASE_URL + "/storage/v1/object/household_docs/" + fileName)
-                                    .addHeader("apikey", SUPABASE_KEY)
-                                    .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
-                                    .post(body)
-                                    .build();
-
-                            try (Response response = client.newCall(request).execute()) {
-                                if (response.isSuccessful()) {
-                                    // SUCCESS! Attach the public URL to the Kotlin HouseholdMember model
-                                    String publicUrl = SUPABASE_URL + "/storage/v1/object/public/household_docs/" + fileName;
-                                    member.setIdImageUrl(publicUrl);
-                                } else {
-                                    Log.e("Upload", "Failed to upload document for member " + originalRowIndex);
-                                }
-                            }
-                        }
+                // 2. ⭐ Link the newly created profile to the Master Census!
+                SupabaseJavaHelper.markFamilyAsRegistered(RegistrationCache.tempFullName, new SupabaseJavaHelper.SimpleCallback() {
+                    @Override
+                    public void onSuccess() {
+                        finishRegistrationAndLogin();
                     }
-                }
 
-                // 2. Now that the URLs are attached, proceed to save the profile & household in Supabase
-                requireActivity().runOnUiThread(() -> {
-                    AuthHelper.createProfileAfterVerification(requireContext(), new AuthHelper.RegistrationCallback() {
-                        @Override
-                        public void onSuccess() {
-                            if (!isAdded()) return;
-
-                            // Free up memory by clearing the temporary document URIs
-                            if (SignUpStep2Household_fragment.memberDocuments != null) {
-                                SignUpStep2Household_fragment.memberDocuments.clear();
-                            }
-
-                            Toast.makeText(getContext(), "Welcome aboard!", Toast.LENGTH_LONG).show();
-                            Intent intent = new Intent(getActivity(), LoginActivity.class);
-                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                            startActivity(intent);
-                        }
-
-                        @Override
-                        public void onError(String message) {
-                            if (!isAdded()) return;
-                            Toast.makeText(getContext(), "Profile Save Error: " + message, Toast.LENGTH_LONG).show();
-                        }
-                    });
-                });
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                requireActivity().runOnUiThread(() -> {
-                    Toast.makeText(getContext(), "Error uploading documents. Please try again.", Toast.LENGTH_SHORT).show();
+                    @Override
+                    public void onError(String message) {
+                        // Even if linking fails for a rare reason, the account was created successfully, so proceed.
+                        Log.e("CensusLink", "Failed to link census: " + message);
+                        finishRegistrationAndLogin();
+                    }
                 });
             }
-        }).start();
+
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+                Toast.makeText(getContext(), "Profile Save Error: " + message, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void finishRegistrationAndLogin() {
+        if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
+        Toast.makeText(getContext(), "Welcome aboard!", Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(getActivity(), LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
     }
 
     private void startTimer(long duration) {
@@ -327,7 +266,6 @@ public class SignUpOTP_fragment extends BaseFragment {
                     String timerText = String.format("Resend code in %02d:%02d", minutes, seconds);
                     tvTimer.setText(timerText);
 
-                    // ⭐ TRANSLATE DYNAMIC TIMER
                     TranslationHelper.autoTranslate(getContext(), tvTimer, timerText);
                 }
             }
