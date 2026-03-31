@@ -203,7 +203,7 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FETCH ANNOUNCEMENTS
+    // ⭐ FETCH ANNOUNCEMENTS (Updated for App Limit)
     // ====================================================
     @JvmStatic
     fun fetchAnnouncements(context: Context?, callback: AnnouncementCallback) {
@@ -219,7 +219,8 @@ object SupabaseJavaHelper {
                 withTimeout(5000L) {
                     val announcementsDeferred = async {
                         SupabaseManager.client.from("announcements").select(
-                            columns = Columns.raw("*, relief_drives(start_date, end_date, relief_item_list)")
+                            // ⭐ JOIN UPDATE: Pulling limit and current count from drives
+                            columns = Columns.raw("*, relief_drives(start_date, end_date, relief_item_list, application_limit, current_applications)")
                         ) {
                             order("created_at", order = Order.DESCENDING)
                         }.data
@@ -264,7 +265,7 @@ object SupabaseJavaHelper {
     }
 
     // ====================================================
-    // ⭐ FETCH APPLICATION HISTORY (Updated with Direct Join)
+    // ⭐ FETCH APPLICATION HISTORY
     // ====================================================
     @JvmStatic
     fun fetchUserApplications(context: Context?, callback: ApplicationHistoryCallback) {
@@ -273,10 +274,9 @@ object SupabaseJavaHelper {
             val currentUser = SupabaseManager.client.auth.currentUserOrNull()
             if (currentUser == null) return@launch
             try {
-                // ⭐ JOIN: We pull relief_drives(name) AND relief_transactions(proof_photo)
-                // This works because of the Foreign Key you added (application_id -> app_id)
+                // Pulling drive data and transaction proof
                 val result = SupabaseManager.client.from("relief_applications")
-                    .select(columns = Columns.raw("status, created_at, drive_id, relief_drives(name), relief_transactions(proof_photo)")) {
+                    .select(columns = Columns.raw("status, created_at, drive_id, relief_drives(name, relief_item_list), relief_transactions(proof_photo)")) {
                         filter { eq("user_id", currentUser.id) }
                         order("created_at", order = Order.DESCENDING)
                     }.data
@@ -333,6 +333,7 @@ object SupabaseJavaHelper {
                 runOnUi { callback.onSuccess() }
             } catch (e: Exception) {
                 if (e.message?.contains("duplicate") == true) runOnUi { callback.onSuccess() }
+                else if (e.message?.contains("limit") == true) runOnUi { callback.onError("Application limit reached!") }
                 else runOnUi { callback.onError(e.message ?: "Application failed") }
             }
         }
@@ -580,9 +581,6 @@ object SupabaseJavaHelper {
         }
     }
 
-    // ====================================================
-    // ⭐ UPDATE FACE VERIFICATION TIME
-    // ====================================================
     @JvmStatic
     fun updateFaceVerificationTime(currentTimeUTC: String) {
         CoroutineScope(Dispatchers.IO).launch {
@@ -621,20 +619,24 @@ object SupabaseJavaHelper {
 @Serializable data class ProfileDTO(val id: String, val email: String, val full_name: String, val contact_number: String, val house_number: String, val street: String, val barangay: String, val city: String, val province: String, val zip_code: String, val face_embedding: String?, val type: String, val avatar_name: String?)
 @Serializable data class DonationTrackingDTO(val donation_id: Long, val donation_status: String?, val donation_date: String?, val inventory_status: String?, val quantity_on_hand: Int?, val date_claimed: String?, val batch_name: String?)
 
-// ⭐ DTO CLASSES FOR APPLICATION HISTORY
 @Serializable
 data class ApplicationHistoryDTO(
     val status: String,
     val created_at: String,
     val relief_drives: ReliefDriveNameDTO?,
-    // Supabase returns joined rows as a List
     val relief_transactions: List<TransactionProofDTO>? = null
 ) {
-    // ⭐ Helper method for Java code to easily get the photo URL
     fun getProof_photo(): String? = relief_transactions?.firstOrNull()?.proof_photo
 }
 
-@Serializable data class ReliefDriveNameDTO(val name: String)
+// ⭐ THE FIX: Added limit and application count to the DTO for use in Announcement joins
+@Serializable data class ReliefDriveNameDTO(
+    val name: String,
+    val relief_item_list: String? = null,
+    val application_limit: Int? = 0,
+    val current_applications: Int? = 0
+)
+
 @Serializable data class TransactionProofDTO(val proof_photo: String?)
 
 @Serializable

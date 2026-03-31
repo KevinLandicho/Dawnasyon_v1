@@ -19,19 +19,21 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
-import com.bumptech.glide.Glide; // Ensure Glide is in build.gradle
+import com.bumptech.glide.Glide;
 
 public class TrackerDetailsDialog_Fragment extends DialogFragment {
 
-    private String driveTitle, status, date, proofUrl;
+    private String driveTitle, status, date, proofUrl, itemList;
 
-    public static TrackerDetailsDialog_Fragment newInstance(String title, String status, String date, String proofUrl) {
+    // ⭐ THE FIX: Added itemList to the parameters
+    public static TrackerDetailsDialog_Fragment newInstance(String title, String status, String date, String proofUrl, String itemList) {
         TrackerDetailsDialog_Fragment fragment = new TrackerDetailsDialog_Fragment();
         Bundle args = new Bundle();
         args.putString("title", title);
         args.putString("status", status);
         args.putString("date", date);
         args.putString("proof", proofUrl);
+        args.putString("items", itemList); // ⭐ Save the item list
         fragment.setArguments(args);
         return fragment;
     }
@@ -44,6 +46,7 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
             status = getArguments().getString("status");
             date = getArguments().getString("date");
             proofUrl = getArguments().getString("proof");
+            itemList = getArguments().getString("items", "Items not specified."); // ⭐ Retrieve it
         }
     }
 
@@ -77,7 +80,6 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
         View line1 = view.findViewById(R.id.line1);
         View line2 = view.findViewById(R.id.line2);
 
-        // ⭐ Proof Image Views
         LinearLayout layoutProof = view.findViewById(R.id.layout_proof_container);
         ImageView ivProofImage = view.findViewById(R.id.iv_proof_image);
 
@@ -86,28 +88,27 @@ public class TrackerDetailsDialog_Fragment extends DialogFragment {
 
         setupStepper(status, ivStep1, ivStep2, ivStep3, line1, line2);
 
-        // ⭐ CLICK LISTENERS
+        // ⭐ CLICK LISTENERS: Added the item list to the popups!
         ivStep1.setOnClickListener(v -> {
             layoutProof.setVisibility(View.GONE);
             showStepDetails("Step 1: Application Submitted",
-                    "Your application was received on " + date + ". It has been sent to the Barangay Admin.");
+                    "Your application was received on " + date + ". It has been sent to the Barangay Admin.\n\n📦 Relief Contents:\n" + itemList);
         });
 
         ivStep2.setOnClickListener(v -> {
             layoutProof.setVisibility(View.GONE);
             showStepDetails("Step 2: Admin Approval",
-                    "PENDING: The admin is currently reviewing your household record.\n\nAPPROVED: You are eligible! You will receive a QR Code to present at the venue.");
+                    "PENDING: The admin is currently reviewing your household record.\n\nAPPROVED: You are eligible! You will receive a QR Code to present at the venue.\n\n📦 Relief Contents:\n" + itemList);
         });
 
         ivStep3.setOnClickListener(v -> {
             if (status.equalsIgnoreCase("Claimed") && proofUrl != null && !proofUrl.isEmpty()) {
-                // ⭐ Show the Proof Image inside the dialog instead of a popup
                 layoutProof.setVisibility(View.VISIBLE);
                 Glide.with(this).load(proofUrl).into(ivProofImage);
             } else {
                 layoutProof.setVisibility(View.GONE);
                 showStepDetails("Step 3: Claiming Status",
-                        "READY: Present your QR Code at the distribution site.\n\nCLAIMED: You have successfully received your relief pack.");
+                        "READY: Present your QR Code at the distribution site.\n\nCLAIMED: You have successfully received your relief pack.\n\n📦 Relief Contents:\n" + itemList);
             }
         });
 
