@@ -111,11 +111,8 @@ public class Home_fragment extends BaseFragment {
         iconFilter = view.findViewById(R.id.icon_filter);
         brgyLogo = view.findViewById(R.id.brgy_logo);
 
-        btnFilterAll = view.findViewById(R.id.btn_filter_all);
-        btnFilterGeneral = view.findViewById(R.id.btn_filter_general);
-        btnFilterDrive = view.findViewById(R.id.btn_filter_drive);
 
-        tvDriveBadge = view.findViewById(R.id.tv_drive_badge);
+
 
         carouselContainer = view.findViewById(R.id.carousel_container);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
