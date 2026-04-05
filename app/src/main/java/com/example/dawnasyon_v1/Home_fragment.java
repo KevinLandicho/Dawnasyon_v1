@@ -3,7 +3,6 @@ package com.example.dawnasyon_v1;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,7 +10,6 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,12 +40,6 @@ public class Home_fragment extends BaseFragment {
     private ImageView iconFilter;
     private ImageView brgyLogo;
 
-    // Filter Buttons
-    private Button btnFilterAll, btnFilterGeneral, btnFilterDrive;
-
-    // Badge TextView
-    private TextView tvDriveBadge;
-
     // Carousel Components
     private View carouselContainer;
     private ViewPager2 imageCarouselViewPager;
@@ -72,12 +64,10 @@ public class Home_fragment extends BaseFragment {
 
     // Filter State Variables
     private boolean showBookmarksOnly = false;
-    private String currentCategoryFilter = "ALL";
 
     // Preference Keys
     private static final String PREF_NAME = "UserPrefs";
     private static final String CACHE_PREF = "ProfileCache";
-    private static final String KEY_LAST_CHECKED_DRIVE = "last_checked_drive_time";
 
     // Carousel Runnable
     private final Runnable sliderRunnable = new Runnable() {
@@ -94,9 +84,7 @@ public class Home_fragment extends BaseFragment {
         }
     };
 
-    public Home_fragment() {
-        // Required empty public constructor
-    }
+    public Home_fragment() {}
 
     @Nullable
     @Override
@@ -110,9 +98,6 @@ public class Home_fragment extends BaseFragment {
         searchView = view.findViewById(R.id.search_view);
         iconFilter = view.findViewById(R.id.icon_filter);
         brgyLogo = view.findViewById(R.id.brgy_logo);
-
-
-
 
         carouselContainer = view.findViewById(R.id.carousel_container);
         imageCarouselViewPager = view.findViewById(R.id.image_carousel_view_pager);
@@ -129,14 +114,6 @@ public class Home_fragment extends BaseFragment {
         });
 
         iconFilter.setOnClickListener(v -> toggleBookmarkFilter());
-
-        btnFilterAll.setOnClickListener(v -> setCategoryFilter("ALL"));
-        btnFilterGeneral.setOnClickListener(v -> setCategoryFilter("General"));
-
-        btnFilterDrive.setOnClickListener(v -> {
-            setCategoryFilter("Donation drive");
-            markDrivesAsRead();
-        });
 
         if (brgyLogo != null) {
             brgyLogo.setOnClickListener(v -> {
@@ -201,7 +178,7 @@ public class Home_fragment extends BaseFragment {
     }
 
     // ====================================================
-    // DATA LOADING & FILTER LOGIC
+    // DATA LOADING
     // ====================================================
 
     private void loadUserProfileAndAnnouncements() {
@@ -235,23 +212,14 @@ public class Home_fragment extends BaseFragment {
                     String avatarName = profile.getAvatarName();
                     try {
                         if (avatarName != null && (avatarName.startsWith("http://") || avatarName.startsWith("https://"))) {
-                            Glide.with(Home_fragment.this)
-                                    .load(avatarName)
-                                    .placeholder(R.drawable.ic_profile_avatar)
-                                    .error(R.drawable.ic_profile_avatar)
-                                    .circleCrop()
-                                    .into(userAvatar);
+                            Glide.with(Home_fragment.this).load(avatarName).placeholder(R.drawable.ic_profile_avatar).circleCrop().into(userAvatar);
                         } else {
                             int avatarResId = R.drawable.ic_profile_avatar;
                             if (avatarName != null && !avatarName.isEmpty()) {
                                 int resId = getResources().getIdentifier(avatarName, "drawable", getContext().getPackageName());
                                 if (resId != 0) avatarResId = resId;
                             }
-                            Glide.with(Home_fragment.this)
-                                    .load(avatarResId)
-                                    .placeholder(R.drawable.ic_profile_avatar)
-                                    .circleCrop()
-                                    .into(userAvatar);
+                            Glide.with(Home_fragment.this).load(avatarResId).placeholder(R.drawable.ic_profile_avatar).circleCrop().into(userAvatar);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -278,10 +246,6 @@ public class Home_fragment extends BaseFragment {
                 if (getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
 
                 List<Announcement> visibleList = new ArrayList<>();
-                int newDriveCount = 0;
-
-                SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-                long lastCheckedTime = prefs.getLong(KEY_LAST_CHECKED_DRIVE, 0);
 
                 Calendar cal = Calendar.getInstance();
                 cal.set(Calendar.HOUR_OF_DAY, 0);
@@ -293,20 +257,12 @@ public class Home_fragment extends BaseFragment {
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
                 for (Announcement item : data) {
-
-                    // ⭐ THE FIX: Strict gatekeeper logic based on the mapped status!
-                    // If the post does NOT say "Approved", it gets completely ignored.
                     if (item.getStatus() == null || !item.getStatus().equalsIgnoreCase("Approved")) {
                         continue;
                     }
 
                     boolean showIt = true;
                     boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
-                    boolean isGeneral = (item.getType() == null || item.getType().equalsIgnoreCase("General"));
-
-                    if (!isDrive && !isGeneral) {
-                        continue;
-                    }
 
                     if (isDrive) {
                         String targetStreet = item.getAffected_street();
@@ -339,13 +295,6 @@ public class Home_fragment extends BaseFragment {
                         } catch (ParseException e) { e.printStackTrace(); }
                     }
 
-                    if (showIt && isDrive) {
-                        long itemTime = parseDateToMillis(item.getCreated_at());
-                        if (itemTime > lastCheckedTime) {
-                            newDriveCount++;
-                        }
-                    }
-
                     if (showIt) {
                         visibleList.add(item);
                     }
@@ -353,8 +302,6 @@ public class Home_fragment extends BaseFragment {
 
                 fullAnnouncementList.clear();
                 fullAnnouncementList.addAll(visibleList);
-
-                updateDriveBadge(newDriveCount);
 
                 applyFilters(searchView.getQuery().toString());
 
@@ -370,34 +317,6 @@ public class Home_fragment extends BaseFragment {
                 isFirstLoad = false;
             }
         });
-    }
-
-    private long parseDateToMillis(String dateStr) {
-        if (dateStr == null) return 0;
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
-            Date date = sdf.parse(dateStr);
-            return (date != null) ? date.getTime() : 0;
-        } catch (Exception e) { return 0; }
-    }
-
-    private void markDrivesAsRead() {
-        if (getContext() == null) return;
-        SharedPreferences prefs = getContext().getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putLong(KEY_LAST_CHECKED_DRIVE, System.currentTimeMillis());
-        editor.apply();
-        updateDriveBadge(0);
-    }
-
-    private void updateDriveBadge(int count) {
-        if (tvDriveBadge == null) return;
-        if (count > 0) {
-            tvDriveBadge.setVisibility(View.VISIBLE);
-            tvDriveBadge.setText(String.valueOf(count));
-        } else {
-            tvDriveBadge.setVisibility(View.GONE);
-        }
     }
 
     // ====================================================
@@ -421,40 +340,14 @@ public class Home_fragment extends BaseFragment {
         applyFilters(searchView.getQuery().toString());
     }
 
-    private void setCategoryFilter(String category) {
-        currentCategoryFilter = category;
-        updateButtonState(btnFilterAll, false);
-        updateButtonState(btnFilterGeneral, false);
-        updateButtonState(btnFilterDrive, false);
-
-        if (category.equals("ALL")) updateButtonState(btnFilterAll, true);
-        else if (category.equals("General")) updateButtonState(btnFilterGeneral, true);
-        else if (category.equals("Donation drive")) updateButtonState(btnFilterDrive, true);
-
-        updateCarouselVisibility();
-
-        applyFilters(searchView.getQuery().toString());
-    }
-
     private void updateCarouselVisibility() {
         View targetToHide = (carouselContainer != null) ? carouselContainer : imageCarouselViewPager;
-
         if (targetToHide != null) {
-            if (currentCategoryFilter.equals("ALL") && !showBookmarksOnly) {
+            if (!showBookmarksOnly) {
                 targetToHide.setVisibility(View.VISIBLE);
             } else {
                 targetToHide.setVisibility(View.GONE);
             }
-        }
-    }
-
-    private void updateButtonState(Button btn, boolean isActive) {
-        if (isActive) {
-            btn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#F5901A")));
-            btn.setTextColor(Color.WHITE);
-        } else {
-            btn.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#E0E0E0")));
-            btn.setTextColor(Color.parseColor("#757575"));
         }
     }
 
@@ -472,7 +365,6 @@ public class Home_fragment extends BaseFragment {
         for (Announcement item : fullAnnouncementList) {
             boolean matchesSearch = true;
             boolean matchesBookmark = true;
-            boolean matchesCategory = true;
 
             if (!queryLower.isEmpty() && keywords.length > 0 && !keywords[0].isEmpty()) {
                 String origTitle = item.getTitle() != null ? item.getTitle() : "";
@@ -506,23 +398,7 @@ public class Home_fragment extends BaseFragment {
 
             if (showBookmarksOnly) matchesBookmark = item.isBookmarked();
 
-            if (!currentCategoryFilter.equals("ALL")) {
-                if (currentCategoryFilter.equals("General")) {
-                    if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
-                        matchesCategory = false;
-                    } else {
-                        matchesCategory = true;
-                    }
-                } else if (currentCategoryFilter.equals("Donation drive")) {
-                    if (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive")) {
-                        matchesCategory = true;
-                    } else {
-                        matchesCategory = false;
-                    }
-                }
-            }
-
-            if (matchesSearch && matchesBookmark && matchesCategory) {
+            if (matchesSearch && matchesBookmark) {
                 filteredList.add(item);
             }
         }
@@ -551,16 +427,13 @@ public class Home_fragment extends BaseFragment {
         announcementRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         announcementAdapter = new AnnouncementAdapter(announcementList, new AnnouncementAdapter.OnItemClickListener() {
             @Override
-            public void onApplyClick(Announcement announcement) { showApplyDialog(announcement); }
+            public void onApplyClick(Announcement announcement) { showClaimingStub(announcement); }
             @Override
             public void onLikeClick(Announcement announcement, int position) { handleLike(announcement, position); }
             @Override
             public void onBookmarkClick(Announcement announcement, int position) { handleBookmark(announcement, position); }
-
             @Override
-            public void onCardClick(Announcement announcement) {
-                showReliefGoodsDialog(announcement);
-            }
+            public void onCardClick(Announcement announcement) { showReliefGoodsDialog(announcement); }
         });
         announcementRecyclerView.setAdapter(announcementAdapter);
     }
@@ -642,58 +515,42 @@ public class Home_fragment extends BaseFragment {
         });
     }
 
-    private void showApplyDialog(Announcement announcement) {
-        if (announcement.isApplied()) {
-            Toast.makeText(getContext(), "You have already applied to this drive!", Toast.LENGTH_SHORT).show();
-            return;
-        }
+    // ⭐ THE FIX: Replaced "Apply" logic with the Automated Distribution stub viewer
+    private void showClaimingStub(Announcement announcement) {
         if (userType != null && (userType.equalsIgnoreCase("Overseas") || userType.equalsIgnoreCase("Non-Resident"))) {
-            Toast.makeText(getContext(), "🚫 Only Residents can apply for relief packs.", Toast.LENGTH_LONG).show();
+            Toast.makeText(getContext(), "🚫 Only Residents are eligible for relief packs.", Toast.LENGTH_LONG).show();
             return;
         }
         if (!isUserVerified) {
-            Toast.makeText(getContext(), "🔒 You must be a VERIFIED Resident to apply.", Toast.LENGTH_LONG).show();
+            Toast.makeText(getContext(), "🔒 You must be a VERIFIED Resident to claim relief goods.", Toast.LENGTH_LONG).show();
             return;
         }
 
-        ApplyWithImageDialogFragment dialog = new ApplyWithImageDialogFragment();
-        dialog.setOnConfirmListener(imageBytes -> {
-            Toast.makeText(getContext(), "Submitting Application...", Toast.LENGTH_SHORT).show();
-            if (announcement.getLinkedDriveId() == null) {
-                Toast.makeText(getContext(), "Error: Drive not linked.", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (imageBytes != null) {
-                SupabaseJavaHelper.uploadApplicationImage(imageBytes, publicUrl -> {
-                    submitApplication(announcement, publicUrl);
-                    return null;
-                });
-            } else {
-                submitApplication(announcement, null);
-            }
-        });
-        dialog.show(getParentFragmentManager(), "ApplyImageDialog");
-    }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
 
-    private void submitApplication(Announcement announcement, String imageUrl) {
-        SupabaseJavaHelper.applyToDrive(announcement.getLinkedDriveId(), imageUrl, new SupabaseJavaHelper.ApplicationCallback() {
-            @Override
-            public void onSuccess() {
-                if (isAdded()) {
-                    announcement.setApplied(true);
-                    announcementAdapter.notifyDataSetChanged();
-                    ApplicationSuccessDialogFragment successDialog = new ApplicationSuccessDialogFragment();
-                    successDialog.show(getParentFragmentManager(), "SuccessDialog");
-                }
-            }
+        String title = "Claiming Reserved";
+        String message = "✅ You are automatically registered for this distribution drive based on your official Brgy. Sta. Lucia address!\n\n" +
+                "Please present your digital QR Code (found in your Profile tab) at the distribution center to claim your family's relief pack.";
 
-            @Override
-            public void onError(@NonNull String message) {
-                if (isAdded()) {
-                    Toast.makeText(getContext(), "Failed: " + message, Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
+        builder.setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("Go to Profile", (dialog, which) -> {
+                    dialog.dismiss();
+                    // Navigate to profile fragment to view QR
+                    getParentFragmentManager().beginTransaction()
+                            .replace(R.id.fragment_container, new Profile_fragment())
+                            .addToBackStack(null)
+                            .commit();
+                })
+                .setNegativeButton("Close", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        TextView messageView = dialog.findViewById(android.R.id.message);
+        if (messageView != null) {
+            TranslationHelper.autoTranslate(getContext(), messageView, message);
+        }
     }
 
     private void setupCarousel() {
