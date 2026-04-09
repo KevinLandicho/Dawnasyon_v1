@@ -84,14 +84,30 @@ public class SignUpStep1Personal_fragment extends BaseFragment {
             }
         }
 
+        // ⭐ NEW FIX: Lock name fields if the user is a Resident
+        if ("Resident".equalsIgnoreCase(RegistrationCache.userType)) {
+            etFirstName.setEnabled(false);
+            etLastName.setEnabled(false);
+            etMiddleName.setEnabled(false);
+            cbNoMiddleName.setEnabled(false); // Lock the checkbox so they can't toggle it
+
+            // Dim the fields slightly so the user knows they are locked
+            etFirstName.setAlpha(0.7f);
+            etLastName.setAlpha(0.7f);
+            etMiddleName.setAlpha(0.7f);
+        }
+
         cbNoMiddleName.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 etMiddleName.setText("");
                 etMiddleName.setEnabled(false);
                 etMiddleName.setAlpha(0.5f);
             } else {
-                etMiddleName.setEnabled(true);
-                etMiddleName.setAlpha(1.0f);
+                // Only re-enable the middle name field if they are NOT a Resident
+                if (!"Resident".equalsIgnoreCase(RegistrationCache.userType)) {
+                    etMiddleName.setEnabled(true);
+                    etMiddleName.setAlpha(1.0f);
+                }
             }
             validateForm();
         });
