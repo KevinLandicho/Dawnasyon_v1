@@ -3,8 +3,10 @@ package com.example.dawnasyon_v1;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -39,8 +41,12 @@ public class SignUpValidID_fragment extends BaseFragment {
     private Uri capturedImageUri = null;
     private String extractFName = "", extractLName = "", extractMName = "", extractAddress = "";
 
+    // 1. Original ML Kit Document Scanner
     private ActivityResultLauncher<IntentSenderRequest> scannerLauncher;
     private ActivityResultLauncher<String> galleryLauncher;
+
+    // ⭐ 2. Launcher for Custom Live Selfie Activity
+    private ActivityResultLauncher<Intent> selfieLauncher;
 
     public SignUpValidID_fragment() {}
 
@@ -56,7 +62,7 @@ public class SignUpValidID_fragment extends BaseFragment {
         RegistrationCache.notes = "";
         RegistrationCache.nameMismatchNotes = "";
 
-        // 1. Camera Scanner
+        // --- 1. ML KIT DOCUMENT SCANNER (For ID) ---
         scannerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartIntentSenderForResult(),
                 result -> {
@@ -74,13 +80,35 @@ public class SignUpValidID_fragment extends BaseFragment {
                 }
         );
 
-        // 2. Gallery Picker
+        // --- 2. GALLERY PICKER (For ID) ---
         galleryLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
                         capturedImageUri = uri;
                         verifyAndProcessImage(capturedImageUri);
+                    }
+                }
+        );
+
+        // ⭐ 3. CUSTOM LIVE SELFIE CAMERA RESULT ---
+        selfieLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Uri selfieUri = Uri.parse(result.getData().getStringExtra("SELFIE_URI"));
+
+                        try {
+                            // Convert the selfie URI to a Bitmap for the Face Verification API
+                            Bitmap selfieBitmap = MediaStore.Images.Media.getBitmap(requireContext().getContentResolver(), selfieUri);
+                            performFaceMatch(selfieBitmap);
+                        } catch (Exception e) {
+                            Toast.makeText(getContext(), "Error processing selfie.", Toast.LENGTH_SHORT).show();
+                            resetScanButton();
+                        }
+                    } else {
+                        Toast.makeText(getContext(), "Selfie cancelled. Verification failed.", Toast.LENGTH_SHORT).show();
+                        resetScanButton();
                     }
                 }
         );
@@ -123,7 +151,7 @@ public class SignUpValidID_fragment extends BaseFragment {
             InputImage image = InputImage.fromFilePath(requireContext(), uri);
             TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
 
-            btnStartScan.setText("Verifying Authenticity...");
+            btnStartScan.setText("Reading ID...");
             btnStartScan.setEnabled(false);
             btnStartScan.setAlpha(0.5f);
 
@@ -142,14 +170,15 @@ public class SignUpValidID_fragment extends BaseFragment {
                                 parseQCID(lines);
                             }
 
-                            resetScanButton();
-                            proceedToStep1();
+                            // ⭐ NEW FLOW: Trigger the Custom Live Selfie UI instead of moving on
+                            launchSelfieCamera();
+
                         } else {
                             showInvalidIdDialog(selectedType);
                         }
                     })
                     .addOnFailureListener(e -> {
-                        Toast.makeText(getContext(), "Verification Failed. Try again.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "OCR Failed. Try again.", Toast.LENGTH_SHORT).show();
                         resetScanButton();
                         capturedImageUri = null;
                     });
@@ -160,6 +189,69 @@ public class SignUpValidID_fragment extends BaseFragment {
             resetScanButton();
             capturedImageUri = null;
         }
+    }
+
+    // ⭐ Launch the Custom Camera Activity
+    private void launchSelfieCamera() {
+        if (getActivity() != null) {
+            getActivity().runOnUiThread(() -> {
+                btnStartScan.setText("Take a Live Selfie");
+                new AlertDialog.Builder(getContext())
+                        .setTitle("ID Read Successfully")
+                        .setMessage("To verify your identity, please take a clear live selfie. We will compare this to the photo on your ID.")
+                        .setPositiveButton("Take Selfie", (dialog, which) -> {
+                            Intent intent = new Intent(requireContext(), LiveIdScannerActivity.class);
+                            selfieLauncher.launch(intent);
+                        })
+                        .setCancelable(false)
+                        .show();
+            });
+        }
+    }
+
+    // ⭐ Send the images to Face++
+    private void performFaceMatch(Bitmap selfieBitmap) {
+        btnStartScan.setText("Analyzing Biometrics...");
+        btnStartScan.setEnabled(false);
+
+        FaceVerificationHelper.compareFaces(requireContext(), capturedImageUri, selfieBitmap, new FaceVerificationHelper.FaceMatchCallback() {
+            @Override
+            public void onSuccess(double confidenceScore) {
+                if (getActivity() == null) return;
+
+                getActivity().runOnUiThread(() -> {
+                    if (confidenceScore >= 80.0) {
+                        Toast.makeText(getContext(), "Identity Verified! Match Score: " + String.format("%.1f", confidenceScore) + "%", Toast.LENGTH_LONG).show();
+                        resetScanButton();
+                        proceedToStep1();
+                    } else {
+                        showSpoofAlert(confidenceScore);
+                    }
+                });
+            }
+
+            @Override
+            public void onFailed(String reason) {
+                if (getActivity() == null) return;
+                getActivity().runOnUiThread(() -> {
+                    Toast.makeText(getContext(), "Verification Error: " + reason, Toast.LENGTH_LONG).show();
+                    resetScanButton();
+                });
+            }
+        });
+    }
+
+    private void showSpoofAlert(double score) {
+        new AlertDialog.Builder(getContext())
+                .setTitle("Identity Verification Failed")
+                .setMessage("Our AI detected that the live selfie does not match the face on the ID card. \n\nConfidence: " + String.format("%.1f", score) + "% (Requires 80%)")
+                .setPositiveButton("Try Again", (dialog, which) -> {
+                    resetScanButton();
+                    capturedImageUri = null;
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setCancelable(false)
+                .show();
     }
 
     private void resetScanButton() {
@@ -247,10 +339,9 @@ public class SignUpValidID_fragment extends BaseFragment {
     }
 
     // =========================================================================
-    // 🔍 TEXT EXTRACTION PARSERS
+    // 🔍 TEXT EXTRACTION PARSERS (Your Original Code)
     // =========================================================================
 
-    // ⭐ National ID (PhilSys) Parser
     private void parseNationalID(String[] lines) {
         extractFName = ""; extractLName = ""; extractMName = ""; extractAddress = "";
 
@@ -261,13 +352,10 @@ public class SignUpValidID_fragment extends BaseFragment {
             String upper = line.toUpperCase().trim();
             if (upper.isEmpty()) continue;
 
-            // 1. Name Extraction (Handles multiline)
             if (nextIsLast) { extractLName = cleanText(upper); nextIsLast = false; continue; }
             if (nextIsFirst) { extractFName = cleanText(upper); nextIsFirst = false; continue; }
             if (nextIsMiddle) { extractMName = cleanText(upper); nextIsMiddle = false; continue; }
 
-            // Order matters! Check for "Middle Name / Gitnang Apelyido" FIRST
-            // so the word "Apelyido" doesn't accidentally trigger the Last Name block.
             if (upper.contains("MIDDLE NAME") || upper.contains("GITNANG APELYIDO") || upper.contains("GITNANG")) {
                 String inline = upper.replace("GITNANG APELYIDO", "").replace("MIDDLE NAME", "").replace("/", "").replace(":", "").trim();
                 if (inline.length() > 1) extractMName = cleanText(inline);
@@ -275,7 +363,6 @@ public class SignUpValidID_fragment extends BaseFragment {
                 continue;
             }
 
-            // Check for Last Name SECOND
             if (upper.contains("LAST NAME") || upper.contains("APELYIDO")) {
                 String inline = upper.replace("APELYIDO", "").replace("LAST NAME", "").replace("/", "").replace(":", "").trim();
                 if (inline.length() > 1) extractLName = cleanText(inline);
@@ -283,7 +370,6 @@ public class SignUpValidID_fragment extends BaseFragment {
                 continue;
             }
 
-            // Check for First Name THIRD
             if (upper.contains("GIVEN NAME") || upper.contains("MGA PANGALAN") || upper.contains("PANGALAN")) {
                 String inline = upper.replace("MGA PANGALAN", "").replace("PANGALAN", "").replace("GIVEN NAMES", "").replace("GIVEN NAME", "").replace("/", "").replace(":", "").trim();
                 if (inline.length() > 1) extractFName = cleanText(inline);
@@ -291,10 +377,8 @@ public class SignUpValidID_fragment extends BaseFragment {
                 continue;
             }
 
-            // 2. Address Extraction (National ID address is at the bottom)
             if (upper.contains("TIRAHAN") || upper.contains("ADDRESS")) {
                 readingAddress = true;
-                // Try to grab inline address if it's on the same line
                 int idx = Math.max(upper.indexOf("TIRAHAN"), upper.indexOf("ADDRESS"));
                 String inlineAddr = upper.substring(idx)
                         .replace("TIRAHAN/ADDRESS", "")
@@ -308,13 +392,11 @@ public class SignUpValidID_fragment extends BaseFragment {
             }
 
             if (readingAddress) {
-                // Ignore random micro-text or logos that might be at the bottom corners
                 if (!upper.contains("BLOOD") && !upper.contains("PHILHEALTH") && upper.length() > 3) {
                     addressBuilder.append(upper).append(" ");
                 }
             }
         }
-
         extractAddress = cleanText(addressBuilder.toString());
     }
 
