@@ -333,31 +333,42 @@ public class Profile_fragment extends BaseFragment {
     // =========================================================================
     // ⭐ DYNAMIC PRIORITY LOGIC
     // =========================================================================
+    // =========================================================================
+    // ⭐ DYNAMIC PRIORITY LOGIC (Pure Need-Based)
+    // =========================================================================
     private void calculateDynamicPriorityScore(List<HouseMember> members, boolean isVerified, Profile profile, String addressStr) {
         if (tvPriorityScore == null) return;
-        final int[] score = {10};
+
+        // ⭐ Start at 0. No free base scores.
+        final int[] score = {0};
         final StringBuilder breakdown = new StringBuilder();
 
-        breakdown.append("• Base Score applied\n");
-
+        // 1. Family Size Calculation (Max 40 points)
         int familySize = (members != null) ? members.size() : 0;
-        int famPoints = Math.min(familySize * 5, 50);
-        score[0] += famPoints;
+        if (familySize > 0) {
+            int famPoints = Math.min(familySize * 5, 40);
+            score[0] += famPoints;
+            breakdown.append("• Household Size (").append(familySize).append(" members)\n");
 
-        if(familySize > 0) breakdown.append("• Family Size (").append(familySize).append(") considered\n");
-        if(familySize > 4) { score[0] += 20; breakdown.append("• Large Household Recognized\n"); }
-        if(isVerified) { score[0] += 10; breakdown.append("• Verified Resident Status\n"); }
+            if(familySize > 4) {
+                breakdown.append("  ↳ Note: Large Household\n");
+            }
+        }
 
+        // 2. Evacuation Center Status (40 points)
         String evacCenter = profile.getCurrent_evacuation_center();
         if (evacCenter != null && !evacCenter.isEmpty() && !evacCenter.equalsIgnoreCase("null")) {
             score[0] += 40;
-            breakdown.append("• Currently in Evacuation Center\n");
+            breakdown.append("• Displaced (In Evacuation Center)\n");
         }
 
+        // 3. Address Text Check (Flood Zone Warning)
         if (addressStr.toLowerCase().contains("creek") || addressStr.toLowerCase().contains("river") || addressStr.toLowerCase().contains("flood")) {
-            score[0] += 10; breakdown.append("• Address indicates Flood Zone\n");
+            score[0] += 10;
+            breakdown.append("• Flood Zone Proximity Warning: +10 pts\n");
         }
 
+        // 4. Live Disaster Geographic Proximity (Max 40 points)
         new Thread(() -> {
             try {
                 Geocoder geocoder = new Geocoder(getContext(), Locale.getDefault());
@@ -392,19 +403,20 @@ public class Profile_fragment extends BaseFragment {
                                 if (disasterLat != 0.0 && disasterLon != 0.0) {
                                     float distance = getDistance(userLat, userLon, disasterLat, disasterLon);
 
+                                    // If they are dangerously close to an active disaster, spike their priority
                                     if (!scoredFire && type.contains("fire") && distance < 100) {
                                         score[0] += 40;
-                                        breakdown.append("• High Risk: Extreme proximity to Active Fire Alert\n");
+                                        breakdown.append("• Extreme Risk (Active Fire <100m)\n");
                                         scoredFire = true;
                                     }
                                     else if (!scoredFlood && (type.contains("flood") || type.contains("typhoon")) && distance < 300) {
                                         score[0] += 30;
-                                        breakdown.append("• Proximity to Active Flood Alert\n");
+                                        breakdown.append("• High Risk (Active Flood <300m)\n");
                                         scoredFlood = true;
                                     }
                                     else if (!scoredQuake && type.contains("earthquake") && distance < 1000) {
                                         score[0] += 40;
-                                        breakdown.append("• Proximity to Recent Earthquake Epicenter\n");
+                                        breakdown.append("• Extreme Risk (Quake Epicenter <1km)\n");
                                         scoredQuake = true;
                                     }
                                 }
@@ -416,11 +428,15 @@ public class Profile_fragment extends BaseFragment {
                 e.printStackTrace();
             }
 
+            // Cap the final score at a perfect 100
             int finalScore = Math.min(score[0], 100);
+
+            // Save to database so admins can sort by priority
             if (!currentUserId.isEmpty()) {
                 saveScoreToDatabase(finalScore);
             }
 
+            // Update the UI on the main thread
             new Handler(Looper.getMainLooper()).post(() -> updatePriorityUI(finalScore, breakdown.toString()));
         }).start();
     }
