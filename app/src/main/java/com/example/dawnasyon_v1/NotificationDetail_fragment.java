@@ -23,7 +23,7 @@ public class NotificationDetail_fragment extends BaseFragment {
     private static final String ARG_TIME = "time";
     private static final String ARG_TYPE = "type";
 
-    // ✅ New Arguments
+    // New Arguments
     private static final String ARG_SENDER = "sender";
     private static final String ARG_RAW_DATE = "raw_date";
 
@@ -34,13 +34,16 @@ public class NotificationDetail_fragment extends BaseFragment {
         NotificationDetail_fragment fragment = new NotificationDetail_fragment();
         Bundle args = new Bundle();
         args.putString(ARG_TITLE, item.getTitle());
-        args.putString(ARG_BODY, item.getDescription());
-        args.putString(ARG_TIME, item.getTime()); // Formatted time from list
+
+        // ⭐ FIX: Changed getDescription() to getMessage()
+        args.putString(ARG_BODY, item.getMessage());
+
+        args.putString(ARG_TIME, item.getTime());
         args.putInt(ARG_TYPE, item.getType());
 
         // Pass new data
         args.putString(ARG_SENDER, item.getSenderName());
-        args.putString(ARG_RAW_DATE, item.getCreatedAt()); // Raw timestamp for date formatting
+        args.putString(ARG_RAW_DATE, item.getCreatedAt());
 
         fragment.setArguments(args);
         return fragment;
@@ -74,7 +77,7 @@ public class NotificationDetail_fragment extends BaseFragment {
             tvBody.setText(body);
             tvTime.setText(getArguments().getString(ARG_TIME));
 
-            // ✅ 1. Set Sender Name (Default to "Barangay Staff" if missing)
+            // 1. Set Sender Name (Default to "Barangay Staff" if missing)
             String sender = getArguments().getString(ARG_SENDER);
             if (sender != null && !sender.isEmpty()) {
                 tvSenderName.setText(sender);
@@ -82,7 +85,7 @@ public class NotificationDetail_fragment extends BaseFragment {
                 tvSenderName.setText("Barangay Staff");
             }
 
-            // ✅ 2. Format and Set Date (e.g., "August 23, 2025")
+            // 2. Format and Set Date (e.g., "August 23, 2025")
             String rawDate = getArguments().getString(ARG_RAW_DATE);
             if (rawDate != null) {
                 tvDate.setText(formatDate(rawDate));
@@ -103,19 +106,29 @@ public class NotificationDetail_fragment extends BaseFragment {
         applyTagalogTranslation(view);
     }
 
-    // Helper to format raw DB timestamp into readable Date
+    // ⭐ FIX: Bulletproof Date Parser for the Detail Screen
     private String formatDate(String rawDate) {
         try {
-            // Parse UTC string from Supabase
-            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
-            inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-            Date date = inputFormat.parse(rawDate);
+            Date date = null;
 
-            // Format to "MMMM dd, yyyy" (e.g., August 23, 2025)
-            SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
-            return outputFormat.format(date);
+            // Clean the string if it has extra Supabase milliseconds
+            if (rawDate != null && rawDate.length() >= 19) {
+                String cleanDate = rawDate.substring(0, 19);
+                SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+                inputFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+                date = inputFormat.parse(cleanDate);
+            }
+
+            if (date != null) {
+                // Format to "MMMM dd, yyyy" (e.g., August 23, 2025)
+                SimpleDateFormat outputFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+                return outputFormat.format(date);
+            } else {
+                return "Recent";
+            }
+
         } catch (Exception e) {
-            return ""; // Return empty if error
+            return "Recent"; // Fallback to avoid empty text
         }
     }
 }

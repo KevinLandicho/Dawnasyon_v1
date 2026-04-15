@@ -4,15 +4,16 @@ import com.google.gson.annotations.SerializedName;
 
 public class NotificationItem {
 
-    // ⭐ NEW: Maps exactly to your Supabase primary key
+    // ⭐ Maps exactly to your Supabase primary key (String for UUIDs)
     @SerializedName("notif_id")
-    private long id;
+    private String id;
 
     @SerializedName("title")
     private String title;
 
+    // ⭐ Only ONE variable mapped to "message" now!
     @SerializedName("message")
-    private String description;
+    private String message;
 
     @SerializedName("created_at")
     private String createdAt;
@@ -23,7 +24,7 @@ public class NotificationItem {
     @SerializedName("sender_name")
     private String senderName;
 
-    // Transient fields (UI only)
+    // Transient fields (UI only, ignored by database)
     private transient String time;
     private transient String dateCategory;
     private transient int type;
@@ -32,10 +33,9 @@ public class NotificationItem {
     public NotificationItem() {}
 
     // Getters
-    public long getId() { return id; } // ⭐ NEW GETTER FOR THE ADAPTER
-
+    public String getId() { return id; }
     public String getTitle() { return title; }
-    public String getDescription() { return description; }
+    public String getMessage() { return message; } // ⭐ Use getMessage everywhere now!
     public String getTime() { return time; }
     public String getDateCategory() { return dateCategory; }
     public int getType() { return type; }

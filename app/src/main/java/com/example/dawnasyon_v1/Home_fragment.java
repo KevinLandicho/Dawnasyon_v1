@@ -257,26 +257,19 @@ public class Home_fragment extends BaseFragment {
                 SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
                 for (Announcement item : data) {
+                    // ⭐ STRICT FILTER: Only show "Approved" status AND "General" type announcements!
                     if (item.getStatus() == null || !item.getStatus().equalsIgnoreCase("Approved")) {
+                        continue;
+                    }
+                    if (item.getType() == null || !item.getType().equalsIgnoreCase("General")) {
                         continue;
                     }
 
                     boolean showIt = true;
-                    boolean isDrive = (item.getType() != null && item.getType().equalsIgnoreCase("Donation drive"));
 
-                    if (isDrive) {
-                        String targetStreet = item.getAffected_street();
-                        if (targetStreet != null && !targetStreet.trim().isEmpty() &&
-                                !targetStreet.equalsIgnoreCase("All Streets") &&
-                                !targetStreet.equalsIgnoreCase("All")) {
-                            if (!targetStreet.equalsIgnoreCase(currentUserStreet)) {
-                                showIt = false;
-                            }
-                        }
-                    }
-
+                    // Date Expiration Checks
                     String endDateStr = item.getDriveEndDate();
-                    if (showIt && endDateStr != null && !endDateStr.isEmpty()) {
+                    if (showIt && endDateStr != null && !endDateStr.trim().isEmpty() && !endDateStr.equalsIgnoreCase("null")) {
                         try {
                             Date endDate = sdf.parse(endDateStr);
                             if (endDate != null && todayZero.after(endDate)) {
@@ -286,7 +279,7 @@ public class Home_fragment extends BaseFragment {
                     }
 
                     String startDateStr = item.getDriveStartDate();
-                    if (showIt && startDateStr != null && !startDateStr.isEmpty()) {
+                    if (showIt && startDateStr != null && !startDateStr.trim().isEmpty() && !startDateStr.equalsIgnoreCase("null")) {
                         try {
                             Date startDate = sdf.parse(startDateStr);
                             if (startDate != null && todayZero.before(startDate)) {
@@ -318,7 +311,6 @@ public class Home_fragment extends BaseFragment {
             }
         });
     }
-
     // ====================================================
     // FILTERING LOGIC
     // ====================================================
