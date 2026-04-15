@@ -41,6 +41,7 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.formatter.PercentFormatter;
 import com.github.mikephil.charting.highlight.Highlight;
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener;
+import com.google.android.material.floatingactionbutton.FloatingActionButton; // ⭐ NEW IMPORT
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -79,6 +80,10 @@ public class Dashboard_fragment extends BaseFragment {
     private TextView txtRiskBadge;
     private TextView txtRiskDesc;
     private TextView txtAffectedFamilies;
+
+    // ⭐ NEW: Chatbot variables
+    private FloatingActionButton fabChat;
+    private String latestDashboardContextString = "No data loaded yet.";
 
     private String currentFilter = "all";
 
@@ -131,6 +136,47 @@ public class Dashboard_fragment extends BaseFragment {
         llReliefList = view.findViewById(R.id.ll_relief_list);
         llAffectedList = view.findViewById(R.id.ll_affected_list);
 
+        fabChat = view.findViewById(R.id.fab_chat);
+
+        // ⭐ NEW: DRAGGABLE FAB LOGIC
+        if (fabChat != null) {
+            fabChat.setOnTouchListener(new View.OnTouchListener() {
+                private float dX, dY;
+                private float startX, startY;
+                private static final int CLICK_TOLERANCE = 10;
+
+                @Override
+                public boolean onTouch(View view, android.view.MotionEvent event) {
+                    switch (event.getActionMasked()) {
+                        case android.view.MotionEvent.ACTION_DOWN:
+                            dX = view.getX() - event.getRawX();
+                            dY = view.getY() - event.getRawY();
+                            startX = event.getRawX();
+                            startY = event.getRawY();
+                            break;
+                        case android.view.MotionEvent.ACTION_MOVE:
+                            view.setY(event.getRawY() + dY);
+                            view.setX(event.getRawX() + dX);
+                            break;
+                        case android.view.MotionEvent.ACTION_UP:
+                            if (Math.abs(event.getRawX() - startX) < CLICK_TOLERANCE &&
+                                    Math.abs(event.getRawY() - startY) < CLICK_TOLERANCE) {
+                                view.performClick(); // It was a click, not a drag!
+                            }
+                            break;
+                        default:
+                            return false;
+                    }
+                    return true;
+                }
+            });
+
+            fabChat.setOnClickListener(v -> {
+                GeminiChatDialog chatDialog = GeminiChatDialog.newInstance(latestDashboardContextString);
+                chatDialog.show(getParentFragmentManager(), "GeminiChat");
+            });
+        }
+
         setupReliefPieChart();
         setupAffectedPieChart();
         setupUserActivityChart();
@@ -138,20 +184,15 @@ public class Dashboard_fragment extends BaseFragment {
         setupDonationTrendsChart();
         setupImpactRadarChart();
 
-        View.OnClickListener mapClickListener = v -> {
-            getParentFragmentManager().beginTransaction()
-                    .replace(R.id.fragment_container, new LiveMap_fragment())
-                    .addToBackStack(null)
-                    .commit();
-        };
+        if (btnLiveMap != null) btnLiveMap.setOnClickListener(v -> getParentFragmentManager().beginTransaction()
+                .replace(R.id.fragment_container, new LiveMap_fragment())
+                .addToBackStack(null).commit());
 
-        if (btnLiveMap != null) btnLiveMap.setOnClickListener(mapClickListener);
         if (iconFilter != null) iconFilter.setOnClickListener(this::showFilterMenu);
 
         loadRealData(view, currentFilter);
         applyTagalogTranslation(view);
     }
-
     private void showFilterMenu(View v) {
         PopupMenu popup = new PopupMenu(getContext(), v);
         popup.getMenu().add(0, 0, 0, "All Time");
@@ -319,6 +360,13 @@ public class Dashboard_fragment extends BaseFragment {
 
 
     private void updateAnalyticsUI(View view, DashboardMetrics metrics, int totalAffected, int reliefPacks, Map<String, Integer> inventory, Map<String, Float> donations, Map<String, Float> families, Map<String, Integer> areas) {
+
+        // ⭐ NEW: Save the live context to the string so Gemini can read it!
+        latestDashboardContextString = "Total Registered Families: " + metrics.getTotal_families() + ". " +
+                "Currently Affected Families (Recent Disaster): " + totalAffected + ". " +
+                "Full Inventory Breakdown (Use this to suggest what is missing): " + inventory.toString() + ". " +
+                "Top Affected Areas: " + areas.keySet().toString() + ".";
+
         int totalPopulation = metrics.getTotal_families();
 
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
@@ -575,8 +623,12 @@ public class Dashboard_fragment extends BaseFragment {
         if (entries.isEmpty()) { entries.add(new PieEntry(1f, "No Data")); colors.add(Color.LTGRAY); }
         PieDataSet dataSet = new PieDataSet(entries, "Activity");
         dataSet.setColors(colors);
+        dataSet.setSliceSpace(3f);
+        dataSet.setSelectionShift(5f);
         dataSet.setDrawValues(false);
-        chartUserActivity.setData(new PieData(dataSet));
+        PieData data = new PieData(dataSet);
+        chartUserActivity.setData(data);
+
         chartUserActivity.invalidate();
     }
 
@@ -586,10 +638,17 @@ public class Dashboard_fragment extends BaseFragment {
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             entries.add(new PieEntry(entry.getValue(), entry.getKey()));
         }
-        PieDataSet set = new PieDataSet(entries, "");
+        PieDataSet set;
+        if (chart.getData() != null && chart.getData().getDataSet() != null) {
+            set = (PieDataSet) chart.getData().getDataSet();
+            set.setValues(entries);
+        } else {
+            set = new PieDataSet(entries, "");
+        }
         set.setColors(ORANGE_SCALE_COLORS);
         set.setDrawValues(false);
-        chart.setData(new PieData(set));
+        PieData pieData = new PieData(set);
+        chart.setData(pieData);
         chart.setCenterText(defaultCenterText);
         chart.invalidate();
     }
@@ -604,6 +663,7 @@ public class Dashboard_fragment extends BaseFragment {
         chartImpact.getLegend().setEnabled(false);
         chartImpact.getYAxis().setEnabled(false);
         chartImpact.getXAxis().setTextSize(9f);
+        chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(new String[]{}));
         chartImpact.getXAxis().setTextColor(Color.DKGRAY);
     }
 
@@ -627,10 +687,12 @@ public class Dashboard_fragment extends BaseFragment {
         set.setColor(COLOR_VIBRANT_ORANGE);
         set.setFillColor(COLOR_SOFT_ORANGE);
         set.setDrawFilled(true);
+        set.setFillAlpha(100);
         set.setDrawValues(true);
 
+        RadarData radarData = new RadarData(set);
         chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        chartImpact.setData(new RadarData(set));
+        chartImpact.setData(radarData);
         chartImpact.invalidate();
     }
 
@@ -646,15 +708,16 @@ public class Dashboard_fragment extends BaseFragment {
         }
         chart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         chart.getXAxis().setGranularity(1f);
+        chart.getXAxis().setGranularityEnabled(true);
 
-        LineDataSet set;
         if (chart.getData() != null && chart.getData().getDataSetCount() > 0) {
-            set = (LineDataSet) chart.getData().getDataSetByIndex(0);
+            LineDataSet set = (LineDataSet) chart.getData().getDataSetByIndex(0);
             set.setValues(entries);
+            set.setDrawValues(false);
             chart.getData().notifyDataChanged();
             chart.notifyDataSetChanged();
+            chart.invalidate();
         }
-        chart.invalidate();
     }
 
     private void setupFamiliesLineChart() {
@@ -664,9 +727,12 @@ public class Dashboard_fragment extends BaseFragment {
         XAxis xAxis = chartFamilies.getXAxis();
         xAxis.setDrawGridLines(false);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setGranularityEnabled(true);
         chartFamilies.getAxisLeft().setDrawGridLines(false);
         chartFamilies.getAxisRight().setDrawGridLines(false);
-        chartFamilies.setData(new LineData(dataSet));
+        LineData data = new LineData(dataSet);
+        chartFamilies.setData(data);
         chartFamilies.getDescription().setEnabled(false);
     }
 
@@ -678,9 +744,12 @@ public class Dashboard_fragment extends BaseFragment {
         XAxis xAxis = chartDonations.getXAxis();
         xAxis.setDrawGridLines(false);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setGranularity(1f);
+        xAxis.setGranularityEnabled(true);
         chartDonations.getAxisLeft().setDrawGridLines(false);
         chartDonations.getAxisRight().setDrawGridLines(false);
-        chartDonations.setData(new LineData(dataSet));
+        LineData data = new LineData(dataSet);
+        chartDonations.setData(data);
         chartDonations.getDescription().setEnabled(false);
     }
 }
