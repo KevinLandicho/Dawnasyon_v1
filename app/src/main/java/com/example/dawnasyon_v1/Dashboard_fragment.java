@@ -82,7 +82,7 @@ public class Dashboard_fragment extends BaseFragment {
 
     private String currentFilter = "all";
 
-    // ⭐ SUPABASE CONFIGURATION FOR DIRECT FETCHING
+    // ⭐ SUPABASE CONFIGURATION
     private static final String SUPABASE_URL = "https://ypkbnwbxmnnptypxiaoa.supabase.co";
     private static final String SUPABASE_KEY = "sb_publishable_dqUvLA6v5ZQtuUg9vBJfeQ_wRDp_2hi";
     private final OkHttpClient client = new OkHttpClient();
@@ -146,13 +146,9 @@ public class Dashboard_fragment extends BaseFragment {
         };
 
         if (btnLiveMap != null) btnLiveMap.setOnClickListener(mapClickListener);
-
-        if (iconFilter != null) {
-            iconFilter.setOnClickListener(this::showFilterMenu);
-        }
+        if (iconFilter != null) iconFilter.setOnClickListener(this::showFilterMenu);
 
         loadRealData(view, currentFilter);
-
         applyTagalogTranslation(view);
     }
 
@@ -178,10 +174,8 @@ public class Dashboard_fragment extends BaseFragment {
 
     private Map<String, Integer> getTop5(Map<String, Integer> data) {
         if (data == null || data.isEmpty()) return new HashMap<>();
-
         List<Map.Entry<String, Integer>> list = new ArrayList<>(data.entrySet());
         Collections.sort(list, (o1, o2) -> o2.getValue().compareTo(o1.getValue()));
-
         Map<String, Integer> sortedMap = new LinkedHashMap<>();
         int count = 0;
         for (Map.Entry<String, Integer> entry : list) {
@@ -233,6 +227,24 @@ public class Dashboard_fragment extends BaseFragment {
                 if (isAdded() && getActivity() instanceof BaseActivity) ((BaseActivity) getActivity()).hideLoading();
                 if (!isAdded()) return;
 
+                // ⭐ AGGRESSIVE FIX: Remove anything that looks like "ALL STREET", "ALL AREAS", "ALL"
+                if (areas != null) {
+                    List<String> keysToRemove = new ArrayList<>();
+                    for (String key : areas.keySet()) {
+                        if (key != null) {
+                            String normalizedKey = key.trim().toLowerCase();
+                            if (normalizedKey.equals("all") ||
+                                    normalizedKey.contains("all street") ||
+                                    normalizedKey.contains("all area")) {
+                                keysToRemove.add(key);
+                            }
+                        }
+                    }
+                    for (String key : keysToRemove) {
+                        areas.remove(key); // Annihilate it from the map!
+                    }
+                }
+
                 Map<String, Integer> categorizedInventory = categorizeInventory(inventory);
                 updatePieChart(chartRelief, categorizedInventory, "Relief\nItems");
                 updateListUI(llReliefList, categorizedInventory, "Category");
@@ -251,12 +263,10 @@ public class Dashboard_fragment extends BaseFragment {
                     }
                 }
                 updateLineChart(chartFamilies, familiesFloat);
-
                 updateRadarChart(impact);
 
                 int reliefPacksCount = categorizedInventory.containsKey("Relief Packs") ? categorizedInventory.get("Relief Packs") : 0;
-
-                fetchActiveAffectedFamiliesAndUpdateUI(view, metrics, reliefPacksCount);
+                fetchActiveAffectedFamiliesAndUpdateUI(view, metrics, reliefPacksCount, categorizedInventory, donations, familiesFloat, topAreas);
             }
 
             @Override
@@ -267,13 +277,9 @@ public class Dashboard_fragment extends BaseFragment {
         });
     }
 
-    private void fetchActiveAffectedFamiliesAndUpdateUI(View view, DashboardMetrics metrics, int reliefPacksCount) {
+    private void fetchActiveAffectedFamiliesAndUpdateUI(View view, DashboardMetrics metrics, int reliefPacksCount, Map<String, Integer> inventory, Map<String, Float> donations, Map<String, Float> familiesFloat, Map<String, Integer> areas) {
         String url = SUPABASE_URL + "/rest/v1/announcements?select=families_affected,event_date&status=eq.Approved";
-        Request request = new Request.Builder()
-                .url(url)
-                .addHeader("apikey", SUPABASE_KEY)
-                .addHeader("Authorization", "Bearer " + SUPABASE_KEY)
-                .build();
+        Request request = new Request.Builder().url(url).addHeader("apikey", SUPABASE_KEY).addHeader("Authorization", "Bearer " + SUPABASE_KEY).build();
 
         new Thread(() -> {
             try (Response response = client.newCall(request).execute()) {
@@ -282,13 +288,7 @@ public class Dashboard_fragment extends BaseFragment {
                     String json = response.body().string();
                     JSONArray array = new JSONArray(json);
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
                     Calendar cal = Calendar.getInstance();
-                    cal.set(Calendar.HOUR_OF_DAY, 0);
-                    cal.set(Calendar.MINUTE, 0);
-                    cal.set(Calendar.SECOND, 0);
-                    cal.set(Calendar.MILLISECOND, 0);
-
                     cal.add(Calendar.DAY_OF_YEAR, -45);
                     Date activeThreshold = cal.getTime();
 
@@ -296,121 +296,199 @@ public class Dashboard_fragment extends BaseFragment {
                         JSONObject obj = array.getJSONObject(i);
                         int fam = obj.optInt("families_affected", 0);
                         String eDateStr = obj.optString("event_date", "");
-
                         if (fam > 0 && !eDateStr.isEmpty() && !eDateStr.equals("null")) {
                             try {
-                                String targetDateStr = eDateStr;
-
-                                if (eDateStr.toLowerCase().contains("to")) {
-                                    String[] parts = eDateStr.toLowerCase().split("to");
-                                    if (parts.length > 1) {
-                                        targetDateStr = parts[1].trim();
-                                    }
-                                }
-
-                                Date eDate = sdf.parse(targetDateStr.trim());
-                                if (eDate != null && !eDate.before(activeThreshold)) {
-                                    activeAffected += fam;
-                                }
+                                String targetDateStr = eDateStr.toLowerCase().contains("to") ? eDateStr.toLowerCase().split("to")[1].trim() : eDateStr.trim();
+                                Date eDate = sdf.parse(targetDateStr);
+                                if (eDate != null && !eDate.before(activeThreshold)) activeAffected += fam;
                             } catch (Exception e) {}
                         }
                     }
                 }
-
                 int finalAffected = activeAffected;
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    if (isAdded()) {
-                        updateAnalyticsUI(view, metrics, finalAffected, reliefPacksCount);
-                    }
+                    if (isAdded()) updateAnalyticsUI(view, metrics, finalAffected, reliefPacksCount, inventory, donations, familiesFloat, areas);
                 });
-
             } catch (Exception e) {
                 new Handler(Looper.getMainLooper()).post(() -> {
-                    if (isAdded()) {
-                        updateAnalyticsUI(view, metrics, metrics.getTotal_affected(), reliefPacksCount);
-                    }
+                    if (isAdded()) updateAnalyticsUI(view, metrics, metrics.getTotal_affected(), reliefPacksCount, inventory, donations, familiesFloat, areas);
                 });
             }
         }).start();
     }
 
 
-    private void updateAnalyticsUI(View view, DashboardMetrics metrics, int totalAffected, int reliefPacks) {
+    private void updateAnalyticsUI(View view, DashboardMetrics metrics, int totalAffected, int reliefPacks, Map<String, Integer> inventory, Map<String, Float> donations, Map<String, Float> families, Map<String, Integer> areas) {
         int totalPopulation = metrics.getTotal_families();
 
         TextView tvPercentage = view.findViewById(R.id.tv_percentage);
         if (tvPercentage != null) tvPercentage.setText(String.valueOf(totalPopulation));
 
-        int coveragePercent = 0;
-
-        if (totalAffected > 0) {
-            coveragePercent = (int) (((float) reliefPacks / totalAffected) * 100);
-        } else {
-            coveragePercent = 100;
-        }
-
+        int coveragePercent = totalAffected > 0 ? (int) (((float) reliefPacks / totalAffected) * 100) : 100;
         if (coveragePercent > 100) coveragePercent = 100;
-
         int deficit = Math.max(0, totalAffected - reliefPacks);
 
         ProgressBar progCoverage = view.findViewById(R.id.progress_coverage);
         TextView txtPercent = view.findViewById(R.id.txt_coverage_percent);
         TextView txtInsight = view.findViewById(R.id.txt_coverage_insight);
 
+        // ⭐ RESIDENT-FRIENDLY WORDING FOR THE METRICS
         if (progCoverage != null) {
             progCoverage.setProgress(coveragePercent);
             txtPercent.setText(coveragePercent + "%");
 
             if (totalAffected == 0) {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
-                txtInsight.setText("✅ No active disasters reported.");
+                txtInsight.setText("Community is safe. No active disasters reported.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
-                if(txtPrediction != null) txtPrediction.setText("Status: Normal");
+                if(txtPrediction != null) txtPrediction.setText("Status: Normal & Peaceful");
             } else if (coveragePercent < 50) {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.RED));
-                txtInsight.setText("CRITICAL: " + deficit + " affected families have no allocated packs.");
+                txtInsight.setText("Pending Support: The barangay is working to secure packs for " + deficit + " more families.");
                 txtInsight.setTextColor(Color.RED);
-                if(txtPrediction != null) txtPrediction.setText("High Risk: Immediate resupply needed.");
+                if(txtPrediction != null) txtPrediction.setText("Update: Actively gathering more donations.");
             } else if (coveragePercent < 100) {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(COLOR_DEEP_ORANGE));
-                txtInsight.setText("⚠️ Gap: " + deficit + " more packs needed for victims.");
+                txtInsight.setText("Relief operations ongoing. " + deficit + " more families need support.");
                 txtInsight.setTextColor(COLOR_DEEP_ORANGE);
-                if(txtPrediction != null) txtPrediction.setText("Medium Risk: Stock falling below demand.");
+                if(txtPrediction != null) txtPrediction.setText("Update: Relief goods are still arriving.");
             } else {
                 progCoverage.setProgressTintList(ColorStateList.valueOf(Color.parseColor("#2E7D32")));
-                txtInsight.setText("✅ Sufficient Stock for all " + totalAffected + " affected families.");
+                txtInsight.setText("The barangay has secured enough aid for recent victims.");
                 txtInsight.setTextColor(Color.parseColor("#2E7D32"));
-                if(txtPrediction != null) txtPrediction.setText("Low Risk: Inventory is healthy.");
+                if(txtPrediction != null) txtPrediction.setText("Status: Relief supply is stable.");
             }
         }
 
         if (txtRiskBadge != null) {
             if (totalAffected > 50) {
-                txtRiskBadge.setText("HIGH ALERT");
+                txtRiskBadge.setText("STAY ALERT");
                 txtRiskBadge.setTextColor(Color.WHITE);
                 txtRiskBadge.setBackgroundColor(Color.RED);
             } else if (totalAffected > 20) {
-                txtRiskBadge.setText("MODERATE");
+                txtRiskBadge.setText("BE CAUTIOUS");
                 txtRiskBadge.setTextColor(Color.WHITE);
                 txtRiskBadge.setBackgroundColor(COLOR_DEEP_ORANGE);
             } else {
-                txtRiskBadge.setText("NORMAL");
+                txtRiskBadge.setText("SAFE");
                 txtRiskBadge.setTextColor(Color.WHITE);
                 txtRiskBadge.setBackgroundColor(Color.parseColor("#2E7D32"));
             }
         }
 
-        if(txtAffectedFamilies != null) txtAffectedFamilies.setText(totalAffected + " Families Affected");
-        if(txtRiskDesc != null) txtRiskDesc.setText("Based on recent reports");
+        if(txtAffectedFamilies != null) txtAffectedFamilies.setText(totalAffected + " Families Affected Recently");
+        if(txtRiskDesc != null) txtRiskDesc.setText("Stay safe and look out for each other.");
 
         if(txtRiskDesc != null) TranslationHelper.autoTranslate(getContext(), txtRiskDesc, txtRiskDesc.getText().toString());
         if(txtPrediction != null) TranslationHelper.autoTranslate(getContext(), txtPrediction, txtPrediction.getText().toString());
         if(txtInsight != null) TranslationHelper.autoTranslate(getContext(), txtInsight, txtInsight.getText().toString());
+
+        // Trigger the Resident-Focused AI Engine
+        generatePredictiveInsights(view, inventory, donations, areas, totalAffected);
     }
 
     // =========================================================
-    // ⭐ UPDATED: LIST UI WITH COLORED BULLETS & BLACK TEXT
+    // 💡 RESIDENT-FOCUSED COMMUNITY INSIGHTS ENGINE
     // =========================================================
+    private void generatePredictiveInsights(View view, Map<String, Integer> inventory, Map<String, Float> donations, Map<String, Integer> areas, int activeAffected) {
+        LinearLayout llInsights = view.findViewById(R.id.ll_predictive_insights);
+        if (llInsights == null) return;
+
+        llInsights.removeAllViews();
+
+        TextView header = new TextView(getContext());
+        header.setText("Community Insights & Alerts");
+        header.setTextSize(18f);
+        header.setTypeface(null, android.graphics.Typeface.BOLD);
+        header.setTextColor(Color.parseColor("#27869B"));
+        header.setPadding(0, 0, 0, 16);
+        llInsights.addView(header);
+
+        // --- RESIDENT INSIGHT 1: RELIEF AVAILABILITY ---
+        int reliefPacks = inventory != null && inventory.containsKey("Relief Packs") ? inventory.get("Relief Packs") : 0;
+        if (activeAffected > 0) {
+            float coverage = (float) reliefPacks / activeAffected;
+            String availMsg;
+            int availColor;
+
+            if (coverage >= 1.0f) {
+                availMsg = "Good Supply: The barangay currently has enough relief packs for recent victims. Please check announcements for claiming schedules.";
+                availColor = Color.parseColor("#E8F5E9");
+            } else if (coverage >= 0.5f) {
+                availMsg = "Moderate Supply: Relief packs are actively being distributed, but stocks are currently limited. Priority may be given to highly affected areas.";
+                availColor = Color.parseColor("#FFF3E0");
+            } else {
+                availMsg = "Limited Supply: Relief goods are currently running low. The barangay is awaiting more donations. Please stand by for updates.";
+                availColor = Color.parseColor("#FFEBEE");
+            }
+            llInsights.addView(createInsightCard("Relief Availability", availMsg, availColor));
+        }
+
+        // --- RESIDENT INSIGHT 2: COMMUNITY SUPPORT TREND ---
+        if (donations != null && donations.size() >= 2) {
+            List<Float> donValues = new ArrayList<>(donations.values());
+            float donTrend = donValues.get(donValues.size() - 1) - donValues.get(donValues.size() - 2);
+
+            String trendMsg;
+            int trendColor;
+
+            if (donTrend > 0) {
+                trendMsg = "Community Strong: We are seeing an increase in donations! Thank you to everyone helping our barangay recover.";
+                trendColor = Color.parseColor("#E8F5E9");
+            } else {
+                trendMsg = "Bayanihan Needed: Donations have slowed down recently. If you have extra resources, consider helping your neighbors in need.";
+                trendColor = Color.parseColor("#E3F2FD");
+            }
+            llInsights.addView(createInsightCard("Community Support", trendMsg, trendColor));
+        }
+
+        // --- RESIDENT INSIGHT 3: NEIGHBORHOOD ALERT ---
+        if (areas != null && !areas.isEmpty() && activeAffected > 0) {
+            Map.Entry<String, Integer> topArea = null;
+            for (Map.Entry<String, Integer> entry : areas.entrySet()) {
+                if (topArea == null || entry.getValue() > topArea.getValue()) {
+                    topArea = entry;
+                }
+            }
+
+            if (topArea != null) {
+                String routeMsg = "Area Update: " + topArea.getKey() + " has reported the highest number of affected families recently. Please offer assistance to neighbors in this vicinity if you are able.";
+                llInsights.addView(createInsightCard("Neighborhood Alert", routeMsg, Color.parseColor("#F3E5F5")));
+            }
+        }
+    }
+
+    private View createInsightCard(String title, String message, int bgColor) {
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundColor(bgColor);
+        card.setPadding(24, 24, 24, 24);
+
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, 0, 0, 16);
+        card.setLayoutParams(params);
+
+        TextView tvTitle = new TextView(getContext());
+        tvTitle.setText(title);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvTitle.setTextColor(Color.BLACK);
+        tvTitle.setPadding(0, 0, 0, 8);
+
+        TextView tvMsg = new TextView(getContext());
+        tvMsg.setText(message);
+        tvMsg.setTextColor(Color.DKGRAY);
+        tvMsg.setTextSize(14f);
+
+        card.addView(tvTitle);
+        card.addView(tvMsg);
+
+        TranslationHelper.autoTranslate(getContext(), tvTitle, tvTitle.getText().toString());
+        TranslationHelper.autoTranslate(getContext(), tvMsg, tvMsg.getText().toString());
+
+        return card;
+    }
+
     private void updateListUI(LinearLayout container, Map<String, Integer> data, String labelTitle) {
         if (container == null) return;
         container.removeAllViews();
@@ -418,7 +496,7 @@ public class Dashboard_fragment extends BaseFragment {
         TextView header = new TextView(getContext());
         header.setText(labelTitle + "          Count");
         header.setTypeface(null, android.graphics.Typeface.BOLD);
-        header.setTextColor(Color.BLACK); // Ensure header is black
+        header.setTextColor(Color.BLACK);
         header.setPadding(0, 0, 0, 8);
         container.addView(header);
 
@@ -427,31 +505,15 @@ public class Dashboard_fragment extends BaseFragment {
         int colorIndex = 0;
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             TextView itemRow = new TextView(getContext());
-
-            // ⭐ Hard chop the string itself if it's too long
             String label = entry.getKey();
-            if (label != null && label.length() > 16) {
-                label = label.substring(0, 16) + "..";
-            }
+            if (label != null && label.length() > 16) label = label.substring(0, 16) + "..";
 
-            // Create the row text with a bullet
             String fullText = "●  " + label + "   " + entry.getValue();
             SpannableString spannable = new SpannableString(fullText);
 
-            // Apply chart color ONLY to the bullet (first character)
             int bulletColor = ORANGE_SCALE_COLORS[colorIndex % ORANGE_SCALE_COLORS.length];
-            spannable.setSpan(
-                    new ForegroundColorSpan(bulletColor),
-                    0, 1,
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
-
-            // Force everything else (text and count) to remain Black
-            spannable.setSpan(
-                    new ForegroundColorSpan(Color.BLACK),
-                    1, fullText.length(),
-                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-            );
+            spannable.setSpan(new ForegroundColorSpan(bulletColor), 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new ForegroundColorSpan(Color.BLACK), 1, fullText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
 
             itemRow.setText(spannable);
             itemRow.setSingleLine(true);
@@ -474,22 +536,6 @@ public class Dashboard_fragment extends BaseFragment {
         chartRelief.setCenterTextSize(11f);
         chartRelief.setCenterTextColor(Color.DKGRAY);
         chartRelief.setCenterText("Relief\nItems");
-
-        chartRelief.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
-            @Override
-            public void onValueSelected(Entry e, Highlight h) {
-                PieEntry pe = (PieEntry) e;
-                String label = pe.getLabel();
-                if (label != null && label.length() > 12) {
-                    label = label.substring(0, 12) + "..";
-                }
-                chartRelief.setCenterText(label + "\n" + (int) pe.getValue());
-            }
-            @Override
-            public void onNothingSelected() {
-                chartRelief.setCenterText("Relief\nItems");
-            }
-        });
     }
 
     private void setupAffectedPieChart() {
@@ -503,22 +549,6 @@ public class Dashboard_fragment extends BaseFragment {
         chartAffected.setCenterTextSize(11f);
         chartAffected.setCenterTextColor(Color.DKGRAY);
         chartAffected.setCenterText("Affected\nAreas");
-
-        chartAffected.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
-            @Override
-            public void onValueSelected(Entry e, Highlight h) {
-                PieEntry pe = (PieEntry) e;
-                String label = pe.getLabel();
-                if (label != null && label.length() > 12) {
-                    label = label.substring(0, 12) + "..";
-                }
-                chartAffected.setCenterText(label + "\n" + (int) pe.getValue());
-            }
-            @Override
-            public void onNothingSelected() {
-                chartAffected.setCenterText("Affected\nAreas");
-            }
-        });
     }
 
     private void setupUserActivityChart() {
@@ -533,18 +563,6 @@ public class Dashboard_fragment extends BaseFragment {
         chartUserActivity.setCenterTextSize(11f);
         chartUserActivity.setCenterTextColor(Color.DKGRAY);
         chartUserActivity.setCenterText("User\nActivity");
-
-        chartUserActivity.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
-            @Override
-            public void onValueSelected(Entry e, Highlight h) {
-                PieEntry pe = (PieEntry) e;
-                chartUserActivity.setCenterText(pe.getLabel() + "\n" + (int) pe.getValue());
-            }
-            @Override
-            public void onNothingSelected() {
-                chartUserActivity.setCenterText("User\nActivity");
-            }
-        });
     }
 
     private void updateUserActivityChart(int activeCount, int totalCount) {
@@ -552,26 +570,13 @@ public class Dashboard_fragment extends BaseFragment {
         int inactiveCount = Math.max(0, totalCount - activeCount);
         List<PieEntry> entries = new ArrayList<>();
         ArrayList<Integer> colors = new ArrayList<>();
-        if (activeCount > 0) {
-            entries.add(new PieEntry((float) activeCount, "Active"));
-            colors.add(COLOR_ACTIVE);
-        }
-        if (inactiveCount > 0) {
-            entries.add(new PieEntry((float) inactiveCount, "Inactive"));
-            colors.add(COLOR_INACTIVE);
-        }
-        if (entries.isEmpty()) {
-            entries.add(new PieEntry(1f, "No Data"));
-            colors.add(Color.LTGRAY);
-        }
+        if (activeCount > 0) { entries.add(new PieEntry((float) activeCount, "Active")); colors.add(COLOR_ACTIVE); }
+        if (inactiveCount > 0) { entries.add(new PieEntry((float) inactiveCount, "Inactive")); colors.add(COLOR_INACTIVE); }
+        if (entries.isEmpty()) { entries.add(new PieEntry(1f, "No Data")); colors.add(Color.LTGRAY); }
         PieDataSet dataSet = new PieDataSet(entries, "Activity");
         dataSet.setColors(colors);
-        dataSet.setSliceSpace(3f);
-        dataSet.setSelectionShift(5f);
         dataSet.setDrawValues(false);
-        PieData data = new PieData(dataSet);
-        chartUserActivity.setData(data);
-
+        chartUserActivity.setData(new PieData(dataSet));
         chartUserActivity.invalidate();
     }
 
@@ -581,17 +586,10 @@ public class Dashboard_fragment extends BaseFragment {
         for (Map.Entry<String, Integer> entry : data.entrySet()) {
             entries.add(new PieEntry(entry.getValue(), entry.getKey()));
         }
-        PieDataSet set;
-        if (chart.getData() != null && chart.getData().getDataSet() != null) {
-            set = (PieDataSet) chart.getData().getDataSet();
-            set.setValues(entries);
-        } else {
-            set = new PieDataSet(entries, "");
-        }
+        PieDataSet set = new PieDataSet(entries, "");
         set.setColors(ORANGE_SCALE_COLORS);
         set.setDrawValues(false);
-        PieData pieData = new PieData(set);
-        chart.setData(pieData);
+        chart.setData(new PieData(set));
         chart.setCenterText(defaultCenterText);
         chart.invalidate();
     }
@@ -606,7 +604,6 @@ public class Dashboard_fragment extends BaseFragment {
         chartImpact.getLegend().setEnabled(false);
         chartImpact.getYAxis().setEnabled(false);
         chartImpact.getXAxis().setTextSize(9f);
-        chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(new String[]{}));
         chartImpact.getXAxis().setTextColor(Color.DKGRAY);
     }
 
@@ -630,12 +627,10 @@ public class Dashboard_fragment extends BaseFragment {
         set.setColor(COLOR_VIBRANT_ORANGE);
         set.setFillColor(COLOR_SOFT_ORANGE);
         set.setDrawFilled(true);
-        set.setFillAlpha(100);
         set.setDrawValues(true);
 
-        RadarData radarData = new RadarData(set);
         chartImpact.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
-        chartImpact.setData(radarData);
+        chartImpact.setData(new RadarData(set));
         chartImpact.invalidate();
     }
 
@@ -651,16 +646,15 @@ public class Dashboard_fragment extends BaseFragment {
         }
         chart.getXAxis().setValueFormatter(new IndexAxisValueFormatter(labels));
         chart.getXAxis().setGranularity(1f);
-        chart.getXAxis().setGranularityEnabled(true);
 
+        LineDataSet set;
         if (chart.getData() != null && chart.getData().getDataSetCount() > 0) {
-            LineDataSet set = (LineDataSet) chart.getData().getDataSetByIndex(0);
+            set = (LineDataSet) chart.getData().getDataSetByIndex(0);
             set.setValues(entries);
-            set.setDrawValues(false);
             chart.getData().notifyDataChanged();
             chart.notifyDataSetChanged();
-            chart.invalidate();
         }
+        chart.invalidate();
     }
 
     private void setupFamiliesLineChart() {
@@ -670,12 +664,9 @@ public class Dashboard_fragment extends BaseFragment {
         XAxis xAxis = chartFamilies.getXAxis();
         xAxis.setDrawGridLines(false);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setGranularity(1f);
-        xAxis.setGranularityEnabled(true);
         chartFamilies.getAxisLeft().setDrawGridLines(false);
         chartFamilies.getAxisRight().setDrawGridLines(false);
-        LineData data = new LineData(dataSet);
-        chartFamilies.setData(data);
+        chartFamilies.setData(new LineData(dataSet));
         chartFamilies.getDescription().setEnabled(false);
     }
 
@@ -687,12 +678,9 @@ public class Dashboard_fragment extends BaseFragment {
         XAxis xAxis = chartDonations.getXAxis();
         xAxis.setDrawGridLines(false);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-        xAxis.setGranularity(1f);
-        xAxis.setGranularityEnabled(true);
         chartDonations.getAxisLeft().setDrawGridLines(false);
         chartDonations.getAxisRight().setDrawGridLines(false);
-        LineData data = new LineData(dataSet);
-        chartDonations.setData(data);
+        chartDonations.setData(new LineData(dataSet));
         chartDonations.getDescription().setEnabled(false);
     }
 }

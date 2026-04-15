@@ -76,7 +76,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/dongle"
-                        android:text="Analytics &amp; Predictions"
+                        android:text="Community Updates"
                         android:textColor="#F5901A"
                         android:textSize="24sp"
                         android:textStyle="bold" />
@@ -85,7 +85,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
-                        android:text="Relief Coverage Ratio"
+                        android:text="Barangay Relief Progress"
                         android:textStyle="bold"
                         android:textColor="#444"/>
 
@@ -119,7 +119,7 @@
                         android:id="@+id/txt_coverage_insight"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Loading analysis..."
+                        android:text="Checking community updates..."
                         android:textColor="#666666"
                         android:textSize="14sp"
                         android:layout_marginTop="2dp"
@@ -191,7 +191,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Stock Depletion Forecast"
+                        android:text="Community Support Status"
                         android:textStyle="bold"
                         android:textColor="#444"/>
 
@@ -216,7 +216,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
-                            android:text="Analyzing inventory trends..."
+                            android:text="Checking status..."
                             android:textColor="#E65100"
                             android:textSize="13sp"
                             android:textStyle="italic"/>
@@ -232,7 +232,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Real-time Risk Index"
+                        android:text="Current Barangay Alert Level"
                         android:textStyle="bold"
                         android:textColor="#444"/>
 
@@ -247,7 +247,7 @@
                             android:id="@+id/txt_risk_badge"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="CALCULATING"
+                            android:text="CHECKING"
                             android:background="#EEEEEE"
                             android:textColor="#666666"
                             android:paddingStart="12dp"
@@ -276,7 +276,7 @@
                                 android:id="@+id/txt_risk_desc"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Updating data..."
+                                android:text="Stay safe and look out for each other."
                                 android:textSize="12sp"
                                 android:textColor="#666"/>
                         </LinearLayout>
@@ -284,6 +284,28 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@color/white">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:id="@+id/ll_predictive_insights"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
