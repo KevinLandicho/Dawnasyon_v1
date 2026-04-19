@@ -17,6 +17,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -36,14 +37,16 @@ import okhttp3.Response;
 public class GeminiChatDialog extends BottomSheetDialogFragment {
 
     // ⭐ YOUR API KEY HERE
-    private static final String GEMINI_API_KEY = "AQ.Ab8RN6IZm1FamQ1hmpom-B9yw6uhLnvhJYRGBKhNrW9dyiwAeg";
-    private static final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + GEMINI_API_KEY;
-
+    private static final String GEMINI_API_KEY = "AQ.Ab8RN6K2bEqQc2MEWmB1DdM5_Uwh7bkEPdYeoNsEeFt9M4ir5Q";
+    private static final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + GEMINI_API_KEY;
     private String dashboardContext = "";
     private LinearLayout chatContainer;
     private EditText etMessage;
     private ScrollView scrollView;
     private final OkHttpClient client = new OkHttpClient();
+
+    // ⭐ NEW: SPAM PREVENTION LOCK
+    private boolean isWaitingForReply = false;
 
     public static GeminiChatDialog newInstance(String contextData) {
         GeminiChatDialog fragment = new GeminiChatDialog();
@@ -77,7 +80,6 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
         root.setPadding(32, 32, 32, 32);
         root.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // Header
         TextView header = new TextView(getContext());
         header.setText("Dawnasyon AI Assistant");
         header.setTextSize(20f);
@@ -86,7 +88,6 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
         header.setPadding(0, 0, 0, 24);
         root.addView(header);
 
-        // Chat History Scroll
         scrollView = new ScrollView(getContext());
         LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1.0f);
         scrollView.setLayoutParams(scrollParams);
@@ -96,7 +97,6 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
         scrollView.addView(chatContainer);
         root.addView(scrollView);
 
-        // Horizontal Scroll for Preset Suggestions
         HorizontalScrollView hScrollView = new HorizontalScrollView(getContext());
         hScrollView.setHorizontalScrollBarEnabled(false);
         hScrollView.setPadding(0, 16, 0, 16);
@@ -104,9 +104,8 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
         LinearLayout suggestionsContainer = new LinearLayout(getContext());
         suggestionsContainer.setOrientation(LinearLayout.HORIZONTAL);
 
-        // ⭐ NEW: Added Inventory Analysis Preset
         String[] presets = {
-                "What items are missing in our inventory?",
+                "What items are needed in our inventory?",
                 "What should I donate today?",
                 "What is the current disaster status?",
                 "Which areas are most affected?",
@@ -132,6 +131,11 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
             chip.setLayoutParams(chipParams);
 
             chip.setOnClickListener(v -> {
+                // ⭐ CHECK SPAM LOCK
+                if (isWaitingForReply) {
+                    Toast.makeText(getContext(), "Please wait for the AI to finish typing...", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 addMessage("You", preset);
                 askGemini(preset);
             });
@@ -141,7 +145,6 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
         hScrollView.addView(suggestionsContainer);
         root.addView(hScrollView);
 
-        // Input Field Area
         LinearLayout inputLayout = new LinearLayout(getContext());
         inputLayout.setOrientation(LinearLayout.HORIZONTAL);
         inputLayout.setPadding(0, 8, 0, 0);
@@ -166,6 +169,12 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
         addMessage("Bot", "Hello! I am monitoring the barangay's live data. Tap a suggestion below or ask me a question!");
 
         btnSend.setOnClickListener(v -> {
+            // ⭐ CHECK SPAM LOCK
+            if (isWaitingForReply) {
+                Toast.makeText(getContext(), "Please wait for the AI to finish typing...", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             String userMsg = etMessage.getText().toString().trim();
             if (!userMsg.isEmpty()) {
                 addMessage("You", userMsg);
@@ -211,10 +220,11 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
     }
 
     private void askGemini(String userMessage) {
+        isWaitingForReply = true; // ⭐ LOCK BUTTONS
         addMessage("Bot", "Thinking...");
+
         new Thread(() -> {
             try {
-                // ⭐ NEW: Taught Gemini how to analyze the inventory data!
                 String promptText = "You are the official AI Assistant for Barangay Sta. Lucia's disaster management app, Dawnasyon. " +
                         "Here is the LIVE barangay data right now: [" + dashboardContext + "]. " +
                         "INSTRUCTIONS:\n" +
@@ -252,32 +262,63 @@ public class GeminiChatDialog extends BottomSheetDialogFragment {
                     if (response.isSuccessful() && response.body() != null) {
                         String jsonResponse = response.body().string();
                         JSONObject jsonObject = new JSONObject(jsonResponse);
-                        String botReply = jsonObject.getJSONArray("candidates")
-                                .getJSONObject(0)
-                                .getJSONObject("content")
-                                .getJSONArray("parts")
-                                .getJSONObject(0)
-                                .getString("text");
 
-                        new Handler(Looper.getMainLooper()).post(() -> {
-                            chatContainer.removeViewAt(chatContainer.getChildCount() - 1);
-                            addMessage("Bot", botReply);
-                        });
+                        JSONArray candidates = jsonObject.optJSONArray("candidates");
+                        if (candidates != null && candidates.length() > 0) {
+                            JSONObject firstCandidate = candidates.optJSONObject(0);
+                            JSONObject content = firstCandidate != null ? firstCandidate.optJSONObject("content") : null;
+
+                            if (content != null) {
+                                JSONArray parts = content.optJSONArray("parts");
+                                if (parts != null && parts.length() > 0) {
+                                    JSONObject firstPart = parts.optJSONObject(0);
+                                    if (firstPart != null) {
+                                        String botReply = firstPart.optString("text", "I'm sorry, I couldn't understand that.");
+                                        new Handler(Looper.getMainLooper()).post(() -> {
+                                            chatContainer.removeViewAt(chatContainer.getChildCount() - 1);
+                                            addMessage("Bot", botReply);
+                                            isWaitingForReply = false; // ⭐ UNLOCK BUTTONS
+                                        });
+                                    } else {
+                                        throw new Exception("SafetyBlock");
+                                    }
+                                } else {
+                                    throw new Exception("SafetyBlock");
+                                }
+                            } else {
+                                throw new Exception("SafetyBlock");
+                            }
+                        } else {
+                            throw new Exception("SafetyBlock");
+                        }
+
                     } else {
-                        String errorResponse = response.body() != null ? response.body().string() : "No details";
-                        final int errorCode = response.code();
+                        final int statusCode = response.code();
+                        final String errorBody = response.body() != null ? response.body().string() : "No details";
 
                         new Handler(Looper.getMainLooper()).post(() -> {
                             chatContainer.removeViewAt(chatContainer.getChildCount() - 1);
-                            addMessage("Bot", "Google Error " + errorCode + ": \n" + errorResponse);
+                            if (statusCode == 429) {
+                                addMessage("Bot", "Google blocked this request (Error 429).\n\nExact Reason: " + errorBody);
+                            } else if (statusCode == 400 || statusCode == 403 || statusCode == 404) {
+                                addMessage("Bot", "API Error (" + statusCode + "): \n" + errorBody);
+                            } else {
+                                addMessage("Bot", "Connection problem (Error " + statusCode + "). Please try again.");
+                            }
+                            isWaitingForReply = false; // ⭐ UNLOCK BUTTONS
                         });
                     }
                 }
             } catch (Exception e) {
-                final String errorMsg = e.getMessage();
+                final String errorType = e.getMessage();
                 new Handler(Looper.getMainLooper()).post(() -> {
                     chatContainer.removeViewAt(chatContainer.getChildCount() - 1);
-                    addMessage("Bot", "App Error: " + errorMsg);
+                    if ("SafetyBlock".equals(errorType)) {
+                        addMessage("Bot", "I am sorry, but as the Dawnasyon AI Assistant, I am only programmed to help with disaster management, community safety, and relief operations.");
+                    } else {
+                        addMessage("Bot", "Network error. Please check your WiFi connection and try again.");
+                    }
+                    isWaitingForReply = false; // ⭐ UNLOCK BUTTONS
                 });
             }
         }).start();

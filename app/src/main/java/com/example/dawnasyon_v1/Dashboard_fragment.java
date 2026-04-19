@@ -81,7 +81,7 @@ public class Dashboard_fragment extends BaseFragment {
     private TextView txtRiskDesc;
     private TextView txtAffectedFamilies;
 
-    // ⭐ NEW: Chatbot variables
+    // ⭐ Chatbot variables
     private FloatingActionButton fabChat;
     private String latestDashboardContextString = "No data loaded yet.";
 
@@ -138,7 +138,7 @@ public class Dashboard_fragment extends BaseFragment {
 
         fabChat = view.findViewById(R.id.fab_chat);
 
-        // ⭐ NEW: DRAGGABLE FAB LOGIC
+        // ⭐ DRAGGABLE FAB LOGIC
         if (fabChat != null) {
             fabChat.setOnTouchListener(new View.OnTouchListener() {
                 private float dX, dY;
@@ -361,7 +361,7 @@ public class Dashboard_fragment extends BaseFragment {
 
     private void updateAnalyticsUI(View view, DashboardMetrics metrics, int totalAffected, int reliefPacks, Map<String, Integer> inventory, Map<String, Float> donations, Map<String, Float> families, Map<String, Integer> areas) {
 
-        // ⭐ NEW: Save the live context to the string so Gemini can read it!
+        // ⭐ Save the live context to the string so Gemini can read it!
         latestDashboardContextString = "Total Registered Families: " + metrics.getTotal_families() + ". " +
                 "Currently Affected Families (Recent Disaster): " + totalAffected + ". " +
                 "Full Inventory Breakdown (Use this to suggest what is missing): " + inventory.toString() + ". " +
@@ -629,6 +629,21 @@ public class Dashboard_fragment extends BaseFragment {
         PieData data = new PieData(dataSet);
         chartUserActivity.setData(data);
 
+        // ⭐ NEW: Click Listener for Interactive Center Text
+        chartUserActivity.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+                if (e instanceof PieEntry) {
+                    PieEntry pieEntry = (PieEntry) e;
+                    chartUserActivity.setCenterText(pieEntry.getLabel() + "\n" + (int) pieEntry.getValue());
+                }
+            }
+            @Override
+            public void onNothingSelected() {
+                chartUserActivity.setCenterText("User\nActivity");
+            }
+        });
+
         chartUserActivity.invalidate();
     }
 
@@ -650,6 +665,22 @@ public class Dashboard_fragment extends BaseFragment {
         PieData pieData = new PieData(set);
         chart.setData(pieData);
         chart.setCenterText(defaultCenterText);
+
+        // ⭐ NEW: Click Listener for Interactive Center Text
+        chart.setOnChartValueSelectedListener(new OnChartValueSelectedListener() {
+            @Override
+            public void onValueSelected(Entry e, Highlight h) {
+                if (e instanceof PieEntry) {
+                    PieEntry pieEntry = (PieEntry) e;
+                    chart.setCenterText(pieEntry.getLabel() + "\n" + (int) pieEntry.getValue());
+                }
+            }
+            @Override
+            public void onNothingSelected() {
+                chart.setCenterText(defaultCenterText);
+            }
+        });
+
         chart.invalidate();
     }
 
