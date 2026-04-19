@@ -759,8 +759,17 @@ object SupabaseJavaHelper {
 @Serializable data class AddressDTO(val house_number: String, val street: String)
 @Serializable data class NameDTO(val full_name: String)
 @Serializable data class ProfileDTO(val id: String, val email: String, val full_name: String, val contact_number: String, val house_number: String, val street: String, val barangay: String, val city: String, val province: String, val zip_code: String, val face_embedding: String?, val type: String, val avatar_name: String?)
-@Serializable data class DonationTrackingDTO(val donation_id: Long, val donation_status: String?, val donation_date: String?, val inventory_status: String?, val quantity_on_hand: Int?, val date_claimed: String?, val batch_name: String?)
-
+@Serializable
+data class DonationTrackingDTO(
+    val donation_id: Long,
+    val donation_status: String?,
+    val donation_date: String?,
+    val inventory_status: String?,
+    val quantity_on_hand: Int?,
+    val date_claimed: String?,
+    val batch_name: String?,
+    val destination_area: String? = null // ⭐ JUST ADDED THIS LINE
+)
 @Serializable
 data class ApplicationHistoryDTO(
     val status: String,

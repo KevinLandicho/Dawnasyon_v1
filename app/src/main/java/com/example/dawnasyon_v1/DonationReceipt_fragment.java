@@ -74,7 +74,7 @@ public class DonationReceipt_fragment extends BaseFragment {
                 if (itemsContainer != null) {
                     String type = item.getType();
 
-                    // ⭐ Added extra checks here in case donors use GCash/PayMongo
+                    // Added extra checks here in case donors use GCash/PayMongo
                     boolean isMonetary = false;
                     if (type != null) {
                         String t = type.toLowerCase();
@@ -157,7 +157,7 @@ public class DonationReceipt_fragment extends BaseFragment {
             if (trackingDTO != null) {
                 addTimelineRow(container, "✅ Received", "Verified by Admin on " + formatDate(trackingDTO.getDonation_date()), true);
 
-                // ⭐ THE BULLETPROOF FIX: Safely detect Cash even if it's GCash, PayMongo, etc.
+                // THE BULLETPROOF FIX: Safely detect Cash even if it's GCash, PayMongo, etc.
                 boolean isCash = false;
                 String type = item.getType() != null ? item.getType().toLowerCase().trim() : "";
                 if (type.contains("cash") || type.contains("paymongo") || type.contains("gcash") || type.contains("bank") || type.contains("monetary")) {
@@ -171,7 +171,7 @@ public class DonationReceipt_fragment extends BaseFragment {
                 int qty = (qtyObj != null) ? qtyObj : 0;
                 String invStatus = trackingDTO.getInventory_status();
 
-                // ⭐ We no longer skip if invStatus is null. If it's cash and qty is 0, we force it to show!
+                // We no longer skip if invStatus is null. If it's cash and qty is 0, we force it to show!
                 if (invStatus != null || qtyObj != null || isCash) {
                     String rowTitle = isCash ? "💰 Treasury" : "📦 Inventory";
                     String desc = "";
@@ -193,9 +193,14 @@ public class DonationReceipt_fragment extends BaseFragment {
                     addTimelineRow(container, rowTitle, desc, true);
                 }
 
+                // ⭐ THE NEW UPDATED WOW FACTOR CODE IS HERE
                 if (trackingDTO.getDate_claimed() != null) {
-                    String distDesc = "Given to " + (trackingDTO.getBatch_name() != null ? trackingDTO.getBatch_name() : "recipient");
-                    distDesc += " on " + formatDate(trackingDTO.getDate_claimed());
+                    String batch = trackingDTO.getBatch_name() != null ? trackingDTO.getBatch_name() : "a Relief Bag";
+                    String area = trackingDTO.getDestination_area() != null ? trackingDTO.getDestination_area() : "the community";
+
+                    String distDesc = "Repacked into " + batch + " → Distributed to a family in " + area;
+                    distDesc += "\nDate: " + formatDate(trackingDTO.getDate_claimed());
+
                     addTimelineRow(container, "🤝 Distributed", distDesc, true);
                 } else {
                     addTimelineRow(container, "⏳ Distribution", "Waiting for distribution...", false);
